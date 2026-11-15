@@ -33,6 +33,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Generated Drift source; created locally and by CI before builds
+**/*.g.dart
+
 # Symbolication related
 app.*.symbols
 
