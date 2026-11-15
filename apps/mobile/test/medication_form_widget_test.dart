@@ -57,4 +57,27 @@ void main() {
     expect(find.text('ثبت نشده'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('managed profile dialog safely persists its entered name',
+      (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final profiles = ProfileRepository(db);
+
+    await tester.pumpWidget(MaterialApp(
+      home: MedicationHome(
+        repository: MedicationRepository(db),
+        profileRepository: profiles,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('برای یکی از عزیزانم'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).single, 'مادر آزمایشی');
+    await tester.tap(find.text('ادامه'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect((await profiles.activeProfile())?.displayName, 'مادر آزمایشی');
+  });
+
 }
