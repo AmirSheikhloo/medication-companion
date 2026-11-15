@@ -8,6 +8,10 @@ import 'package:printing/printing.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'core/storage/app_database.dart';
+import 'features/medications/data/medication_repository.dart';
+import 'features/medications/presentation/medication_home.dart';
+import 'features/profiles/data/profile_repository.dart';
 import 'm0/test_timings.dart';
 
 void main() {
@@ -247,6 +251,22 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
     );
   }
 
+  Future<void> _openMedicationHome() async {
+    final db = AppDatabase();
+    try {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => MedicationHome(
+            repository: MedicationRepository(db),
+            profileRepository: ProfileRepository(db),
+          ),
+        ),
+      );
+    } finally {
+      await db.close();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -273,6 +293,14 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
             ),
           ),
           const SizedBox(height: 14),
+          const Text('M1 — ثبت آفلاین پروفایل و دارو',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          _button('ورود به بخش داروهای من', _openMedicationHome),
+          const Text(
+            'نسخه نمایشی: داده‌ها هنوز رمزگذاری نشده‌اند. فقط اطلاعات ساختگی وارد کنید.',
+            style: TextStyle(color: Colors.black54),
+          ),
+          const SizedBox(height: 20),
           const Text('۱. مجوزها',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           _button('فعال‌سازی اعلان‌ها',
