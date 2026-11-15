@@ -72,7 +72,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('برای یکی از عزیزانم'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).single, 'مادر آزمایشی');
+    await tester.enterText(find.byType(TextField), 'مادر آزمایشی');
     await tester.tap(find.text('ادامه'));
     await tester.pumpAndSettle();
 
