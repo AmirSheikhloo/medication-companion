@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/storage/app_database.dart';
 import '../../profiles/data/profile_repository.dart';
 import '../../profiles/presentation/guest_welcome_screen.dart';
+import '../../profiles/presentation/profile_name_dialog.dart';
+import 'medication_entry_sheet.dart';
 import '../data/medication_repository.dart';
 
 const _teal = Color(0xFF40E0D0);
@@ -71,53 +73,13 @@ class _MedicationHomeState extends State<MedicationHome> {
     if (_saving) return;
     String? name;
     if (!forSelf) {
-      name = await _askProfileName();
-      if (name == null) return;
+      name = await askProfileNameDialog(context);
+      if (!mounted || name == null) return;
     }
     await _perform(() => widget.profileRepository.createGuestProfile(
           forSelf: forSelf,
           displayName: name,
         ));
-  }
-
-  Future<String?> _askProfileName() async {
-    final controller = TextEditingController();
-    try {
-      return await showDialog<String>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('پروفایل عزیزتان'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('نام دلخواه؛ می‌توانید از نام مستعار استفاده کنید.'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                maxLength: 80,
-                decoration: const InputDecoration(
-                  labelText: 'نام نمایشی',
-                  hintText: 'مثلاً مادر',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('انصراف'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, controller.text),
-              child: const Text('ادامه'),
-            ),
-          ],
-        ),
-      );
-    } finally {
-      controller.dispose();
-    }
   }
 
   Future<void> _perform(Future<dynamic> Function() action) async {
@@ -138,109 +100,17 @@ class _MedicationHomeState extends State<MedicationHome> {
 
   Future<void> _addMedication() async {
     final profile = _active;
-    if (profile == null) return;
-    final nameController = TextEditingController();
-    final doseController = TextEditingController();
-    TimeOfDay selected = const TimeOfDay(hour: 8, minute: 0);
-    _MedicationForm? result;
-    try {
-      result = await showModalBottomSheet<_MedicationForm>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        builder: (sheetContext) => StatefulBuilder(
-          builder: (context, updateSheet) => Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              4,
-              20,
-              MediaQuery.viewInsetsOf(context).bottom + 24,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'افزودن دارو برای ${profile.displayName}',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'فقط اطلاعات تجویزشده را ثبت کنید؛ برنامه مقدار مصرفی پیشنهاد نمی‌کند.',
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: nameController,
-                    maxLength: 160,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'نام دارو',
-                      hintText: 'نام روی نسخه یا جعبه',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: doseController,
-                    maxLength: 120,
-                    decoration: const InputDecoration(
-                      labelText: 'شرح مصرف طبق نسخه',
-                      hintText: 'مثلاً ۱ عدد؛ مقدار را خودتان وارد کنید',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.access_time),
-                    label: Text('زمان روزانه: ${_clock(selected)}'),
-                    onPressed: () async {
-                      final picked = await showTimePicker(
-                        context: context,
-                        initialTime: selected,
-                      );
-                      if (picked != null) updateSheet(() => selected = picked);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('ذخیره دارو'),
-                    onPressed: () {
-                      if (nameController.text.trim().isEmpty ||
-                          doseController.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('نام و شرح مصرف را کامل کنید.'),
-                          ),
-                        );
-                        return;
-                      }
-                      Navigator.pop(
-                        sheetContext,
-                        _MedicationForm(
-                          nameController.text,
-                          doseController.text,
-                          selected,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    } finally {
-      nameController.dispose();
-      doseController.dispose();
-    }
-    if (result == null) return;
-    final data = result;
+    if (profile == null || _saving) return;
+    final draft = await showMedicationEntrySheet(
+      context,
+      profileName: profile.displayName,
+    );
+    if (!mounted || draft == null) return;
     await _perform(() => widget.repository.addDailyMedication(
           profileId: profile.id,
-          name: data.name,
-          doseText: data.dose,
-          time: TimeOfDayValue(data.time.hour, data.time.minute),
+          name: draft.name,
+          doseText: draft.dose,
+          time: TimeOfDayValue(draft.time.hour, draft.time.minute),
         ));
   }
 
@@ -594,13 +464,6 @@ class _InfoNote extends StatelessWidget {
           ],
         ),
       );
-}
-
-class _MedicationForm {
-  const _MedicationForm(this.name, this.dose, this.time);
-  final String name;
-  final String dose;
-  final TimeOfDay time;
 }
 
 String _clock(TimeOfDay time) =>
