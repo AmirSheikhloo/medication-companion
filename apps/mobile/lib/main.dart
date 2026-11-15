@@ -8,6 +8,8 @@ import 'package:printing/printing.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'm0/test_timings.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MedicationM0App());
@@ -122,10 +124,10 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
   }
 
   Future<void> _schedule({required bool fullScreen}) async {
-    final seconds = fullScreen ? 120 : 60;
-    final scheduled = tz.TZDateTime.now(tz.local).add(
-      Duration(seconds: seconds),
-    );
+    final delay = fullScreen
+        ? m0FullScreenNotificationDelay
+        : m0NormalNotificationDelay;
+    final scheduled = tz.TZDateTime.now(tz.local).add(delay);
     await _notifications.zonedSchedule(
       id: fullScreen ? 202 : 101,
       title: fullScreen ? 'آزمایش زنگ تمام‌صفحه' : 'آزمایش یادآور دارو',
@@ -283,15 +285,15 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
           const Text('۲. آزمایش زنگ (بدون اینترنت)',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           _button(
-              'اعلان عادی — ۶۰ ثانیه دیگر',
+              'اعلان عادی — ۵ ثانیه دیگر',
               _ready
-                  ? () => _act('اعلان برای ۶۰ ثانیه دیگر ثبت شد.',
+                  ? () => _act('اعلان برای ۵ ثانیه دیگر ثبت شد.',
                       () => _schedule(fullScreen: false))
                   : null),
           _button(
-              'زنگ تمام‌صفحه — ۱۲۰ ثانیه دیگر',
+              'زنگ تمام‌صفحه — ۱۰ ثانیه دیگر',
               _ready
-                  ? () => _act('زنگ برای ۱۲۰ ثانیه دیگر ثبت شد.',
+                  ? () => _act('زنگ برای ۱۰ ثانیه دیگر ثبت شد.',
                       () => _schedule(fullScreen: true))
                   : null),
           _button('لغو هر دو آزمایش',
