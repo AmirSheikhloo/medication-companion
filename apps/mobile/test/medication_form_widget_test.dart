@@ -44,5 +44,17 @@ void main() {
     expect((await medications.medicationsFor(active!.id)).map((m) => m.name),
         contains('داروی آزمایشی'));
     expect(find.text('داروی آزمایشی'), findsWidgets);
+
+    await tester.tap(find.text('امروز'));
+    await tester.pumpAndSettle();
+    expect(find.text('داروی آزمایشی'), findsWidgets);
+    await tester.tap(find.text('مصرف کردم'));
+    await tester.pumpAndSettle();
+    expect(find.text('مصرف ثبت شد'), findsOneWidget);
+
+    await tester.tap(find.text('بازگرداندن ثبت'));
+    await tester.pumpAndSettle();
+    expect(find.text('ثبت نشده'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
