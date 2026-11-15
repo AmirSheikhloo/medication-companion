@@ -1,0 +1,28 @@
+name: medication_companion
+description: "M0 Android alarms and offline Persian PDF engineering spike."
+publish_to: 'none'
+version: 0.0.1+1
+
+environment:
+  sdk: ^3.14.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ui: ^1.1.0
+  flutter_local_notifications: 23.0.2
+  flutter_timezone: 5.1.1
+  timezone: 0.11.2
+  pdf: 3.13.1
+  printing: 5.15.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/fonts/NotoSansArabic-Regular.ttf
+    - assets/fonts/NotoSansArabic-Bold.ttf

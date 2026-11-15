@@ -1,0 +1,15 @@
+﻿# Local backup files
+*.bak
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+key.properties
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
