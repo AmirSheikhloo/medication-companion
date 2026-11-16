@@ -13,6 +13,8 @@ import '../../inventory/presentation/stock_management_sheet.dart';
 import '../../inventory/presentation/dose_stock_dialog.dart';
 import '../../health/data/health_repository.dart';
 import '../../health/presentation/health_tab.dart';
+import '../../care/data/care_repository.dart';
+import '../../care/presentation/care_hub_screen.dart';
 
 const _teal = Color(0xFF40E0D0);
 const _deepTeal = Color(0xFF008F87);
@@ -81,6 +83,18 @@ class _MedicationHomeState extends State<MedicationHome>
     } catch (error) {
       if (mounted) setState(() => _reminderError = '$error');
     }
+  }
+
+  Future<void> _openCareHub() async {
+    final profile = _active;
+    if (profile == null) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => CareHubScreen(
+        profile: profile,
+        repository: CareRepository(widget.repository.db),
+      ),
+    ));
+    if (mounted) await _reload();
   }
 
   Future<void> _reload() async {
@@ -464,6 +478,12 @@ class _MedicationHomeState extends State<MedicationHome>
           const _InfoNote(
             'یادآوری را از «بیشتر» فعال کنید. کسر موجودی فقط پس از تأیید مقدار واقعی انجام می‌شود.',
           ),
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: _openCareHub,
+            icon: const Icon(Icons.event_note_outlined),
+            label: const Text('کارهای پیگیری، ویزیت‌ها و سؤال‌های پزشک'),
+          ),
         ],
       );
 
@@ -646,6 +666,14 @@ class _MedicationHomeState extends State<MedicationHome>
   Widget _moreTab() => ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _sectionTitle('پیگیری‌ها و ویزیت‌ها'),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _openCareHub,
+            icon: const Icon(Icons.event_available_outlined),
+            label: const Text('باز کردن کارها و چک‌لیست ویزیت'),
+          ),
+          const SizedBox(height: 20),
           _sectionTitle('پروفایل‌های محلی'),
           const SizedBox(height: 12),
           for (final profile in _profiles)
