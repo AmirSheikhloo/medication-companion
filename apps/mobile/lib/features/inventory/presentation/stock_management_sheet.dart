@@ -44,6 +44,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   final _adjustReason = TextEditingController();
 
   StockSummary? _summary;
+  final Set<String> _historyOpen = <String>{};
+  Map<String, List<StockMovement>> _history = {};
+  String? _feedbackMessage;
   bool _busy = false;
   bool _initializedThreshold = false;
   String? _lastSelectedPackageId;
@@ -76,6 +79,14 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
     try {
       final current = await widget.repository.summary(
         widget.profileId, widget.medication.id);
+      final histories = <String, List<StockMovement>>{};
+      for (final id in _historyOpen) {
+        histories[id] = await widget.repository.movementsForPackage(
+          profileId: widget.profileId,
+          medicationId: widget.medication.id,
+          packageId: id,
+        );
+      }
       if (!mounted) return;
       if (!_initializedThreshold ||
           _lastSelectedPackageId != current.selectedPackageId) {
@@ -87,6 +98,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
       }
       setState(() {
         _summary = current;
+        _history = histories;
         _error = null;
       });
     } catch (error) {
@@ -94,12 +106,26 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
     }
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  Future<void> _run(
+    Future<void> Function() action, {
+    String successMessage = 'تغییر موجودی ذخیره شد.',
+  }) async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _feedbackMessage = null;
+    });
     try {
       await action();
       await _load();
+      if (mounted && _error == null) {
+        setState(() => _feedbackMessage = successMessage);
+        // The inline confirmation remains visible even if the modal sheet
+        // covers the Scaffold's Snackbar area.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(successMessage)),
+        );
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -110,6 +136,21 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  Future<void> _toggleHistory(String packageId) async {
+    setState(() {
+      if (!_historyOpen.add(packageId)) _historyOpen.remove(packageId);
+    });
+    await _load();
+  }
+
+  String _movementName(StockMovement item) => switch (item.kind) {
+    'initial' => 'موجودی اولیه',
+    'taken' => 'کسر بابت مصرف ثبت‌شده',
+    'undo' => 'جبران کسر هنگام بازگرداندن مصرف',
+    'adjustment' => 'اصلاح دستی',
+    _ => 'تغییر موجودی',
+  };
 
   Future<void> _chooseExpiry() async {
     final date = await showDatePicker(
@@ -156,7 +197,8 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         medicationId: widget.medication.id,
         thresholdMilliunits: threshold,
       );
-    });
+    }, successMessage: 'حد هشدار با موفقیت ذخیره شد.');
+
   }
 
   Future<void> _adjust(String packageId) async {
@@ -198,6 +240,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   'این بخش توصیه دارویی یا کنترل اصالت تاریخ انقضا نیست.'),
               if (_error != null) Text(_error!,
                   style: const TextStyle(color: Colors.deepOrange)),
+              if (_feedbackMessage != null)
+                Text(_feedbackMessage!,
+                    style: const TextStyle(color: Colors.green)),
               const SizedBox(height: 12),
               if (summary == null)
                 const Center(child: CircularProgressIndicator())
@@ -224,6 +269,18 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   onPressed: _busy ? null : _saveThreshold,
                   child: const Text('ذخیره حد هشدار'),
                 ),
+                if (summary.thresholdMilliunits != null && summary.selected != null)
+                  Text(
+                    'حد فعال: ${StockQuantity.format(summary.thresholdMilliunits!)} '
+                    '${summary.selected!.package.unit} — '
+                    '${summary.lowStock ? 'موجودی در محدودهٔ هشدار است.' : 'موجودی فعلی بالاتر از حد هشدار است.'}',
+                    style: TextStyle(
+                      color: summary.lowStock ? Colors.deepOrange : Colors.green,
+                    ),
+                  ),
+                if (_feedbackMessage == 'حد هشدار با موفقیت ذخیره شد.')
+                  const Text('حد هشدار با موفقیت ذخیره شد.',
+                      style: TextStyle(color: Colors.green)),
                 const Divider(height: 32),
                 Text('افزودن بسته جدید',
                     style: Theme.of(context).textTheme.titleMedium),
@@ -365,7 +422,42 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                 }),
                 child: const Text('اصلاح موجودی'),
               ),
+              TextButton.icon(
+                onPressed: _busy ? null : () => _toggleHistory(pack.id),
+                icon: Icon(_historyOpen.contains(pack.id)
+                    ? Icons.expand_less : Icons.history),
+                label: const Text('تاریخچه موجودی'),
+              ),
             ]),
+            if (_historyOpen.contains(pack.id)) ...[
+              const Divider(),
+              Text('تاریخچه تغییرات این بسته',
+                  style: Theme.of(context).textTheme.titleSmall),
+              if (_history[pack.id] == null)
+                const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: CircularProgressIndicator(),
+                )
+              else if (_history[pack.id]!.isEmpty)
+                const Text('هنوز تغییری برای این بسته ثبت نشده است.')
+              else
+                for (final entry in _history[pack.id]!)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(_movementName(entry)),
+                    subtitle: Text(
+                      '${entry.createdAt.toLocal().toString().substring(0, 16)}'
+                      '${entry.note == null ? '' : ' — ${entry.note}'}',
+                    ),
+                    trailing: Text(
+                      '${entry.deltaMilliunits > 0 ? '+' : ''}'
+                      '${StockQuantity.format(entry.deltaMilliunits)} ${pack.unit}',
+                      style: TextStyle(color: entry.deltaMilliunits < 0
+                          ? Colors.deepOrange : Colors.green),
+                    ),
+                  ),
+            ],
             if (_adjustingPackageId == pack.id) ...[
               const SizedBox(height: 8),
               SegmentedButton<bool>(

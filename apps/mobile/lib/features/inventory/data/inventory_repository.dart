@@ -118,6 +118,22 @@ class InventoryRepository {
     );
   }
 
+  /// Read-only history, scoped to the owning profile and medication.
+  /// Entries are immutable and ordered newest-first for the package UI.
+  Future<List<StockMovement>> movementsForPackage({
+    required String profileId,
+    required String medicationId,
+    required String packageId,
+  }) async {
+    await _ownedPackage(profileId, medicationId, packageId);
+    return (db.select(db.stockMovements)
+          ..where((t) => t.profileId.equals(profileId) &
+              t.medicationId.equals(medicationId) &
+              t.packageId.equals(packageId))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+  }
+
   Future<String> addPackage({
     required String profileId,
     required String medicationId,

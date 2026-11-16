@@ -9,6 +9,7 @@
 - On `taken`, explicitly ask user for actual amount, or offer `taken without debit`. No extraction of quantity from dose text; no stock is deducted by default.
 - Dose event and stock debit/undo always occur in one database transaction. Duplicate `taken`/undo requests do nothing; insufficient stock and expired/unselected packages reject debit without creating a dose event. Undo inserts one exact compensating movement, never removes the original.
 - Stock changes do not modify reminders; existing opt-in M2 reminder behavior and M0 diagnostics remain intact.
+- M2-02B follow-up: read-only per-package movement history in the inventory sheet, with timestamp, movement type, signed amount, and user-entered reason; inline and Snackbar confirmation for successfully saved stock operations and explicit threshold status.
 
 ## Constraints, non-goals
 
@@ -21,7 +22,7 @@
 
 1. CI `dart run build_runner build`, `flutter analyze`, and `flutter test`.
 2. New tests cover exact quantity parsing, expiry boundaries, independent package balances/units, profile ownership, ledger adjustments, low-stock rules, one-time debit/compensating undo, insufficient stock rollbacks, explicit no-debit records, and v1->v2 preservation of all previous dose tables.
-3. On emulator, test package creation (two distinct units), manual selection, alerts, quantity deduction, undo, insufficient stock, and expiry; exit and reenter to verify persistence.
+3. On emulator, test package creation (two distinct units), manual selection, alerts, quantity deduction, undo, insufficient stock, expiry and per-package audit history; check that saving a threshold produces visible confirmation; exit and reenter to verify persistence.
 4. Before any real-world use: test migration against copied on-device DB, storage encryption/backup policy, Android 14 physical device reminders, reboot/timezone/OEM behavior, and real-world clinical UX.
 
 ## Developer update procedure (Windows PowerShell)

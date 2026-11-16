@@ -183,6 +183,48 @@ void main() {
     expect((await inventory.summary(profileId, medId)).selected, isNull);
   });
 
+  test('package history is read-only and blocked across profiles', () async {
+    final (profileId, medId) = await setupMedication();
+    final packageId = await inventory.addPackage(
+      profileId: profileId, medicationId: medId,
+      label: 'بسته دفترکل', unit: 'عدد',
+      initialMilliunits: 6000, selectForUse: true,
+    );
+    await inventory.adjustPackage(
+      profileId: profileId, medicationId: medId,
+      packageId: packageId, deltaMilliunits: -1000,
+      reason: 'دورریز ثبت‌شده',
+    );
+    final dose = (await medications.dosesForDay(
+        profileId, DateTime.now())).single;
+    await medications.recordDose(
+      dose: dose, profileId: profileId, action: 'taken',
+      stockPackageId: packageId, stockQuantityMilliunits: 1500,
+    );
+    await medications.recordDose(
+      dose: dose, profileId: profileId, action: 'undo',
+    );
+    final history = await inventory.movementsForPackage(
+      profileId: profileId, medicationId: medId, packageId: packageId,
+    );
+    expect(history.map((m) => m.kind).toSet(),
+        {'initial', 'adjustment', 'taken', 'undo'});
+    expect(history, hasLength(4));
+    expect(history.singleWhere((m) => m.kind == 'adjustment').note,
+        'دورریز ثبت‌شده');
+    expect(history.singleWhere((m) => m.kind == 'undo').deltaMilliunits, 1500);
+    expect((await inventory.summary(profileId, medId))
+        .selected?.balanceMilliunits, 5000);
+    final other = await profiles.createGuestProfile(forSelf: false);
+    await expectLater(
+      inventory.movementsForPackage(
+        profileId: other.id, medicationId: medId, packageId: packageId),
+      throwsStateError,
+    );
+    // Reading history never creates new ledger records.
+    expect(await db.select(db.stockMovements).get(), hasLength(4));
+  });
+
   test('cannot modify or read other profile inventory via repository', () async {
     final (profileId, medId) = await setupMedication();
     final other = await profiles.createGuestProfile(forSelf: false);
