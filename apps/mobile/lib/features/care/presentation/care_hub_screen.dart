@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/app_database.dart';
 import '../data/care_repository.dart';
+import '../data/care_reminder_coordinator.dart';
 
 String _dateLabel(DateTime? date) {
   if (date == null) return 'بدون موعد';
@@ -23,28 +24,109 @@ String _taskStatus(String status) => switch (status) {
       _ => 'باز',
     };
 
+String _repeatLabel(String rule) => switch (rule) {
+      'daily' => 'هر روز',
+      'weekly' => 'هر هفته',
+      'monthly' => 'هر ماه',
+      _ => 'بدون تکرار',
+    };
+
 class CareHubScreen extends StatefulWidget {
-  const CareHubScreen({super.key, required this.profile, required this.repository});
+  const CareHubScreen({super.key, required this.profile, required this.repository,
+      this.reminderCoordinator});
 
   final Profile profile;
   final CareRepository repository;
+  final CareReminderCoordinator? reminderCoordinator;
 
   @override
   State<CareHubScreen> createState() => _CareHubScreenState();
 }
 
-class _CareHubScreenState extends State<CareHubScreen> {
+class _CareHubScreenState extends State<CareHubScreen>
+    with WidgetsBindingObserver {
   int _tab = 0;
   bool _loading = true;
   List<CareTask> _tasks = [];
   List<CareVisit> _visits = [];
   List<VisitQuestion> _questions = [];
+  List<Medication> _medications = [];
   String? _error;
+  String? _reminderError;
+  bool _remindersEnabled = false;
+  bool _reminderBusy = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _reload();
+    _syncReminders();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncReminders();
+    }
+  }
+
+  Future<void> _syncReminders() async {
+    final coordinator = widget.reminderCoordinator;
+    if (coordinator == null) return;
+    try {
+      await coordinator.refreshIfEnabled();
+      final enabled = await coordinator.isEnabled();
+      if (mounted) {
+        setState(() {
+          _remindersEnabled = enabled;
+          _reminderError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _reminderError = '$e');
+    }
+  }
+
+  Future<void> _toggleReminders(bool enable) async {
+    final coordinator = widget.reminderCoordinator;
+    if (coordinator == null || _reminderBusy) return;
+    setState(() => _reminderBusy = true);
+    try {
+      var count = 0;
+      if (enable) {
+        count = await coordinator.enable();
+      } else {
+        await coordinator.disable();
+      }
+      if (!mounted) return;
+      setState(() { _remindersEnabled = enable; _reminderError = null; });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(enable
+          ? '$count یادآور پیگیری در دستگاه زمان‌بندی شد.'
+          : 'اعلان‌های پیگیری خاموش شدند. یادآور دارو دست‌نخورده است.')));
+    } catch (e) {
+      if (mounted) setState(() => _reminderError = '$e');
+    } finally {
+      if (mounted) setState(() => _reminderBusy = false);
+    }
+  }
+
+  Future<void> _testReminder() async {
+    try {
+      await widget.reminderCoordinator!.demoInFiveSeconds();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('اعلان آزمایشی ۵ ثانیه دیگر نمایش داده می‌شود.')));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _reminderError = '$e');
+    }
   }
 
   Future<void> _reload() async {
@@ -54,11 +136,13 @@ class _CareHubScreenState extends State<CareHubScreen> {
       final tasks = await widget.repository.tasksFor(profileId);
       final visits = await widget.repository.visitsFor(profileId);
       final questions = await widget.repository.questionsFor(profileId);
+      final medications = await widget.repository.medicationsForFollowUp(profileId);
       if (!mounted) return;
       setState(() {
         _tasks = tasks;
         _visits = visits;
         _questions = questions;
+        _medications = medications;
         _error = null;
         _loading = false;
       });
@@ -71,9 +155,20 @@ class _CareHubScreenState extends State<CareHubScreen> {
     try {
       await action();
       await _reload();
+      String? reminderWarning;
+      if (widget.reminderCoordinator != null) {
+        try {
+          await widget.reminderCoordinator!.refreshIfEnabled();
+        } catch (e) {
+          reminderWarning = '$e';
+          if (mounted) setState(() => _reminderError = reminderWarning);
+        }
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تغییرات ذخیره شد.')),
+          SnackBar(content: Text(reminderWarning == null
+              ? 'تغییرات ذخیره شد.'
+              : 'اطلاعات ذخیره شد، اما زمان‌بندی اعلان مشکل دارد: $reminderWarning')),
         );
       }
     } catch (e) {
@@ -92,14 +187,22 @@ class _CareHubScreenState extends State<CareHubScreen> {
     String? location,
     String? purpose,
     String? visitId,
+    int? reminderMinutesBefore,
+    bool showChecklistDayBefore = false,
+    String repeatRule = 'none',
+    String? medicationId,
   }) => showDialog<_CareDraft>(
         context: context,
         builder: (_) => _CareEditor(
           kind: kind,
           visits: _visits,
+          medications: _medications,
           initial: _CareDraft(
             title: title ?? '', when: when, doctor: doctor,
             location: location, purpose: purpose, visitId: visitId,
+            reminderMinutesBefore: reminderMinutesBefore,
+            showChecklistDayBefore: showChecklistDayBefore,
+            repeatRule: repeatRule, medicationId: medicationId,
           ),
         ),
       );
@@ -115,12 +218,17 @@ class _CareHubScreenState extends State<CareHubScreen> {
           await widget.repository.addTask(
             profileId: widget.profile.id, title: draft.title,
             dueAt: draft.when, visitId: draft.visitId,
+            reminderMinutesBefore: draft.reminderMinutesBefore,
+            repeatRule: draft.repeatRule,
           );
         case 'visit':
           await widget.repository.addVisit(
             profileId: widget.profile.id, title: draft.title,
             scheduledAt: draft.when!, doctor: draft.doctor,
             location: draft.location, purpose: draft.purpose,
+            reminderMinutesBefore: draft.reminderMinutesBefore,
+            showChecklistDayBefore: draft.showChecklistDayBefore,
+            medicationId: draft.medicationId,
           );
         case 'question':
           await widget.repository.addQuestion(
@@ -131,14 +239,33 @@ class _CareHubScreenState extends State<CareHubScreen> {
     });
   }
 
+  Future<void> _addFollowUp() async {
+    final draft = await _editor('followup', title: 'پیگیری سه‌ماهه',
+        when: DateTime.now());
+    if (draft == null) return;
+    await _perform(() async {
+      await widget.repository.addThreeMonthFollowUp(
+        profileId: widget.profile.id, referenceDate: draft.when!,
+        title: draft.title, medicationId: draft.medicationId,
+        reminderMinutesBefore: draft.reminderMinutesBefore,
+        doctor: draft.doctor, location: draft.location,
+        purpose: draft.purpose,
+      );
+    });
+  }
+
   Future<void> _editTask(CareTask task) async {
     final draft = await _editor('task',
       title: task.title, when: task.dueAt, visitId: task.visitId,
+      reminderMinutesBefore: task.reminderMinutesBefore,
+      repeatRule: task.repeatRule,
     );
     if (draft == null) return;
     await _perform(() => widget.repository.updateTask(
       profileId: widget.profile.id, taskId: task.id,
       title: draft.title, dueAt: draft.when, visitId: draft.visitId,
+      reminderMinutesBefore: draft.reminderMinutesBefore,
+      repeatRule: draft.repeatRule,
     ));
   }
 
@@ -146,6 +273,9 @@ class _CareHubScreenState extends State<CareHubScreen> {
     final draft = await _editor('visit',
       title: visit.title, when: visit.scheduledAt, doctor: visit.doctor,
       location: visit.location, purpose: visit.purpose,
+      reminderMinutesBefore: visit.reminderMinutesBefore,
+      showChecklistDayBefore: visit.showChecklistDayBefore,
+      medicationId: visit.medicationId,
     );
     if (draft == null) return;
     await _perform(() => widget.repository.updateVisit(
@@ -153,6 +283,9 @@ class _CareHubScreenState extends State<CareHubScreen> {
       title: draft.title, scheduledAt: draft.when!,
       doctor: draft.doctor, location: draft.location,
       purpose: draft.purpose,
+      reminderMinutesBefore: draft.reminderMinutesBefore,
+      showChecklistDayBefore: draft.showChecklistDayBefore,
+      medicationId: draft.medicationId,
     ));
   }
 
@@ -170,6 +303,16 @@ class _CareHubScreenState extends State<CareHubScreen> {
                         child: Text('این فهرست برای ثبت برنامه‌های شخصی است؛ '
                             'تغییری در نسخه یا مصرف دارو ایجاد نمی‌کند.'),
                       ),
+                      if (widget.reminderCoordinator != null) _reminderCard(),
+                      if (_tab == 1)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: OutlinedButton.icon(
+                            onPressed: _addFollowUp,
+                            icon: const Icon(Icons.next_plan_outlined),
+                            label: const Text('پیگیری سه ماه پس از تاریخ انتخابی'),
+                          ),
+                        ),
                       Expanded(child: IndexedStack(index: _tab, children: [
                         _taskList(), _visitList(), _questionList(),
                       ])),
@@ -191,6 +334,30 @@ class _CareHubScreenState extends State<CareHubScreen> {
             NavigationDestination(icon: Icon(Icons.question_answer_outlined), label: 'سؤال‌ها'),
           ],
         ),
+      );
+
+  Widget _reminderCard() => Card(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        child: Column(children: [
+          SwitchListTile(
+            title: const Text('اعلان‌های پیگیری و ویزیت'),
+            subtitle: Text(_remindersEnabled
+                ? 'فعال؛ فقط برای کارها و ویزیت‌هایی که زمان اعلان دارند.'
+                : 'غیرفعال؛ هیچ اعلان پیگیری جدیدی زمان‌بندی نمی‌شود.'),
+            value: _remindersEnabled,
+            onChanged: _reminderBusy ? null : _toggleReminders,
+          ),
+          if (_remindersEnabled)
+            TextButton.icon(
+              onPressed: _reminderBusy ? null : _testReminder,
+              icon: const Icon(Icons.timer_outlined),
+              label: const Text('تست اعلان پنج ثانیه‌ای'),
+            ),
+          if (_reminderError != null)
+            Padding(padding: const EdgeInsets.all(8),
+              child: Text('مشکل اعلان: $_reminderError',
+                style: const TextStyle(color: Colors.deepOrange))),
+        ]),
       );
 
   Widget _taskList() {
@@ -215,7 +382,9 @@ class _CareHubScreenState extends State<CareHubScreen> {
             color: task.status == 'done' ? Colors.green : null),
           title: Text(task.title),
           subtitle: Text('${_dateLabel(task.dueAt)} · ${_taskStatus(task.status)}'
-              '${visit == null ? '' : ' · ${visit.title}'}'),
+              '${visit == null ? '' : ' · ${visit.title}'}'
+              '${task.repeatRule == 'none' ? '' : ' · ${_repeatLabel(task.repeatRule)}'}'
+              '${task.reminderMinutesBefore == null ? '' : ' · اعلان تنظیم‌شده'}'),
           onTap: () => _perform(() => widget.repository.setTaskStatus(
             profileId: widget.profile.id, taskId: task.id,
             status: task.status == 'done' ? 'open' : 'done',
@@ -256,7 +425,8 @@ class _CareHubScreenState extends State<CareHubScreen> {
           leading: const Icon(Icons.event_note_outlined),
           title: Text(visit.title),
           subtitle: Text('${_dateLabel(visit.scheduledAt)} · ${_visitStatus(visit.status)}'
-              '${visit.doctor == null ? '' : ' · ${visit.doctor}'}'),
+              '${visit.doctor == null ? '' : ' · ${visit.doctor}'}'
+              '${visit.reminderMinutesBefore == null ? '' : ' · اعلان تنظیم‌شده'}'),
           onTap: () async {
             await Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => VisitDetailScreen(
@@ -500,20 +670,27 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
 
 class _CareDraft {
   const _CareDraft({required this.title, this.when, this.doctor,
-      this.location, this.purpose, this.visitId});
+      this.location, this.purpose, this.visitId,
+      this.reminderMinutesBefore, this.showChecklistDayBefore = false,
+      this.repeatRule = 'none', this.medicationId});
   final String title;
   final DateTime? when;
   final String? doctor;
   final String? location;
   final String? purpose;
   final String? visitId;
+  final int? reminderMinutesBefore;
+  final bool showChecklistDayBefore;
+  final String repeatRule;
+  final String? medicationId;
 }
 
 class _CareEditor extends StatefulWidget {
   const _CareEditor({required this.kind, required this.visits,
-      required this.initial});
+      required this.medications, required this.initial});
   final String kind;
   final List<CareVisit> visits;
+  final List<Medication> medications;
   final _CareDraft initial;
   @override
   State<_CareEditor> createState() => _CareEditorState();
@@ -526,6 +703,10 @@ class _CareEditorState extends State<_CareEditor> {
   late final TextEditingController _purpose;
   DateTime? _when;
   String? _visitId;
+  String? _medicationId;
+  int? _reminderMinutesBefore;
+  bool _showChecklistDayBefore = false;
+  String _repeatRule = 'none';
 
   @override
   void initState() {
@@ -535,9 +716,13 @@ class _CareEditorState extends State<_CareEditor> {
     _doctor = TextEditingController(text: draft.doctor);
     _location = TextEditingController(text: draft.location);
     _purpose = TextEditingController(text: draft.purpose);
-    _when = draft.when ?? (widget.kind == 'visit'
+    _when = draft.when ?? (widget.kind == 'visit' || widget.kind == 'followup'
         ? DateTime.now().add(const Duration(days: 1)) : null);
     _visitId = draft.visitId;
+    _medicationId = draft.medicationId;
+    _reminderMinutesBefore = draft.reminderMinutesBefore;
+    _showChecklistDayBefore = draft.showChecklistDayBefore;
+    _repeatRule = draft.repeatRule;
   }
 
   @override
@@ -562,10 +747,12 @@ class _CareEditorState extends State<_CareEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final visit = widget.kind == 'visit';
+    final followUp = widget.kind == 'followup';
+    final visit = widget.kind == 'visit' || followUp;
     final question = widget.kind == 'question';
     return AlertDialog(
-      title: Text(question ? 'سؤال جدید' : visit ? 'ثبت ویزیت' : 'ثبت کار'),
+      title: Text(question ? 'سؤال جدید' : followUp ? 'پیگیری سه‌ماهه'
+          : visit ? 'ثبت ویزیت' : 'ثبت کار'),
       content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -575,7 +762,9 @@ class _CareEditorState extends State<_CareEditor> {
           if (!question) ...[
             ListTile(
               title: Text(_dateLabel(_when)),
-              subtitle: Text(visit ? 'زمان ویزیت * (میلادی)' : 'موعد کار (اختیاری، میلادی)'),
+              subtitle: Text(followUp ? 'تاریخ پایان دوره یا تاریخ مرجع * (میلادی)'
+                  : visit ? 'زمان ویزیت * (میلادی)'
+                  : 'موعد کار (اختیاری، میلادی)'),
               leading: const Icon(Icons.calendar_month_outlined),
               onTap: _pickDate,
               trailing: !visit && _when != null
@@ -585,12 +774,35 @@ class _CareEditorState extends State<_CareEditor> {
             ),
           ],
           if (visit) ...[
+            if (followUp)
+              const Padding(padding: EdgeInsets.all(8),
+                child: Text('ویزیت سه ماه تقویمی پس از تاریخ انتخابی ساخته می‌شود؛'
+                    ' هیچ دارویی خودکار قطع یا تغییر نمی‌کند.')),
             TextField(controller: _doctor, maxLength: 120,
                 decoration: const InputDecoration(labelText: 'پزشک (اختیاری)')),
             TextField(controller: _location, maxLength: 160,
                 decoration: const InputDecoration(labelText: 'مرکز مراجعه (اختیاری)')),
             TextField(controller: _purpose, maxLength: 500, maxLines: 2,
                 decoration: const InputDecoration(labelText: 'هدف مراجعه (اختیاری)')),
+            if (widget.medications.isNotEmpty)
+              DropdownButtonFormField<String>(
+                initialValue: _medicationId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'داروی مرتبط (اختیاری)'),
+                items: [
+                  const DropdownMenuItem<String>(value: null,
+                      child: Text('بدون ارتباط با دارو')),
+                  for (final med in widget.medications)
+                    DropdownMenuItem<String>(value: med.id, child: Text(med.name)),
+                ],
+                onChanged: (id) => setState(() => _medicationId = id),
+              ),
+            if (!followUp)
+              SwitchListTile(
+                title: const Text('یادآوری چک‌لیست یک روز قبل'),
+                value: _showChecklistDayBefore,
+                onChanged: (value) => setState(() => _showChecklistDayBefore = value),
+              ),
           ] else if (widget.visits.isNotEmpty) ...[
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
@@ -605,6 +817,38 @@ class _CareEditorState extends State<_CareEditor> {
               onChanged: (id) => setState(() => _visitId = id),
             ),
           ],
+          if (!question) ...[
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int>(
+              initialValue: _reminderMinutesBefore,
+              decoration: const InputDecoration(labelText: 'زمان اعلان (اختیاری)'),
+              items: const [
+                DropdownMenuItem<int>(value: null, child: Text('بدون اعلان')),
+                DropdownMenuItem<int>(value: 0, child: Text('در موعد')),
+                DropdownMenuItem<int>(value: 5, child: Text('۵ دقیقه قبل')),
+                DropdownMenuItem<int>(value: 15, child: Text('۱۵ دقیقه قبل')),
+                DropdownMenuItem<int>(value: 30, child: Text('۳۰ دقیقه قبل')),
+                DropdownMenuItem<int>(value: 60, child: Text('یک ساعت قبل')),
+                DropdownMenuItem<int>(value: 1440, child: Text('۲۴ ساعت قبل')),
+              ],
+              onChanged: (value) => setState(() => _reminderMinutesBefore = value),
+            ),
+            const Text('اعلان فقط وقتی ارسال می‌شود که اعلان‌های پیگیری را فعال کرده باشید.'),
+          ],
+          if (!visit && !question) ...[
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _repeatRule,
+              decoration: const InputDecoration(labelText: 'تکرار کار'),
+              items: const [
+                DropdownMenuItem(value: 'none', child: Text('بدون تکرار')),
+                DropdownMenuItem(value: 'daily', child: Text('روزانه')),
+                DropdownMenuItem(value: 'weekly', child: Text('هفتگی')),
+                DropdownMenuItem(value: 'monthly', child: Text('ماهانه')),
+              ],
+              onChanged: (value) => setState(() => _repeatRule = value ?? 'none'),
+            ),
+          ],
         ],
       ))),
       actions: [
@@ -616,10 +860,20 @@ class _CareEditorState extends State<_CareEditor> {
               const SnackBar(content: Text('عنوان و زمان ویزیت را وارد کنید.')));
             return;
           }
+          if (!visit && !question && _when == null &&
+              (_repeatRule != 'none' || _reminderMinutesBefore != null)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('برای اعلان یا تکرار باید موعد کار را مشخص کنید.')));
+            return;
+          }
           Navigator.pop(context, _CareDraft(
             title: _title.text.trim(), when: _when,
             doctor: _doctor.text, location: _location.text,
             purpose: _purpose.text, visitId: _visitId,
+            medicationId: _medicationId,
+            reminderMinutesBefore: _reminderMinutesBefore,
+            showChecklistDayBefore: _showChecklistDayBefore,
+            repeatRule: _repeatRule,
           ));
         }, child: const Text('ذخیره')),
       ],

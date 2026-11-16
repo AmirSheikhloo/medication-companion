@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../domain/care_schedule.dart';
 
 /// Local-only care planning. Every read and mutation is scoped to one profile.
 /// Tasks describe user intentions, never clinical instructions.
@@ -53,11 +54,36 @@ class CareRepository {
     return text;
   }
 
+  void _validateReminder(int? beforeMinutes) {
+    if (beforeMinutes != null &&
+        !{0, 5, 15, 30, 60, 1440}.contains(beforeMinutes)) {
+      throw ArgumentError('زمان یادآوری نامعتبر است.');
+    }
+  }
+
+  Future<void> _requireMedication(String profileId, String medicationId) async {
+    final med = await (db.select(db.medications)
+          ..where((t) => t.id.equals(medicationId) &
+              t.profileId.equals(profileId)))
+        .getSingleOrNull();
+    if (med == null) {
+      throw StateError('داروی مرتبط متعلق به این پروفایل نیست.');
+    }
+  }
+
   Future<List<CareVisit>> visitsFor(String profileId) async {
     await _requireProfile(profileId);
     return (db.select(db.careVisits)
           ..where((t) => t.profileId.equals(profileId) & t.archived.equals(false))
           ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]))
+        .get();
+  }
+
+  Future<List<Medication>> medicationsForFollowUp(String profileId) async {
+    await _requireProfile(profileId);
+    return (db.select(db.medications)
+          ..where((t) => t.profileId.equals(profileId))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
         .get();
   }
 
@@ -68,7 +94,11 @@ class CareRepository {
     String? doctor,
     String? location,
     String? purpose,
+    int? reminderMinutesBefore,
+    bool showChecklistDayBefore = false,
+    String? medicationId,
   }) async {
+    _validateReminder(reminderMinutesBefore);
     final safeTitle = _title(title);
     final safeDoctor = _optional(doctor, max: 120);
     final safeLocation = _optional(location, max: 160);
@@ -77,6 +107,7 @@ class CareRepository {
     final now = DateTime.now().toUtc();
     await db.transaction(() async {
       await _requireProfile(profileId);
+      if (medicationId != null) await _requireMedication(profileId, medicationId);
       await db.into(db.careVisits).insert(CareVisitsCompanion.insert(
         id: id,
         profileId: profileId,
@@ -85,6 +116,9 @@ class CareRepository {
         doctor: Value(safeDoctor),
         location: Value(safeLocation),
         purpose: Value(safePurpose),
+        reminderMinutesBefore: Value(reminderMinutesBefore),
+        showChecklistDayBefore: Value(showChecklistDayBefore),
+        medicationId: Value(medicationId),
         createdAt: now,
         updatedAt: now,
       ));
@@ -119,6 +153,28 @@ class CareRepository {
     return id;
   }
 
+  /// Follow-up is computed from a user-selected reference date; no medication
+  /// plan is changed, stopped, or extended by this operation.
+  Future<String> addThreeMonthFollowUp({
+    required String profileId,
+    required DateTime referenceDate,
+    String? medicationId,
+    String title = 'پیگیری سه‌ماهه',
+    int? reminderMinutesBefore,
+    String? doctor,
+    String? location,
+    String? purpose,
+  }) => addVisit(
+        profileId: profileId,
+        title: title,
+        scheduledAt: CareSchedule.monthsAfter(referenceDate, 3),
+        medicationId: medicationId,
+        reminderMinutesBefore: reminderMinutesBefore,
+        doctor: doctor,
+        location: location,
+        purpose: purpose,
+      );
+
   Future<void> updateVisit({
     required String profileId,
     required String visitId,
@@ -127,13 +183,18 @@ class CareRepository {
     String? doctor,
     String? location,
     String? purpose,
+    int? reminderMinutesBefore,
+    bool showChecklistDayBefore = false,
+    String? medicationId,
   }) async {
+    _validateReminder(reminderMinutesBefore);
     final safeTitle = _title(title);
     final safeDoctor = _optional(doctor, max: 120);
     final safeLocation = _optional(location, max: 160);
     final safePurpose = _optional(purpose, max: 500);
     await db.transaction(() async {
       await _visit(profileId, visitId);
+      if (medicationId != null) await _requireMedication(profileId, medicationId);
       await (db.update(db.careVisits)
             ..where((t) => t.id.equals(visitId) & t.profileId.equals(profileId)))
           .write(CareVisitsCompanion(
@@ -142,6 +203,9 @@ class CareRepository {
         doctor: Value(safeDoctor),
         location: Value(safeLocation),
         purpose: Value(safePurpose),
+        reminderMinutesBefore: Value(reminderMinutesBefore),
+        showChecklistDayBefore: Value(showChecklistDayBefore),
+        medicationId: Value(medicationId),
         updatedAt: Value(DateTime.now().toUtc()),
       ));
     });
@@ -179,7 +243,19 @@ class CareRepository {
     required String title,
     DateTime? dueAt,
     String? visitId,
+    int? reminderMinutesBefore,
+    String repeatRule = 'none',
   }) async {
+    _validateReminder(reminderMinutesBefore);
+    if (!CareSchedule.repeatRules.contains(repeatRule)) {
+      throw ArgumentError('قاعده تکرار نامعتبر است.');
+    }
+    if (repeatRule != 'none' && dueAt == null) {
+      throw ArgumentError('برای کار تکراری باید موعد مشخص شود.');
+    }
+    if (reminderMinutesBefore != null && dueAt == null) {
+      throw ArgumentError('برای اعلان باید موعد کار مشخص باشد.');
+    }
     final safeTitle = _title(title);
     final id = _uuid.v4();
     final now = DateTime.now().toUtc();
@@ -192,6 +268,9 @@ class CareRepository {
         title: safeTitle,
         dueAt: Value(dueAt?.toUtc()),
         visitId: Value(visitId),
+        reminderMinutesBefore: Value(reminderMinutesBefore),
+        repeatRule: Value(repeatRule),
+        repeatAnchorDay: Value(repeatRule == 'monthly' ? dueAt!.toLocal().day : null),
         createdAt: now,
         updatedAt: now,
       ));
@@ -206,7 +285,19 @@ class CareRepository {
     required String title,
     DateTime? dueAt,
     String? visitId,
+    int? reminderMinutesBefore,
+    String repeatRule = 'none',
   }) async {
+    _validateReminder(reminderMinutesBefore);
+    if (!CareSchedule.repeatRules.contains(repeatRule)) {
+      throw ArgumentError('قاعده تکرار نامعتبر است.');
+    }
+    if (repeatRule != 'none' && dueAt == null) {
+      throw ArgumentError('برای کار تکراری باید موعد مشخص شود.');
+    }
+    if (reminderMinutesBefore != null && dueAt == null) {
+      throw ArgumentError('برای اعلان باید موعد کار مشخص باشد.');
+    }
     final safeTitle = _title(title);
     await db.transaction(() async {
       await _task(profileId, taskId);
@@ -218,6 +309,9 @@ class CareRepository {
         title: Value(safeTitle),
         dueAt: Value(dueAt?.toUtc()),
         visitId: Value(visitId),
+        reminderMinutesBefore: Value(reminderMinutesBefore),
+        repeatRule: Value(repeatRule),
+        repeatAnchorDay: Value(repeatRule == 'monthly' ? dueAt!.toLocal().day : null),
         updatedAt: Value(now),
       ));
       await _taskEvent(profileId, taskId, 'edited', now);
@@ -234,8 +328,35 @@ class CareRepository {
     }
     await db.transaction(() async {
       final task = await _task(profileId, taskId);
-      if (task.status == status) return;
+      if (task.status == status &&
+          !(status == 'done' && task.repeatRule != 'none')) {
+        return;
+      }
       final now = DateTime.now().toUtc();
+      if (status == 'done' && task.repeatRule != 'none') {
+        if (task.dueAt == null) {
+          throw StateError('کار تکراری بدون موعد معتبر نیست.');
+        }
+        final afterCompletion = CareSchedule.advance(
+          task.dueAt!, task.repeatRule, anchorDay: task.repeatAnchorDay,
+        );
+        final next = afterCompletion.isAfter(now)
+            ? afterCompletion
+            : CareSchedule.nextAfter(
+          afterCompletion, task.repeatRule, now,
+          anchorDay: task.repeatAnchorDay,
+        );
+        await (db.update(db.careTasks)
+              ..where((t) => t.id.equals(taskId) & t.profileId.equals(profileId)))
+            .write(CareTasksCompanion(
+          status: const Value('open'),
+          dueAt: Value(next.toUtc()),
+          updatedAt: Value(now),
+        ));
+        await _taskEvent(profileId, taskId, 'completed_cycle', now,
+            scheduledFor: task.dueAt);
+        return;
+      }
       await (db.update(db.careTasks)
             ..where((t) => t.id.equals(taskId) & t.profileId.equals(profileId)))
           .write(CareTasksCompanion(
@@ -261,12 +382,13 @@ class CareRepository {
   }
 
   Future<void> _taskEvent(String profileId, String taskId, String action,
-      DateTime when) async {
+      DateTime when, {DateTime? scheduledFor}) async {
     await db.into(db.careTaskEvents).insert(CareTaskEventsCompanion.insert(
       id: _uuid.v4(),
       profileId: profileId,
       taskId: taskId,
       action: action,
+      scheduledFor: Value(scheduledFor?.toUtc()),
       recordedAt: when,
     ));
   }

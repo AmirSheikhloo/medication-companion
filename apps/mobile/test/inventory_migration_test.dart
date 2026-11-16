@@ -4,8 +4,8 @@ import 'package:medication_companion/core/storage/app_database.dart';
 import 'package:medication_companion/features/inventory/data/inventory_repository.dart';
 
 void main() {
-  test('v1 medication records survive direct additive v4 migration', () async {
-    // Create a version-1 file in memory BEFORE opening AppDatabase v4.
+  test('v1 medication records survive direct additive v5 migration', () async {
+    // Create a version-1 file in memory BEFORE opening AppDatabase v5.
     // This mimics an existing user's M1/M2 database with recorded doses.
     final executor = NativeDatabase.memory(setup: (raw) {
     raw.execute(
@@ -81,7 +81,7 @@ void main() {
       );
       expect((await stock.summary('p1', 'm1')).selectedPackageId, packageId);
       final version = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(version.read<int>('user_version'), 4);
+      expect(version.read<int>('user_version'), 5);
       expect(await db.select(db.healthMeasurements).get(), isEmpty);
       expect(await db.select(db.healthMeasurementVersions).get(), isEmpty);
       expect(await db.select(db.careVisits).get(), isEmpty);

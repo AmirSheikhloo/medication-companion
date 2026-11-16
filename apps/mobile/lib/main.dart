@@ -14,6 +14,9 @@ import 'features/medications/presentation/medication_home.dart';
 import 'features/profiles/data/profile_repository.dart';
 import 'features/reminders/data/android_reminder_port.dart';
 import 'features/reminders/data/reminder_coordinator.dart';
+import 'features/care/data/care_repository.dart';
+import 'features/care/data/care_reminder_coordinator.dart';
+import 'features/care/data/android_care_reminder_port.dart';
 import 'm0/test_timings.dart';
 
 void main() {
@@ -263,6 +266,12 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
       profiles: profiles,
       notifications: AndroidReminderPort(),
     );
+    final careReminders = CareReminderCoordinator(
+      database: db,
+      care: CareRepository(db),
+      profiles: profiles,
+      notifications: AndroidCareReminderPort(),
+    );
     try {
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
@@ -270,6 +279,7 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
             repository: medications,
             profileRepository: profiles,
             reminderCoordinator: reminders,
+            careReminderCoordinator: careReminders,
           ),
         ),
       );
