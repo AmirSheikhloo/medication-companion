@@ -32,13 +32,14 @@ class CareReminderCoordinator {
     return row?.value == 'true';
   }
 
-  Future<void> _setEnabled(bool enabled) =>
-      database.into(database.appSettings).insertOnConflictUpdate(
-        AppSettingsCompanion.insert(
-          key: settingKey,
-          value: enabled ? 'true' : 'false',
-        ),
-      );
+  Future<void> _setEnabled(bool enabled) async {
+    await database.into(database.appSettings).insertOnConflictUpdate(
+          AppSettingsCompanion.insert(
+            key: settingKey,
+            value: enabled ? 'true' : 'false',
+          ),
+        );
+  }
 
   Future<int> enable() async {
     await notifications.initialize();
