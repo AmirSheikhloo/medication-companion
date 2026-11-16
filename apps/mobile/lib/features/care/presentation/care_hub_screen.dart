@@ -370,21 +370,20 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
   }
 
   Future<String?> _askText(String label) async {
-    final controller = TextEditingController();
+    var input = '';
     final value = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(label),
-        content: TextField(controller: controller, autofocus: true,
+        content: TextField(onChanged: (text) => input = text, autofocus: true,
           maxLength: 160, decoration: const InputDecoration(labelText: 'متن')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('انصراف')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text),
+          FilledButton(onPressed: () => Navigator.pop(context, input),
               child: const Text('ذخیره')),
         ],
       ),
     );
-    controller.dispose();
     return (value?.trim().isEmpty ?? true) ? null : value?.trim();
   }
 
