@@ -37,6 +37,7 @@ void main() {
     expect(find.byType(TextField), findsNWidgets(2));
     await tester.enterText(find.byType(TextField).at(0), 'داروی آزمایشی');
     await tester.enterText(find.byType(TextField).at(1), 'فقط برای تست');
+    await tester.ensureVisible(find.text('ذخیره دارو'));
     await tester.tap(find.text('ذخیره دارو'));
     await tester.pumpAndSettle();
 
