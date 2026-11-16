@@ -11,6 +11,8 @@ import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
 import '../../inventory/presentation/stock_management_sheet.dart';
 import '../../inventory/presentation/dose_stock_dialog.dart';
+import '../../health/data/health_repository.dart';
+import '../../health/presentation/health_tab.dart';
 
 const _teal = Color(0xFF40E0D0);
 const _deepTeal = Color(0xFF008F87);
@@ -365,10 +367,10 @@ class _MedicationHomeState extends State<MedicationHome>
               children: [
                 _todayTab(),
                 _medicinesTab(),
-                _placeholder(
-                  Icons.favorite_border,
-                  'سلامت',
-                  'ثبت شاخص‌ها، نمودار و گزارش پزشک در بسته بعدی می‌آیند.',
+                HealthTab(
+                  key: ValueKey(_active!.id),
+                  profile: _active!,
+                  repository: HealthRepository(widget.repository.db),
                 ),
                 _moreTab(),
               ],
@@ -710,22 +712,6 @@ class _MedicationHomeState extends State<MedicationHome>
             'حالت مهمان کاملاً محلی است. هنوز حساب آنلاین، همگام‌سازی، پشتیبان رمزنگاری‌شده و پنل مدیریتی فعال نیستند. برای داده پزشکی واقعی تا تکمیل امنیت و پشتیبان‌گیری از این نسخه آزمایشی استفاده نکنید.',
           ),
         ],
-      );
-
-  Widget _placeholder(IconData icon, String title, String description) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(30),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 56, color: _deepTeal),
-              const SizedBox(height: 12),
-              Text(title, style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text(description, textAlign: TextAlign.center),
-            ],
-          ),
-        ),
       );
 
   Widget _emptyCard(String title, String description, String button,
