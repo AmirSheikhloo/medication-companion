@@ -10,6 +10,7 @@ import 'package:medication_companion/features/health/domain/health_report.dart';
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late AppDatabase db;
   late Profile profile;
   late HealthRepository repo;
