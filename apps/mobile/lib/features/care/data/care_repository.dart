@@ -329,7 +329,9 @@ class CareRepository {
     await db.transaction(() async {
       final task = await _task(profileId, taskId);
       if (task.status == status &&
-          !(status == 'done' && task.repeatRule != 'none')) return;
+          !(status == 'done' && task.repeatRule != 'none')) {
+        return;
+      }
       final now = DateTime.now().toUtc();
       if (status == 'done' && task.repeatRule != 'none') {
         if (task.dueAt == null) {
