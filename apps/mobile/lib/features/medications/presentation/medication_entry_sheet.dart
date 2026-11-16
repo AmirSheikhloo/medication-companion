@@ -237,3 +237,4 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
           ),
         ),
       );
+}
