@@ -5,7 +5,7 @@
 - SQLite Drift schema v2, **additive 1 -> 2 migration**. Previous Profiles, AppSettings, Medications, MedicationPlanVersions, DoseEvents, and DoseCurrentStates are untouched. Database filename stays `medication_companion_m1`.
 - Per-profile/per-medication packages with independent label, declared unit, positive/zero initial quantity, optional Gregorian day or month precision expiry, and user-selected package.
 - Append-only `stock_movements` journal of initial, adjustment, taken, and undo with signed **integer thousandths**; no floating point balance, mutable balance counters, destructive row updates, or silent cross-unit aggregation.
-- User-configurable per-medication quantity alert checked against the **selected package** only. No calculated "days left" since doseText is free text and schedules may be variable.
+- User-configurable per-medication quantity alert stored with the **selected package unit** and checked only against a selected package of that same unit (never silently reinterpreted after changing units). No calculated "days left" since doseText is free text and schedules may be variable.
 - On `taken`, explicitly ask user for actual amount, or offer `taken without debit`. No extraction of quantity from dose text; no stock is deducted by default.
 - Dose event and stock debit/undo always occur in one database transaction. Duplicate `taken`/undo requests do nothing; insufficient stock and expired/unselected packages reject debit without creating a dose event. Undo inserts one exact compensating movement, never removes the original.
 - Stock changes do not modify reminders; existing opt-in M2 reminder behavior and M0 diagnostics remain intact.
