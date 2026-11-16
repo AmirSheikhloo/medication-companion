@@ -149,6 +149,7 @@ void main() {
   });
 
   test('v3 to v4 keeps an existing local profile without resetting data', () async {
+    await db.close();
     final executor = NativeDatabase.memory(setup: (raw) {
       raw.execute('CREATE TABLE profiles ('
           'id TEXT NOT NULL PRIMARY KEY, display_name TEXT NOT NULL, '
@@ -156,19 +157,15 @@ void main() {
       raw.execute("INSERT INTO profiles VALUES ('old', 'کاربر قدیمی', 'self', 1)");
       raw.execute('PRAGMA user_version = 3');
     });
-    final previous = AppDatabase.forTesting(executor);
-    try {
-      expect((await previous.select(previous.profiles).get()).single.id, 'old');
-      final migrated = CareRepository(previous);
-      final id = await migrated.addVisit(
-        profileId: 'old', title: 'ویزیت پس از ارتقا',
-        scheduledAt: DateTime(2027, 4, 1),
-      );
-      expect((await migrated.visitsFor('old')).single.id, id);
-      expect((await previous.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'), 4);
-    } finally {
-      await previous.close();
-    }
+    db = AppDatabase.forTesting(executor);
+    expect((await db.select(db.profiles).get()).single.id, 'old');
+    final migrated = CareRepository(db);
+    final id = await migrated.addVisit(
+      profileId: 'old', title: 'ویزیت پس از ارتقا',
+      scheduledAt: DateTime(2027, 4, 1),
+    );
+    expect((await migrated.visitsFor('old')).single.id, id);
+    expect((await db.customSelect('PRAGMA user_version').getSingle())
+        .read<int>('user_version'), 4);
   });
 }
