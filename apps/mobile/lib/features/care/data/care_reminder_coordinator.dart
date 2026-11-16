@@ -1,5 +1,3 @@
-import 'package:drift/drift.dart';
-
 import '../../../core/storage/app_database.dart';
 import '../../profiles/data/profile_repository.dart';
 import '../domain/care_schedule.dart';
