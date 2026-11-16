@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
@@ -41,7 +40,7 @@ void main() {
         note: note,
       ),
     );
-    return (await db.select(db.healthMeasurements)
+    return (db.select(db.healthMeasurements)
           ..where((t) => t.id.equals(id)))
         .getSingle();
   }
