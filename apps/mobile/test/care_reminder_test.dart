@@ -42,6 +42,16 @@ void main() {
         DateTime(2027, 3, 31, 9));
   });
 
+  test('old recurring dates fast-forward without a four-year iteration limit', () {
+    final stale = DateTime(2020, 1, 31, 9);
+    final now = DateTime(2027, 2, 15, 12);
+    expect(CareSchedule.nextAfter(stale, 'daily', now),
+        DateTime(2027, 2, 16, 9));
+    expect(CareSchedule.nextAfter(stale, 'monthly', now, anchorDay: 31),
+        DateTime(2027, 2, 28, 9));
+    expect(CareSchedule.nextAfter(stale, 'weekly', now).isAfter(now), isTrue);
+  });
+
   test('care notification IDs are stable and never overlap M0/M2 IDs', () {
     const planner = CareReminderPlanner();
     final candidate = CareReminderCandidate(
