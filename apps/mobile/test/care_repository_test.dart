@@ -148,17 +148,25 @@ void main() {
     expect((await care.questionsFor(first.id)).single.answered, isFalse);
   });
 
-  test('v3 to v5 keeps an existing local profile without resetting data', () async {
+  test('v3 to v5 keeps an existing local profile and medication', () async {
     await db.close();
     final executor = NativeDatabase.memory(setup: (raw) {
       raw.execute('CREATE TABLE profiles ('
           'id TEXT NOT NULL PRIMARY KEY, display_name TEXT NOT NULL, '
           'kind TEXT NOT NULL, created_at INTEGER NOT NULL)');
+      raw.execute('CREATE TABLE medications ('
+          'id TEXT NOT NULL PRIMARY KEY, '
+          'profile_id TEXT NOT NULL REFERENCES profiles(id), '
+          "name TEXT NOT NULL, unit TEXT NOT NULL DEFAULT 'عدد', "
+          'archived INTEGER NOT NULL DEFAULT 0, '
+          'created_at INTEGER NOT NULL)');
       raw.execute("INSERT INTO profiles VALUES ('old', 'کاربر قدیمی', 'self', 1)");
+      raw.execute("INSERT INTO medications VALUES ('m1', 'old', 'داروی قدیمی', 'عدد', 0, 1)");
       raw.execute('PRAGMA user_version = 3');
     });
     db = AppDatabase.forTesting(executor);
     expect((await db.select(db.profiles).get()).single.id, 'old');
+    expect((await db.select(db.medications).get()).single.name, 'داروی قدیمی');
     final migrated = CareRepository(db);
     final id = await migrated.addVisit(
       profileId: 'old', title: 'ویزیت پس از ارتقا',
