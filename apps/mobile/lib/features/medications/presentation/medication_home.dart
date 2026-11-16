@@ -31,6 +31,8 @@ class _MedicationHomeState extends State<MedicationHome> {
   Profile? _active;
   List<Profile> _profiles = [];
   List<Medication> _medications = [];
+  List<Medication> _archivedMedications = [];
+  bool _showArchived = false;
   List<DailyDose> _doses = [];
   String? _error;
 
@@ -48,6 +50,9 @@ class _MedicationHomeState extends State<MedicationHome> {
       final meds = profile == null
           ? <Medication>[]
           : await widget.repository.medicationsFor(profile.id);
+      final archivedMeds = profile == null
+          ? <Medication>[]
+          : await widget.repository.medicationsFor(profile.id, archived: true);
       final doses = profile == null
           ? <DailyDose>[]
           : await widget.repository.dosesForDay(profile.id, DateTime.now());
@@ -56,6 +61,7 @@ class _MedicationHomeState extends State<MedicationHome> {
         _active = profile;
         _profiles = profiles;
         _medications = meds;
+        _archivedMedications = archivedMeds;
         _doses = doses;
         _loading = false;
         _error = null;
@@ -106,11 +112,91 @@ class _MedicationHomeState extends State<MedicationHome> {
       profileName: profile.displayName,
     );
     if (!mounted || draft == null) return;
-    await _perform(() => widget.repository.addDailyMedication(
+    await _perform(() => widget.repository.addMedicationSchedule(
           profileId: profile.id,
           name: draft.name,
-          doseText: draft.dose,
-          time: TimeOfDayValue(draft.time.hour, draft.time.minute),
+          slots: [
+            for (final slot in draft.slots)
+              DoseSlotInput(
+                doseText: slot.dose,
+                time: TimeOfDayValue(slot.time.hour, slot.time.minute),
+              ),
+          ],
+        ));
+  }
+
+  Future<void> _editMedication(Medication medication) async {
+    final profile = _active;
+    if (profile == null || _saving) return;
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    final doses = await widget.repository
+        .dosesForMedicationOnDay(profile.id, medication.id, tomorrow);
+    if (!mounted) return;
+    final draft = await showMedicationEntrySheet(
+      context,
+      profileName: profile.displayName,
+      initialName: medication.name,
+      initialSlots: [
+        for (final dose in doses)
+          MedicationSlotDraft(
+            dose: dose.plan.doseText,
+            time: TimeOfDay.fromDateTime(dose.scheduledAt),
+          ),
+      ],
+    );
+    if (!mounted || draft == null) return;
+    await _perform(() => widget.repository.updateMedicationSchedule(
+          profileId: profile.id,
+          medicationId: medication.id,
+          name: draft.name,
+          slots: [
+            for (final slot in draft.slots)
+              DoseSlotInput(
+                doseText: slot.dose,
+                time: TimeOfDayValue(slot.time.hour, slot.time.minute),
+              ),
+          ],
+        ));
+  }
+
+  Future<void> _archiveMedication(Medication medication) async {
+    final profile = _active;
+    if (profile == null || _saving) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('بایگانی دارو'),
+        content: Text(
+          '«${medication.name}» از فهرست فعال و نوبت‌های امروز پنهان می‌شود. '
+          'سوابق پاک نمی‌شوند و بعداً می‌توانید دارو را بازیابی کنید.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('بایگانی شود'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    await _perform(() => widget.repository.setArchived(
+          profileId: profile.id,
+          medicationId: medication.id,
+          archived: true,
+        ));
+  }
+
+  Future<void> _restoreMedication(Medication medication) async {
+    final profile = _active;
+    if (profile == null || _saving) return;
+    await _perform(() => widget.repository.setArchived(
+          profileId: profile.id,
+          medicationId: medication.id,
+          archived: false,
         ));
   }
 
@@ -340,35 +426,90 @@ class _MedicationHomeState extends State<MedicationHome> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
           _sectionTitle('داروهای ${_active!.displayName}'),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
+          const Text(
+            'برای ویرایش یا بایگانی، منوی سه‌نقطه هر دارو را باز کنید.',
+          ),
+          const SizedBox(height: 12),
           if (_medications.isEmpty)
             _emptyCard(
               'فهرست دارو خالی است.',
-              'نام دارو، شرح مصرف و زمان روزانه را خودتان وارد کنید.',
+              'نام دارو و ساعت‌های روزانه را طبق نسخه وارد کنید.',
               'افزودن دارو',
               _addMedication,
             ),
-          for (final med in _medications)
-            Card(
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(12),
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE0F8F5),
-                  child: Icon(Icons.medication, color: _deepTeal),
+          for (final med in _medications) _medicationCard(med),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: () => setState(() => _showArchived = !_showArchived),
+            icon: Icon(_showArchived
+                ? Icons.expand_less
+                : Icons.inventory_2_outlined),
+            label: Text(_showArchived
+                ? 'پنهان کردن بایگانی'
+                : 'نمایش بایگانی (${_archivedMedications.length})'),
+          ),
+          if (_showArchived) ...[
+            if (_archivedMedications.isEmpty)
+              const ListTile(title: Text('هنوز دارویی بایگانی نشده است.')),
+            for (final med in _archivedMedications)
+              Card(
+                child: ListTile(
+                  title: Text(med.name),
+                  subtitle: const Text('بایگانی‌شده؛ سوابق مصرف نگهداری می‌شوند'),
+                  trailing: TextButton(
+                    onPressed: _saving ? null : () => _restoreMedication(med),
+                    child: const Text('بازیابی'),
+                  ),
                 ),
-                title: Text(med.name),
-                subtitle: Text(() {
-                  for (final dose in _doses) {
-                    if (dose.medication.id == med.id) {
-                      return '${dose.plan.doseText} — ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}';
-                    }
-                  }
-                  return 'برنامه روزانه ثبت‌شده';
-                }()),
               ),
-            ),
+          ],
+          const SizedBox(height: 12),
+          const _InfoNote(
+            'ویرایش برنامه روزانه از فردا اعمال می‌شود. '
+            'ثبت‌های قبلی حفظ می‌شوند؛ یادآوری خودکار در مرحله بعد فعال خواهد شد.',
+          ),
         ],
       );
+
+  Widget _medicationCard(Medication med) {
+    final slots = _doses
+        .where((dose) => dose.medication.id == med.id)
+        .toList();
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(12),
+        leading: const CircleAvatar(
+          backgroundColor: Color(0xFFE0F8F5),
+          child: Icon(Icons.medication, color: _deepTeal),
+        ),
+        title: Text(med.name),
+        subtitle: Text(slots.isEmpty
+            ? 'برنامه روزانه ثبت‌شده'
+            : [
+                for (final dose in slots)
+                  '${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))} — '
+                      '${dose.plan.doseText}',
+              ].join('\n')),
+        isThreeLine: slots.length > 1,
+        trailing: PopupMenuButton<String>(
+          tooltip: 'گزینه‌های دارو',
+          enabled: !_saving,
+          onSelected: (value) {
+            if (value == 'edit') {
+              _editMedication(med);
+            } else if (value == 'archive') {
+              _archiveMedication(med);
+            }
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'edit', child: Text('ویرایش')),
+            PopupMenuItem(value: 'archive', child: Text('بایگانی')),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _moreTab() => ListView(
         padding: const EdgeInsets.all(16),
