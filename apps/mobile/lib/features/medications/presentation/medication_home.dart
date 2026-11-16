@@ -261,12 +261,14 @@ class _MedicationHomeState extends State<MedicationHome>
   Future<void> _testReminders() async {
     final service = widget.reminderCoordinator;
     if (service == null) return;
-    await _perform(() => service.demoInFiveSeconds());
-    if (mounted && _reminderError == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اعلان تستی برای ۵ ثانیه دیگر ثبت شد.')),
-      );
-    }
+    await _perform(() async {
+      await service.demoInFiveSeconds();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('اعلان تستی برای ۵ ثانیه دیگر ثبت شد.')),
+        );
+      }
+    });
   }
 
   Future<void> _mark(DailyDose dose, String action) async {
