@@ -63,6 +63,7 @@ void main() {
     summary = await inventory.summary(profileId, medId);
     expect(summary.selected?.package.unit, 'ml');
     expect(summary.selected?.balanceMilliunits, 30000);
+    expect(summary.thresholdMilliunits, isNull); // No unit conversion.
     await inventory.clearSelection(profileId: profileId, medicationId: medId);
     expect((await inventory.summary(profileId, medId)).selected, isNull);
   });
