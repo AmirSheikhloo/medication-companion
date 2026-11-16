@@ -102,11 +102,19 @@ class InventoryRepository {
           ..where((t) => t.medicationId.equals(medicationId) &
               t.profileId.equals(profileId)))
         .getSingleOrNull();
+    final selectedPack = [
+      for (final pack in packs)
+        if (pack.id == selected?.packageId) pack,
+    ];
     return StockSummary(
       packages: [for (final pack in packs)
         PackageBalance(pack, balances[pack.id] ?? 0)],
       selectedPackageId: selected?.packageId,
-      thresholdMilliunits: rule?.thresholdMilliunits,
+      // Never re-interpret a threshold for tablets as millilitres or vice versa.
+      thresholdMilliunits: rule != null &&
+              selectedPack.isNotEmpty && selectedPack.single.unit == rule.unit
+          ? rule.thresholdMilliunits
+          : null,
     );
   }
 
@@ -219,10 +227,20 @@ class InventoryRepository {
                   t.medicationId.equals(medicationId)))
             .go();
       } else {
+        final selected = await (db.select(db.stockSelections)
+              ..where((t) => t.medicationId.equals(medicationId) &
+                  t.profileId.equals(profileId)))
+            .getSingleOrNull();
+        if (selected == null) {
+          throw StateError('ابتدا بسته‌ای را برای مصرف انتخاب کنید.');
+        }
+        final pack = await _ownedPackage(
+            profileId, medicationId, selected.packageId);
         await db.into(db.stockAlertRules).insertOnConflictUpdate(
           StockAlertRulesCompanion.insert(
             medicationId: medicationId,
             profileId: profileId,
+            unit: pack.unit,
             thresholdMilliunits: thresholdMilliunits,
           ),
         );
