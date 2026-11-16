@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/storage/app_database.dart';
 import '../data/health_repository.dart';
 import '../domain/health_metric.dart';
+import 'health_chart.dart';
+import 'health_report_screen.dart';
 
 class HealthTab extends StatefulWidget {
   const HealthTab({
@@ -268,6 +270,23 @@ class _HealthTabState extends State<HealthTab> {
           label: Text('ثبت ${_metric.label}'),
         ),
         const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _busy
+              ? null
+              : () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => HealthReportScreen(
+                        profile: widget.profile,
+                        metric: _metric,
+                        repository: widget.repository,
+                        initialDays: _days,
+                      ),
+                    ),
+                  ),
+          icon: const Icon(Icons.monitor_heart_outlined),
+          label: const Text('نمودار و نمایش به پزشک'),
+        ),
+        const SizedBox(height: 10),
         if (_loading)
           const Center(child: CircularProgressIndicator())
         else if (_error != null)
@@ -287,6 +306,13 @@ class _HealthTabState extends State<HealthTab> {
           )
         else ...[
           Text('${_records.length} ثبت در $_days روز گذشته'),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: HealthChart(metric: _metric, records: _records),
+            ),
+          ),
           const SizedBox(height: 6),
           for (final record in _records)
             Card(
@@ -319,7 +345,7 @@ class _HealthTabState extends State<HealthTab> {
         const SizedBox(height: 12),
         const Text(
           'این نسخه آزمایشی هنوز رمزگذاری و پشتیبان‌گیری امن ندارد؛ '
-          'فقط داده‌های ساختگی وارد کنید. نمودار، نمایش به پزشک و خروجی در بسته بعدی M3 می‌آیند.',
+          'فقط داده‌های ساختگی وارد کنید. برای گزارش کامل و خروجی آفلاین، «نمایش به پزشک» را باز کنید.',
           style: TextStyle(color: Colors.blueGrey),
         ),
       ],
