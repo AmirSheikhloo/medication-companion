@@ -55,6 +55,7 @@ class _MedicationHomeState extends State<MedicationHome>
   String? _error;
   bool _remindersEnabled = false;
   String? _reminderError;
+  String? _careReminderError;
 
   @override
   void initState() {
@@ -62,6 +63,7 @@ class _MedicationHomeState extends State<MedicationHome>
     WidgetsBinding.instance.addObserver(this);
     _reload();
     _syncReminders();
+    _syncCareReminders();
   }
 
   @override
@@ -74,6 +76,7 @@ class _MedicationHomeState extends State<MedicationHome>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _syncReminders();
+      _syncCareReminders();
     }
   }
 
@@ -85,6 +88,17 @@ class _MedicationHomeState extends State<MedicationHome>
       if (mounted) setState(() => _reminderError = null);
     } catch (error) {
       if (mounted) setState(() => _reminderError = '$error');
+    }
+  }
+
+  Future<void> _syncCareReminders() async {
+    final service = widget.careReminderCoordinator;
+    if (service == null) return;
+    try {
+      await service.refreshIfEnabled();
+      if (mounted) setState(() => _careReminderError = null);
+    } catch (error) {
+      if (mounted) setState(() => _careReminderError = '$error');
     }
   }
 
@@ -677,6 +691,9 @@ class _MedicationHomeState extends State<MedicationHome>
             icon: const Icon(Icons.event_available_outlined),
             label: const Text('باز کردن کارها و چک‌لیست ویزیت'),
           ),
+          if (_careReminderError != null)
+            Text('اشکال در اعلان‌های پیگیری: $_careReminderError',
+                style: const TextStyle(color: Colors.deepOrange)),
           const SizedBox(height: 20),
           _sectionTitle('پروفایل‌های محلی'),
           const SizedBox(height: 12),
