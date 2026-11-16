@@ -6,6 +6,7 @@ import '../../profiles/presentation/guest_welcome_screen.dart';
 import '../../profiles/presentation/profile_name_dialog.dart';
 import 'medication_entry_sheet.dart';
 import '../data/medication_repository.dart';
+import '../../reminders/data/reminder_coordinator.dart';
 
 const _teal = Color(0xFF40E0D0);
 const _deepTeal = Color(0xFF008F87);
@@ -15,16 +16,19 @@ class MedicationHome extends StatefulWidget {
     super.key,
     required this.repository,
     required this.profileRepository,
+    this.reminderCoordinator,
   });
 
   final MedicationRepository repository;
   final ProfileRepository profileRepository;
+  final ReminderCoordinator? reminderCoordinator;
 
   @override
   State<MedicationHome> createState() => _MedicationHomeState();
 }
 
-class _MedicationHomeState extends State<MedicationHome> {
+class _MedicationHomeState extends State<MedicationHome>
+    with WidgetsBindingObserver {
   bool _loading = true;
   bool _saving = false;
   int _tab = 0;
@@ -35,11 +39,39 @@ class _MedicationHomeState extends State<MedicationHome> {
   bool _showArchived = false;
   List<DailyDose> _doses = [];
   String? _error;
+  bool _remindersEnabled = false;
+  String? _reminderError;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _reload();
+    _syncReminders();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncReminders();
+    }
+  }
+
+  Future<void> _syncReminders() async {
+    final service = widget.reminderCoordinator;
+    if (service == null) return;
+    try {
+      await service.refreshIfEnabled();
+      if (mounted) setState(() => _reminderError = null);
+    } catch (error) {
+      if (mounted) setState(() => _reminderError = '$error');
+    }
   }
 
   Future<void> _reload() async {
@@ -56,6 +88,8 @@ class _MedicationHomeState extends State<MedicationHome> {
       final doses = profile == null
           ? <DailyDose>[]
           : await widget.repository.dosesForDay(profile.id, DateTime.now());
+      final remindersEnabled =
+          await widget.reminderCoordinator?.isEnabled() ?? false;
       if (!mounted) return;
       setState(() {
         _active = profile;
@@ -63,6 +97,7 @@ class _MedicationHomeState extends State<MedicationHome> {
         _medications = meds;
         _archivedMedications = archivedMeds;
         _doses = doses;
+        _remindersEnabled = remindersEnabled;
         _loading = false;
         _error = null;
       });
@@ -93,6 +128,17 @@ class _MedicationHomeState extends State<MedicationHome> {
     setState(() => _saving = true);
     try {
       await action();
+      try {
+        await widget.reminderCoordinator?.refreshIfEnabled();
+        if (mounted) setState(() => _reminderError = null);
+      } catch (error) {
+        if (mounted) {
+          setState(() => _reminderError = '$error');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('تغییر ذخیره شد ولی یادآور به‌روز نشد: $error')),
+          );
+        }
+      }
       await _reload();
     } catch (error) {
       if (!mounted) return;
@@ -198,6 +244,29 @@ class _MedicationHomeState extends State<MedicationHome> {
           medicationId: medication.id,
           archived: false,
         ));
+  }
+
+  Future<void> _enableReminders() async {
+    final service = widget.reminderCoordinator;
+    if (service == null) return;
+    await _perform(() => service.enable());
+  }
+
+  Future<void> _disableReminders() async {
+    final service = widget.reminderCoordinator;
+    if (service == null) return;
+    await _perform(() => service.disable());
+  }
+
+  Future<void> _testReminders() async {
+    final service = widget.reminderCoordinator;
+    if (service == null) return;
+    await _perform(() => service.demoInFiveSeconds());
+    if (mounted && _reminderError == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('اعلان تستی برای ۵ ثانیه دیگر ثبت شد.')),
+      );
+    }
   }
 
   Future<void> _mark(DailyDose dose, String action) async {
@@ -353,7 +422,7 @@ class _MedicationHomeState extends State<MedicationHome> {
           for (final dose in _doses) _doseCard(dose),
           const SizedBox(height: 16),
           const _InfoNote(
-            'این نسخه فقط ثبت مصرف را نگه می‌دارد. اعلان خودکار برنامه دارویی و کسر موجودی در M2 فعال می‌شوند.',
+            'یادآوری دارو را می‌توانید از بخش «بیشتر» فعال کنید. کسر موجودی هنوز فعال نیست.',
           ),
         ],
       );
@@ -467,7 +536,7 @@ class _MedicationHomeState extends State<MedicationHome> {
           const SizedBox(height: 12),
           const _InfoNote(
             'ویرایش برنامه روزانه از فردا اعمال می‌شود. '
-            'ثبت‌های قبلی حفظ می‌شوند؛ یادآوری خودکار در مرحله بعد فعال خواهد شد.',
+            'ثبت‌های قبلی حفظ می‌شوند؛ یادآورها با فعال‌سازی در بخش «بیشتر» هماهنگ می‌شوند.',
           ),
         ],
       );
@@ -535,6 +604,45 @@ class _MedicationHomeState extends State<MedicationHome> {
             onPressed: _saving ? null : () => _startGuest(false),
             icon: const Icon(Icons.person_add_alt_1_outlined),
             label: const Text('افزودن پروفایل عزیزانم'),
+          ),
+          const SizedBox(height: 24),
+          _sectionTitle('یادآوری دارو — آزمایشی'),
+          const SizedBox(height: 8),
+          Text(_remindersEnabled
+              ? 'فعال: یادآورها برای همه پروفایل‌های محلی تنظیم می‌شوند.'
+              : 'غیرفعال: تا اجازه ندهید، یادآور دارو ثبت نمی‌شود.'),
+          const SizedBox(height: 10),
+          if (_reminderError != null)
+            Text(
+              'اشکال در یادآوری: $_reminderError',
+              style: const TextStyle(color: Colors.deepOrange),
+            ),
+          const SizedBox(height: 8),
+          if (widget.reminderCoordinator != null) ...[
+            if (!_remindersEnabled)
+              FilledButton.icon(
+                onPressed: _saving ? null : _enableReminders,
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: const Text('فعال‌سازی یادآوری دارو'),
+              )
+            else ...[
+              FilledButton.tonalIcon(
+                onPressed: _saving ? null : _testReminders,
+                icon: const Icon(Icons.timer_outlined),
+                label: const Text('تست اعلان — ۵ ثانیه دیگر'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _saving ? null : _disableReminders,
+                icon: const Icon(Icons.notifications_off_outlined),
+                label: const Text('خاموش کردن یادآورها'),
+              ),
+            ],
+          ],
+          const SizedBox(height: 8),
+          const Text(
+            'آلارم دقیق و مجوز اعلان لازم‌اند. اعلان‌ها معمولی و خصوصی‌اند؛ '
+            'به‌صورت تمام‌صفحه باز نمی‌شوند. '
+            'این قابلیت برای تست است و جایگزین مراقبت پزشکی نیست.',
           ),
           const SizedBox(height: 20),
           const _InfoNote(
