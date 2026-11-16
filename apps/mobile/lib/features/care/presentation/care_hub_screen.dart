@@ -83,10 +83,12 @@ class _CareHubScreenState extends State<CareHubScreen>
     try {
       await coordinator.refreshIfEnabled();
       final enabled = await coordinator.isEnabled();
-      if (mounted) setState(() {
-        _remindersEnabled = enabled;
-        _reminderError = null;
-      });
+      if (mounted) {
+        setState(() {
+          _remindersEnabled = enabled;
+          _reminderError = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _reminderError = '$e');
     }
