@@ -357,11 +357,15 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
     try {
       await action();
       await _reload();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ذخیره شد.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ذخیره شد.')));
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ثبت نشد: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('ثبت نشد: $e')));
+      }
     }
   }
 
@@ -591,7 +595,7 @@ class _CareEditorState extends State<_CareEditor> {
           ] else if (widget.visits.isNotEmpty) ...[
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _visitId,
+              initialValue: _visitId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'اتصال به ویزیت (اختیاری)'),
               items: [
