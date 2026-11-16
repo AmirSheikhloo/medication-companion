@@ -51,7 +51,11 @@ void main() {
     expect(find.text('داروی آزمایشی'), findsWidgets);
     await tester.tap(find.text('مصرف کردم'));
     await tester.pumpAndSettle();
+    expect(find.text('ثبت مصرف و موجودی'), findsOneWidget);
+    await tester.tap(find.text('ثبت بدون کسر'));
+    await tester.pumpAndSettle();
     expect(find.text('مصرف ثبت شد'), findsOneWidget);
+    expect(find.text('مصرف بدون کسر موجودی ثبت شده است.'), findsOneWidget);
 
     await tester.tap(find.text('بازگرداندن ثبت'));
     await tester.pumpAndSettle();
