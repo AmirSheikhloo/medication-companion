@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../../inventory/data/inventory_repository.dart';
 import '../domain/occurrence.dart';
 
 class DailyDose {
@@ -11,6 +12,7 @@ class DailyDose {
     required this.occurrenceKey,
     required this.scheduledAt,
     required this.status,
+    this.stockDebited = false,
   });
 
   final Medication medication;
@@ -18,6 +20,7 @@ class DailyDose {
   final String occurrenceKey;
   final DateTime scheduledAt;
   final String status;
+  final bool stockDebited;
 }
 
 /// User-entered dose description for exactly one wall-clock time.
@@ -256,6 +259,19 @@ class MedicationRepository {
           ..where((t) => t.occurrenceKey.isIn(keys)))
         .get();
     final byKey = {for (final s in states) s.occurrenceKey: s.status};
+    final movements = await (db.select(db.stockMovements)
+          ..where((t) => t.occurrenceKey.isIn(keys)))
+        .get();
+    final reversed = {
+      for (final movement in movements)
+        if (movement.reversesMovementId != null)
+          movement.reversesMovementId!,
+    };
+    final debitedKeys = {
+      for (final movement in movements)
+        if (movement.kind == 'taken' && !reversed.contains(movement.id))
+          movement.occurrenceKey!,
+    };
     final result = [
       for (final dose in candidates)
         DailyDose(
@@ -264,6 +280,7 @@ class MedicationRepository {
           occurrenceKey: dose.occurrenceKey,
           scheduledAt: dose.scheduledAt,
           status: byKey[dose.occurrenceKey] ?? 'pending',
+          stockDebited: debitedKeys.contains(dose.occurrenceKey),
         ),
     ];
     result.sort((a, b) {
@@ -287,9 +304,15 @@ class MedicationRepository {
     required DailyDose dose,
     required String profileId,
     required String action,
+    String? stockPackageId,
+    int? stockQuantityMilliunits,
   }) async {
     if (!{'taken', 'skipped', 'unknown', 'undo'}.contains(action)) {
       throw ArgumentError('وضعیت نوبت معتبر نیست.');
+    }
+    if ((stockPackageId == null) != (stockQuantityMilliunits == null) ||
+        (action != 'taken' && stockPackageId != null)) {
+      throw ArgumentError('برای کسر موجودی، بسته و مقدار واقعی را با هم وارد کنید.');
     }
     if (dose.medication.profileId != profileId) {
       throw StateError('این دارو متعلق به پروفایل فعال نیست.');
@@ -321,6 +344,24 @@ class MedicationRepository {
         if (before == 'pending') return false;
       } else if (before != 'pending') {
         return false;
+      }
+      // Medication state and inventory movement must either both commit
+      // or both roll back. Older callers can explicitly record without debit.
+      final inventory = InventoryRepository(db);
+      if (action == 'taken' && stockPackageId != null) {
+        await inventory.consumeForDoseInTransaction(
+          profileId: profileId,
+          medicationId: medication.id,
+          packageId: stockPackageId,
+          occurrenceKey: key,
+          quantityMilliunits: stockQuantityMilliunits!,
+        );
+      } else if (action == 'undo' && before == 'taken') {
+        await inventory.reverseDoseInTransaction(
+          profileId: profileId,
+          medicationId: medication.id,
+          occurrenceKey: key,
+        );
       }
       final now = DateTime.now().toUtc();
       await db.into(db.doseEvents).insert(DoseEventsCompanion.insert(

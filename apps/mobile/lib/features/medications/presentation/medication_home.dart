@@ -7,6 +7,10 @@ import '../../profiles/presentation/profile_name_dialog.dart';
 import 'medication_entry_sheet.dart';
 import '../data/medication_repository.dart';
 import '../../reminders/data/reminder_coordinator.dart';
+import '../../inventory/data/inventory_repository.dart';
+import '../../inventory/domain/stock_quantity.dart';
+import '../../inventory/presentation/stock_management_sheet.dart';
+import '../../inventory/presentation/dose_stock_dialog.dart';
 
 const _teal = Color(0xFF40E0D0);
 const _deepTeal = Color(0xFF008F87);
@@ -38,6 +42,9 @@ class _MedicationHomeState extends State<MedicationHome>
   List<Medication> _archivedMedications = [];
   bool _showArchived = false;
   List<DailyDose> _doses = [];
+  Map<String, StockSummary> _stocks = {};
+
+  InventoryRepository get _inventory => InventoryRepository(widget.repository.db);
   String? _error;
   bool _remindersEnabled = false;
   String? _reminderError;
@@ -88,6 +95,12 @@ class _MedicationHomeState extends State<MedicationHome>
       final doses = profile == null
           ? <DailyDose>[]
           : await widget.repository.dosesForDay(profile.id, DateTime.now());
+      final stocks = <String, StockSummary>{};
+      if (profile != null) {
+        for (final med in meds) {
+          stocks[med.id] = await _inventory.summary(profile.id, med.id);
+        }
+      }
       final remindersEnabled =
           await widget.reminderCoordinator?.isEnabled() ?? false;
       if (!mounted) return;
@@ -97,6 +110,7 @@ class _MedicationHomeState extends State<MedicationHome>
         _medications = meds;
         _archivedMedications = archivedMeds;
         _doses = doses;
+        _stocks = stocks;
         _remindersEnabled = remindersEnabled;
         _loading = false;
         _error = null;
@@ -271,13 +285,35 @@ class _MedicationHomeState extends State<MedicationHome>
     });
   }
 
+  Future<void> _openStock(Medication medication) async {
+    final profile = _active;
+    if (profile == null || _saving) return;
+    await showStockManagementSheet(
+      context,
+      repository: _inventory,
+      medication: medication,
+      profileId: profile.id,
+    );
+    if (mounted) await _reload();
+  }
+
   Future<void> _mark(DailyDose dose, String action) async {
     final profile = _active;
-    if (profile == null) return;
+    if (profile == null || _saving) return;
+    DoseStockChoice? choice;
+    if (action == 'taken') {
+      final stock = await _inventory.summary(profile.id, dose.medication.id);
+      if (!mounted) return;
+      choice = await askDoseStockChoice(
+        context, medicationName: dose.medication.name, stock: stock);
+      if (!mounted || choice == null) return;
+    }
     await _perform(() => widget.repository.recordDose(
           dose: dose,
           profileId: profile.id,
           action: action,
+          stockPackageId: choice?.packageId,
+          stockQuantityMilliunits: choice?.quantityMilliunits,
         ));
   }
 
@@ -424,7 +460,7 @@ class _MedicationHomeState extends State<MedicationHome>
           for (final dose in _doses) _doseCard(dose),
           const SizedBox(height: 16),
           const _InfoNote(
-            'یادآوری دارو را می‌توانید از بخش «بیشتر» فعال کنید. کسر موجودی هنوز فعال نیست.',
+            'یادآوری را از «بیشتر» فعال کنید. کسر موجودی فقط پس از تأیید مقدار واقعی انجام می‌شود.',
           ),
         ],
       );
@@ -456,6 +492,16 @@ class _MedicationHomeState extends State<MedicationHome>
             ),
             const SizedBox(height: 8),
             Text('طبق ثبت شما: ${dose.plan.doseText}'),
+            if (dose.status == 'taken')
+              Text(
+                dose.stockDebited
+                    ? 'از موجودی بسته انتخاب‌شده کسر شد.'
+                    : 'مصرف بدون کسر موجودی ثبت شده است.',
+                style: TextStyle(color: Colors.blueGrey.shade700),
+              ),
+            if (_stocks[dose.medication.id]?.lowStock == true)
+              const Text('هشدار: موجودی بسته انتخاب‌شده کم است.',
+                  style: TextStyle(color: Colors.deepOrange)),
             const SizedBox(height: 8),
             Row(children: [
               Icon(status.$2, color: status.$3, size: 20),
@@ -547,6 +593,14 @@ class _MedicationHomeState extends State<MedicationHome>
     final slots = _doses
         .where((dose) => dose.medication.id == med.id)
         .toList();
+    final stock = _stocks[med.id];
+    final selected = stock?.selected;
+    final stockLine = selected == null
+        ? 'موجودی بسته انتخاب نشده'
+        : 'بسته: ${selected.package.label} — '
+          '${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}'
+          '${selected.expired ? ' (منقضی)' : ''}'
+          '${stock!.lowStock ? ' (هشدار کمبود)' : ''}';
     return Card(
       child: ListTile(
         contentPadding: const EdgeInsets.all(12),
@@ -555,25 +609,30 @@ class _MedicationHomeState extends State<MedicationHome>
           child: Icon(Icons.medication, color: _deepTeal),
         ),
         title: Text(med.name),
-        subtitle: Text(slots.isEmpty
-            ? 'برنامه روزانه ثبت‌شده'
-            : [
-                for (final dose in slots)
-                  '${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))} — '
-                      '${dose.plan.doseText}',
-              ].join('\n')),
-        isThreeLine: slots.length > 1,
+        subtitle: Text([
+          if (slots.isEmpty)
+            'برنامه روزانه ثبت‌شده'
+          else
+            for (final dose in slots)
+              '${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))} — '
+                  '${dose.plan.doseText}',
+          stockLine,
+        ].join('\n')),
+        isThreeLine: true,
         trailing: PopupMenuButton<String>(
           tooltip: 'گزینه‌های دارو',
           enabled: !_saving,
           onSelected: (value) {
-            if (value == 'edit') {
+            if (value == 'stock') {
+              _openStock(med);
+            } else if (value == 'edit') {
               _editMedication(med);
             } else if (value == 'archive') {
               _archiveMedication(med);
             }
           },
           itemBuilder: (_) => const [
+            PopupMenuItem(value: 'stock', child: Text('موجودی و بسته‌ها')),
             PopupMenuItem(value: 'edit', child: Text('ویرایش')),
             PopupMenuItem(value: 'archive', child: Text('بایگانی')),
           ],

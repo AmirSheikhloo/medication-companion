@@ -72,6 +72,67 @@ class DoseCurrentStates extends Table {
   Set<Column> get primaryKey => {occurrenceKey};
 }
 
+
+/// A distinct physical package; balance is derived only from StockMovements.
+/// Expiry is stored as a Gregorian ISO date with explicit precision.
+class StockPackages extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get medicationId => text().references(Medications, #id)();
+  TextColumn get label => text().withLength(min: 1, max: 80)();
+  TextColumn get unit => text().withLength(min: 1, max: 30)();
+  TextColumn get expiryIso => text().nullable()();
+  TextColumn get expiryPrecision => text().withDefault(const Constant('none'))();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// At most one user-selected package for a medication.
+class StockSelections extends Table {
+  TextColumn get medicationId => text().references(Medications, #id)();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get packageId => text().references(StockPackages, #id)();
+
+  @override
+  Set<Column> get primaryKey => {medicationId};
+}
+
+/// Append-only, integer-thousandths accounting (no floating-point balance).
+/// An undo references the exact previous debit and can reverse it only once.
+class StockMovements extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get medicationId => text().references(Medications, #id)();
+  TextColumn get packageId => text().references(StockPackages, #id)();
+  TextColumn get kind => text()(); // initial | adjustment | taken | undo
+  IntColumn get deltaMilliunits => integer()();
+  TextColumn get occurrenceKey => text().nullable()();
+  TextColumn get reversesMovementId =>
+      text().nullable().references(StockMovements, #id)();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<Set<Column>> get uniqueKeys => [{reversesMovementId}];
+}
+
+/// Null rule = no low-stock alert. Threshold applies to the selected package,
+/// not an unsafe sum of different units/packages.
+class StockAlertRules extends Table {
+  TextColumn get medicationId => text().references(Medications, #id)();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get unit => text().withLength(min: 1, max: 30)();
+  IntColumn get thresholdMilliunits => integer()();
+
+  @override
+  Set<Column> get primaryKey => {medicationId};
+}
+
 @DriftDatabase(tables: [
   Profiles,
   AppSettings,
@@ -79,20 +140,33 @@ class DoseCurrentStates extends Table {
   MedicationPlanVersions,
   DoseEvents,
   DoseCurrentStates,
+  StockPackages,
+  StockSelections,
+  StockMovements,
+  StockAlertRules,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'medication_companion_m1'));
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (migrator) async => migrator.createAll(),
         onUpgrade: (migrator, from, to) async {
-          // Future versions must use explicit, tested migrations. Do not
-          // silently delete health data or drop/recreate existing tables.
+          if (from == 1 && to == 2) {
+            // Additive migration: do not drop/rename existing personal data.
+            // A transaction prevents partial schema upgrades if interrupted.
+            await transaction(() async {
+              await migrator.createTable(stockPackages);
+              await migrator.createTable(stockSelections);
+              await migrator.createTable(stockMovements);
+              await migrator.createTable(stockAlertRules);
+            });
+            return;
+          }
           throw StateError('Missing approved database migration $from -> $to');
         },
         beforeOpen: (details) async {
