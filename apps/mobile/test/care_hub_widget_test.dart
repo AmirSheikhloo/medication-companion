@@ -54,7 +54,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('پیش از ویزیت'), findsOneWidget);
     expect(find.text('پس از ویزیت'), findsOneWidget);
-    expect(find.text('سؤال نمونه'), findsOneWidget);
 
     await tester.tap(find.byType(Checkbox).first);
     await tester.pumpAndSettle();
@@ -62,5 +61,7 @@ void main() {
       profileId: profile.id, visitId: visitId, phase: 'before',
     );
     expect(items.first.checked, isTrue);
+    await tester.scrollUntilVisible(find.text('سؤال نمونه'), 250);
+    expect(find.text('سؤال نمونه'), findsOneWidget);
   });
 }
