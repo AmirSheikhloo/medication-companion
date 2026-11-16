@@ -46,6 +46,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   StockSummary? _summary;
   bool _busy = false;
   bool _initializedThreshold = false;
+  String? _lastSelectedPackageId;
   bool _selectNew = true;
   bool _adjustIncrease = true;
   String? _adjustingPackageId;
@@ -76,11 +77,13 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
       final current = await widget.repository.summary(
         widget.profileId, widget.medication.id);
       if (!mounted) return;
-      if (!_initializedThreshold) {
+      if (!_initializedThreshold ||
+          _lastSelectedPackageId != current.selectedPackageId) {
         _threshold.text = current.thresholdMilliunits == null
             ? ''
             : StockQuantity.format(current.thresholdMilliunits!);
         _initializedThreshold = true;
+        _lastSelectedPackageId = current.selectedPackageId;
       }
       setState(() {
         _summary = current;
@@ -203,7 +206,8 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   const ListTile(title: Text('هنوز بسته‌ای ثبت نشده است.')),
                 for (final item in summary.packages) _packageCard(item, summary),
                 const SizedBox(height: 16),
-                Text('هشدار کمبود بسته انتخاب‌شده',
+                Text('هشدار کمبود بسته انتخاب‌شده'
+                    '${summary.selected == null ? '' : ' (${summary.selected!.package.unit})'}',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 6),
                 TextField(
@@ -211,7 +215,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
                     labelText: 'حد هشدار (خالی = خاموش)',
-                    helperText: 'برای مثال ۵؛ تعداد روز تخمین زده نمی‌شود.',
+                    helperText: 'بر حسب واحد بستهٔ انتخابی؛ بدون تبدیل واحد یا تخمین روز.',
                     border: OutlineInputBorder(),
                   ),
                 ),
