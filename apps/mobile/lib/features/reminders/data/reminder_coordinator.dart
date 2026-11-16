@@ -32,13 +32,14 @@ class ReminderCoordinator {
     return row?.value == 'true';
   }
 
-  Future<void> _setEnabled(bool enabled) =>
-      database.into(database.appSettings).insertOnConflictUpdate(
-            AppSettingsCompanion.insert(
-              key: settingKey,
-              value: enabled ? 'true' : 'false',
-            ),
-          );
+  Future<void> _setEnabled(bool enabled) async {
+    await database.into(database.appSettings).insertOnConflictUpdate(
+          AppSettingsCompanion.insert(
+            key: settingKey,
+            value: enabled ? 'true' : 'false',
+          ),
+        );
+  }
 
   Future<int> enable() async {
     await notifications.initialize();
@@ -86,12 +87,12 @@ class ReminderCoordinator {
     final now = _clock();
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
-    final today'sSlots = <ReminderSlot>[];
-    final tomorrow'sSlots = <ReminderSlot>[];
+    final todaySlots = <ReminderSlot>[];
+    final tomorrowSlots = <ReminderSlot>[];
     for (final profile in await profiles.profiles()) {
       final todayDoses = await medications.dosesForDay(profile.id, today);
       final tomorrowDoses = await medications.dosesForDay(profile.id, tomorrow);
-      today'sSlots.addAll([
+      todaySlots.addAll([
         for (final dose in todayDoses)
           ReminderSlot(
             occurrenceKey: dose.occurrenceKey,
@@ -103,7 +104,7 @@ class ReminderCoordinator {
             status: dose.status,
           ),
       ]);
-      tomorrow'sSlots.addAll([
+      tomorrowSlots.addAll([
         for (final dose in tomorrowDoses)
           ReminderSlot(
             occurrenceKey: dose.occurrenceKey,
@@ -118,8 +119,8 @@ class ReminderCoordinator {
     }
     final jobs = _planner.plan(
       now: now,
-      today: today'sSlots,
-      tomorrow: tomorrow'sSlots,
+      today: todaySlots,
+      tomorrow: tomorrowSlots,
     );
     await notifications.replaceManaged(jobs);
     return jobs.length;
