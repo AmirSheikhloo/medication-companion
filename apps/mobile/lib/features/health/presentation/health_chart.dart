@@ -132,7 +132,6 @@ class _HealthChartPainter extends CustomPainter {
         ..color = color.withValues(alpha: 0.75)
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke;
-      final dot = Paint()..color = color;
       for (var i = 0; i < points.length; i++) {
         final current = points[i];
         final center = Offset(xOf(current.$1), yOf(current.$2));
