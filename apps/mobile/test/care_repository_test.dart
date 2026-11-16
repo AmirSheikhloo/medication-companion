@@ -148,7 +148,7 @@ void main() {
     expect((await care.questionsFor(first.id)).single.answered, isFalse);
   });
 
-  test('v3 to v4 keeps an existing local profile without resetting data', () async {
+  test('v3 to v5 keeps an existing local profile without resetting data', () async {
     await db.close();
     final executor = NativeDatabase.memory(setup: (raw) {
       raw.execute('CREATE TABLE profiles ('
@@ -166,6 +166,6 @@ void main() {
     );
     expect((await migrated.visitsFor('old')).single.id, id);
     expect((await db.customSelect('PRAGMA user_version').getSingle())
-        .read<int>('user_version'), 4);
+        .read<int>('user_version'), 5);
   });
 }
