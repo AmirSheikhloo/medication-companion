@@ -126,6 +126,7 @@ class StockMovements extends Table {
 class StockAlertRules extends Table {
   TextColumn get medicationId => text().references(Medications, #id)();
   TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get unit => text().withLength(min: 1, max: 30)();
   IntColumn get thresholdMilliunits => integer()();
 
   @override
