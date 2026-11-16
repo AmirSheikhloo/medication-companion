@@ -69,6 +69,13 @@ void main() {
     expect(find.text('تاریخچه تغییرات این بسته'), findsOneWidget);
     expect(find.text('موجودی اولیه'), findsOneWidget);
     expect(find.text('+4 عدد'), findsOneWidget);
+    final history = await inventory.movementsForPackage(
+      profileId: profile.id,
+      medicationId: medId,
+      packageId: (await inventory.summary(profile.id, medId)).selectedPackageId!,
+    );
+    expect(history, hasLength(1));
+    expect(history.single.kind, 'initial');
     expect(tester.takeException(), isNull);
   });
 }
