@@ -15,6 +15,7 @@ import '../../health/data/health_repository.dart';
 import '../../health/presentation/health_tab.dart';
 import '../../care/data/care_repository.dart';
 import '../../care/presentation/care_hub_screen.dart';
+import '../../care/data/care_reminder_coordinator.dart';
 
 const _teal = Color(0xFF40E0D0);
 const _deepTeal = Color(0xFF008F87);
@@ -25,11 +26,13 @@ class MedicationHome extends StatefulWidget {
     required this.repository,
     required this.profileRepository,
     this.reminderCoordinator,
+    this.careReminderCoordinator,
   });
 
   final MedicationRepository repository;
   final ProfileRepository profileRepository;
   final ReminderCoordinator? reminderCoordinator;
+  final CareReminderCoordinator? careReminderCoordinator;
 
   @override
   State<MedicationHome> createState() => _MedicationHomeState();
@@ -92,6 +95,7 @@ class _MedicationHomeState extends State<MedicationHome>
       builder: (_) => CareHubScreen(
         profile: profile,
         repository: CareRepository(widget.repository.db),
+        reminderCoordinator: widget.careReminderCoordinator,
       ),
     ));
     if (mounted) await _reload();
