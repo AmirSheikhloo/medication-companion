@@ -176,6 +176,75 @@ class HealthMeasurementVersions extends Table {
   List<Set<Column>> get uniqueKeys => [{measurementId, version}];
 }
 
+
+/* M3-03A: local care planning. Never cascade-delete a user's records. */
+class CareVisits extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get title => text().withLength(min: 1, max: 160)();
+  TextColumn get doctor => text().nullable()();
+  TextColumn get location => text().nullable()();
+  TextColumn get purpose => text().nullable()();
+  DateTimeColumn get scheduledAt => dateTime()();
+  TextColumn get status => text().withDefault(const Constant('scheduled'))();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class CareTasks extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get visitId => text().nullable().references(CareVisits, #id)();
+  TextColumn get title => text().withLength(min: 1, max: 160)();
+  DateTimeColumn get dueAt => dateTime().nullable()();
+  TextColumn get status => text().withDefault(const Constant('open'))();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Append-only record of task state changes; profile scoped.
+class CareTaskEvents extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get taskId => text().references(CareTasks, #id)();
+  TextColumn get action => text()(); // created | edited | open | done | deferred | archived
+  DateTimeColumn get recordedAt => dateTime()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class VisitChecklistItems extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get visitId => text().references(CareVisits, #id)();
+  TextColumn get phase => text()(); // before | after
+  TextColumn get title => text().withLength(min: 1, max: 160)();
+  IntColumn get position => integer()();
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get checked => boolean().withDefault(const Constant(false))();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class VisitQuestions extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get visitId => text().nullable().references(CareVisits, #id)();
+  TextColumn get question => text().withLength(min: 1, max: 500)();
+  BoolColumn get answered => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get answeredAt => dateTime().nullable()();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime()();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(tables: [
   Profiles,
   AppSettings,
@@ -189,21 +258,26 @@ class HealthMeasurementVersions extends Table {
   StockAlertRules,
   HealthMeasurements,
   HealthMeasurementVersions,
+  CareVisits,
+  CareTasks,
+  CareTaskEvents,
+  VisitChecklistItems,
+  VisitQuestions,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'medication_companion_m1'));
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (migrator) async => migrator.createAll(),
         onUpgrade: (migrator, from, to) async {
           // All upgrade paths are additive. Users can jump directly from
-          // v1 to v3 without ever installing a v2 build.
-          if (to != 3 || (from != 1 && from != 2)) {
+          // v1 to v4 without installing every intermediate build.
+          if (to != 4 || from < 1 || from > 3) {
             throw StateError('Missing approved database migration $from -> $to');
           }
           await transaction(() async {
@@ -213,8 +287,15 @@ class AppDatabase extends _$AppDatabase {
               await migrator.createTable(stockMovements);
               await migrator.createTable(stockAlertRules);
             }
-            await migrator.createTable(healthMeasurements);
-            await migrator.createTable(healthMeasurementVersions);
+            if (from <= 2) {
+              await migrator.createTable(healthMeasurements);
+              await migrator.createTable(healthMeasurementVersions);
+            }
+            await migrator.createTable(careVisits);
+            await migrator.createTable(careTasks);
+            await migrator.createTable(careTaskEvents);
+            await migrator.createTable(visitChecklistItems);
+            await migrator.createTable(visitQuestions);
           });
         },
         beforeOpen: (details) async {
