@@ -84,8 +84,7 @@ class HealthReportSummary {
       count: records.length,
       stats: {
         for (final item in groups.entries)
-          if (HealthDescriptiveStats.of(item.value) case final stats?)
-            item.key: stats,
+          item.key: HealthDescriptiveStats.of(item.value)!,
       },
       excludedCount: excluded,
     );
