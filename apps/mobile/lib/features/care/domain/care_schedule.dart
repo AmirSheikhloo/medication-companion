@@ -42,11 +42,34 @@ class CareSchedule {
       throw ArgumentError('این کار تکرارشونده نیست.');
     }
     var current = dueAt.toLocal();
-    for (var attempts = 0; attempts < 1500; attempts++) {
-      if (current.isAfter(after)) return current;
+    final localAfter = after.toLocal();
+    if (current.isAfter(localAfter)) return current;
+    if (rule == 'daily' || rule == 'weekly') {
+      // Compare civil dates in UTC to avoid counting a 23/25-hour DST day.
+      final elapsedDays = DateTime.utc(localAfter.year, localAfter.month,
+              localAfter.day)
+          .difference(DateTime.utc(current.year, current.month, current.day))
+          .inDays;
+      final step = rule == 'daily' ? 1 : 7;
+      final cycles = elapsedDays ~/ step;
+      if (cycles > 0) {
+        current = DateTime(current.year, current.month,
+            current.day + cycles * step,
+            current.hour, current.minute, current.second);
+      }
+    } else {
+      final elapsedMonths = (localAfter.year - current.year) * 12 +
+          (localAfter.month - current.month);
+      if (elapsedMonths > 0) {
+        current = monthsAfter(current, elapsedMonths, anchorDay: anchorDay);
+      }
+    }
+    // At most one cycle is needed after skipping to the current period.
+    for (var attempts = 0; attempts < 3; attempts++) {
+      if (current.isAfter(localAfter)) return current;
       current = advance(current, rule, anchorDay: anchorDay);
     }
-    throw StateError('محاسبه تاریخ بعدی بیش از حد طول کشید.');
+    throw StateError('محاسبه موعد بعدی ناموفق بود.');
   }
 }
 
