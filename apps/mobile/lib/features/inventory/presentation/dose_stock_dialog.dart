@@ -74,7 +74,7 @@ class _DoseStockDialogState extends State<_DoseStockDialog> {
                 const Text('این بسته طبق تاریخ واردشده منقضی است؛ کسر موجودی مجاز نیست.',
                     style: TextStyle(color: Colors.deepOrange)),
             ],
-            if (usable && selected != null) ...[
+            if (usable) ...[
               const SizedBox(height: 10),
               TextField(
                 controller: _quantity,
@@ -108,7 +108,7 @@ class _DoseStockDialogState extends State<_DoseStockDialog> {
               .pop(const DoseStockChoice.withoutDebit()),
           child: const Text('ثبت بدون کسر'),
         ),
-        if (usable && selected != null)
+        if (usable)
           FilledButton(
             onPressed: () {
               try {
