@@ -335,8 +335,13 @@ class CareRepository {
         if (task.dueAt == null) {
           throw StateError('کار تکراری بدون موعد معتبر نیست.');
         }
-        final next = CareSchedule.nextAfter(
-          task.dueAt!, task.repeatRule, now,
+        final afterCompletion = CareSchedule.advance(
+          task.dueAt!, task.repeatRule, anchorDay: task.repeatAnchorDay,
+        );
+        final next = afterCompletion.isAfter(now)
+            ? afterCompletion
+            : CareSchedule.nextAfter(
+          afterCompletion, task.repeatRule, now,
           anchorDay: task.repeatAnchorDay,
         );
         await (db.update(db.careTasks)
