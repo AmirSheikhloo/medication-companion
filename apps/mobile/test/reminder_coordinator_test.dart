@@ -41,7 +41,9 @@ void main() {
   late ProfileRepository profiles;
   late FakeReminderPort port;
   late ReminderCoordinator coordinator;
-  final fixedNow = DateTime(2026, 11, 16, 7, 0);
+  final currentDay = DateTime.now();
+  final fixedNow =
+      DateTime(currentDay.year, currentDay.month, currentDay.day, 7, 0);
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
