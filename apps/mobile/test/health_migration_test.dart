@@ -5,7 +5,7 @@ import 'package:medication_companion/features/health/data/health_repository.dart
 import 'package:medication_companion/features/health/domain/health_metric.dart';
 
 void main() {
-  test('v2 stock and medication history survive v3 upgrade', () async {
+  test('v2 stock and medication history survive v4 upgrade', () async {
     final executor = NativeDatabase.memory(setup: (raw) {
       // Actual v2 table/column names; do not reset the user's offline file.
       raw.execute('CREATE TABLE profiles ('
@@ -96,7 +96,7 @@ void main() {
       expect(await db.select(db.healthMeasurements).get(), hasLength(1));
       expect(await db.select(db.healthMeasurementVersions).get(), hasLength(1));
       final version = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(version.read<int>('user_version'), 3);
+      expect(version.read<int>('user_version'), 4);
     } finally {
       await db.close();
     }
