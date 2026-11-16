@@ -12,6 +12,8 @@ import 'core/storage/app_database.dart';
 import 'features/medications/data/medication_repository.dart';
 import 'features/medications/presentation/medication_home.dart';
 import 'features/profiles/data/profile_repository.dart';
+import 'features/reminders/data/android_reminder_port.dart';
+import 'features/reminders/data/reminder_coordinator.dart';
 import 'm0/test_timings.dart';
 
 void main() {
@@ -253,12 +255,21 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
 
   Future<void> _openMedicationHome() async {
     final db = AppDatabase();
+    final medications = MedicationRepository(db);
+    final profiles = ProfileRepository(db);
+    final reminders = ReminderCoordinator(
+      database: db,
+      medications: medications,
+      profiles: profiles,
+      notifications: AndroidReminderPort(),
+    );
     try {
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
           builder: (_) => MedicationHome(
-            repository: MedicationRepository(db),
-            profileRepository: ProfileRepository(db),
+            repository: medications,
+            profileRepository: profiles,
+            reminderCoordinator: reminders,
           ),
         ),
       );
