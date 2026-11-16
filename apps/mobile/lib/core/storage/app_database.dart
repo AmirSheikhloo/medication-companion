@@ -133,6 +133,49 @@ class StockAlertRules extends Table {
   Set<Column> get primaryKey => {medicationId};
 }
 
+/// Current snapshot of a measurement; corrections keep a full version history.
+class HealthMeasurements extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  TextColumn get metric => text()(); // pressure | glucose | weight | pulse
+  IntColumn get primaryMilliunits => integer()();
+  IntColumn get secondaryMilliunits => integer().nullable()();
+  TextColumn get unit => text()();
+  TextColumn get context => text().nullable()();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get observedAt => dateTime()();
+  DateTimeColumn get recordedAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  IntColumn get version => integer()();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Immutable snapshots: every creation, correction, or archive is recorded.
+class HealthMeasurementVersions extends Table {
+  TextColumn get id => text()();
+  TextColumn get measurementId => text().references(HealthMeasurements, #id)();
+  TextColumn get profileId => text().references(Profiles, #id)();
+  IntColumn get version => integer()();
+  TextColumn get action => text()(); // created | corrected | archived
+  TextColumn get metric => text()();
+  IntColumn get primaryMilliunits => integer()();
+  IntColumn get secondaryMilliunits => integer().nullable()();
+  TextColumn get unit => text()();
+  TextColumn get context => text().nullable()();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get observedAt => dateTime()();
+  DateTimeColumn get changedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<Set<Column>> get uniqueKeys => [{measurementId, version}];
+}
+
 @DriftDatabase(tables: [
   Profiles,
   AppSettings,
@@ -144,30 +187,35 @@ class StockAlertRules extends Table {
   StockSelections,
   StockMovements,
   StockAlertRules,
+  HealthMeasurements,
+  HealthMeasurementVersions,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'medication_companion_m1'));
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (migrator) async => migrator.createAll(),
         onUpgrade: (migrator, from, to) async {
-          if (from == 1 && to == 2) {
-            // Additive migration: do not drop/rename existing personal data.
-            // A transaction prevents partial schema upgrades if interrupted.
-            await transaction(() async {
+          // All upgrade paths are additive. Users can jump directly from
+          // v1 to v3 without ever installing a v2 build.
+          if (to != 3 || (from != 1 && from != 2)) {
+            throw StateError('Missing approved database migration $from -> $to');
+          }
+          await transaction(() async {
+            if (from == 1) {
               await migrator.createTable(stockPackages);
               await migrator.createTable(stockSelections);
               await migrator.createTable(stockMovements);
               await migrator.createTable(stockAlertRules);
-            });
-            return;
-          }
-          throw StateError('Missing approved database migration $from -> $to');
+            }
+            await migrator.createTable(healthMeasurements);
+            await migrator.createTable(healthMeasurementVersions);
+          });
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
