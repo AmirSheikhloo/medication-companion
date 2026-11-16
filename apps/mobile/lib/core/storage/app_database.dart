@@ -186,6 +186,9 @@ class CareVisits extends Table {
   TextColumn get location => text().nullable()();
   TextColumn get purpose => text().nullable()();
   DateTimeColumn get scheduledAt => dateTime()();
+  IntColumn get reminderMinutesBefore => integer().nullable()();
+  BoolColumn get showChecklistDayBefore => boolean().withDefault(const Constant(false))();
+  TextColumn get medicationId => text().nullable().references(Medications, #id)();
   TextColumn get status => text().withDefault(const Constant('scheduled'))();
   BoolColumn get archived => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
@@ -200,6 +203,9 @@ class CareTasks extends Table {
   TextColumn get visitId => text().nullable().references(CareVisits, #id)();
   TextColumn get title => text().withLength(min: 1, max: 160)();
   DateTimeColumn get dueAt => dateTime().nullable()();
+  IntColumn get reminderMinutesBefore => integer().nullable()();
+  TextColumn get repeatRule => text().withDefault(const Constant('none'))();
+  IntColumn get repeatAnchorDay => integer().nullable()();
   TextColumn get status => text().withDefault(const Constant('open'))();
   BoolColumn get archived => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
@@ -213,7 +219,8 @@ class CareTaskEvents extends Table {
   TextColumn get id => text()();
   TextColumn get profileId => text().references(Profiles, #id)();
   TextColumn get taskId => text().references(CareTasks, #id)();
-  TextColumn get action => text()(); // created | edited | open | done | deferred | archived
+  TextColumn get action => text()(); // includes completed_cycle for repeating tasks
+  DateTimeColumn get scheduledFor => dateTime().nullable()();
   DateTimeColumn get recordedAt => dateTime()();
   @override
   Set<Column> get primaryKey => {id};
@@ -269,15 +276,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (migrator) async => migrator.createAll(),
         onUpgrade: (migrator, from, to) async {
           // All upgrade paths are additive. Users can jump directly from
-          // v1 to v4 without installing every intermediate build.
-          if (to != 4 || from < 1 || from > 3) {
+          // v1 to v5 without installing every intermediate build.
+          if (to != 5 || from < 1 || from > 4) {
             throw StateError('Missing approved database migration $from -> $to');
           }
           await transaction(() async {
@@ -291,11 +298,21 @@ class AppDatabase extends _$AppDatabase {
               await migrator.createTable(healthMeasurements);
               await migrator.createTable(healthMeasurementVersions);
             }
-            await migrator.createTable(careVisits);
-            await migrator.createTable(careTasks);
-            await migrator.createTable(careTaskEvents);
-            await migrator.createTable(visitChecklistItems);
-            await migrator.createTable(visitQuestions);
+            if (from <= 3) {
+              await migrator.createTable(careVisits);
+              await migrator.createTable(careTasks);
+              await migrator.createTable(careTaskEvents);
+              await migrator.createTable(visitChecklistItems);
+              await migrator.createTable(visitQuestions);
+            } else {
+              await migrator.addColumn(careVisits, careVisits.reminderMinutesBefore);
+              await migrator.addColumn(careVisits, careVisits.showChecklistDayBefore);
+              await migrator.addColumn(careVisits, careVisits.medicationId);
+              await migrator.addColumn(careTasks, careTasks.reminderMinutesBefore);
+              await migrator.addColumn(careTasks, careTasks.repeatRule);
+              await migrator.addColumn(careTasks, careTasks.repeatAnchorDay);
+              await migrator.addColumn(careTaskEvents, careTaskEvents.scheduledFor);
+            }
           });
         },
         beforeOpen: (details) async {
