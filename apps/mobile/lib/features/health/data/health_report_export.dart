@@ -175,20 +175,33 @@ class HealthReportExport {
         if (records.isEmpty)
           label('داده‌ای ثبت نشده است.')
         else
-          pw.Directionality(
-            textDirection: pw.TextDirection.rtl,
-            child: pw.Table.fromTextArray(
-              data: table,
-              headerCount: 1,
-              headerStyle: style(strong: true),
-              cellStyle: style(size: 9),
-              cellAlignment: pw.Alignment.centerRight,
-              cellPadding: const pw.EdgeInsets.all(5),
-              border: pw.TableBorder.all(
-                color: const PdfColor(0.81, 0.86, 0.88),
-                width: 0.4,
-              ),
+          pw.Table(
+            columnWidths: const {
+              0: pw.FlexColumnWidth(2),
+              1: pw.FlexColumnWidth(1.5),
+              2: pw.FlexColumnWidth(1.3),
+              3: pw.FlexColumnWidth(2),
+            },
+            border: pw.TableBorder.all(
+              color: const PdfColor(0.81, 0.86, 0.88),
+              width: 0.4,
             ),
+            children: [
+              for (var i = 0; i < table.length; i++)
+                pw.TableRow(
+                  children: [
+                    for (final cell in table[i])
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: label(
+                          cell,
+                          strong: i == 0,
+                          size: 9,
+                        ),
+                      ),
+                  ],
+                ),
+            ],
           ),
         pw.SizedBox(height: 10),
         label('تنها اطلاعات شاخص و پروفایل انتخاب‌شده در گزارش آمده است.'),
