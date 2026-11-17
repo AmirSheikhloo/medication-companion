@@ -1,15 +1,14 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../../../core/calendar/persian_date.dart';
+import '../../../core/calendar/persian_date_picker.dart';
 import '../data/care_repository.dart';
 import '../data/care_reminder_coordinator.dart';
 
 String _dateLabel(DateTime? date) {
   if (date == null) return 'بدون موعد';
-  final local = date.toLocal();
-  String two(int value) => value.toString().padLeft(2, '0');
-  return '${local.year}/${two(local.month)}/${two(local.day)} '
-      '${two(local.hour)}:${two(local.minute)}';
+  return '${persianDateLabel(date, showTime: true)} (شمسی)';
 }
 
 String _visitStatus(String status) => switch (status) {
@@ -733,9 +732,12 @@ class _CareEditorState extends State<_CareEditor> {
 
   Future<void> _pickDate() async {
     final original = _when ?? DateTime.now();
-    final day = await showDatePicker(
-      context: context, initialDate: original,
-      firstDate: DateTime(2000), lastDate: DateTime(2100),
+    final day = await showPersianDatePicker(
+      context: context,
+      initialDate: original,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      title: 'تاریخ پیگیری یا ویزیت',
     );
     if (day == null || !mounted) return;
     final time = await showTimePicker(context: context,
@@ -762,9 +764,9 @@ class _CareEditorState extends State<_CareEditor> {
           if (!question) ...[
             ListTile(
               title: Text(_dateLabel(_when)),
-              subtitle: Text(followUp ? 'تاریخ پایان دوره یا تاریخ مرجع * (میلادی)'
-                  : visit ? 'زمان ویزیت * (میلادی)'
-                  : 'موعد کار (اختیاری، میلادی)'),
+              subtitle: Text(followUp ? 'تاریخ پایان دوره یا مرجع * (شمسی/میلادی)'
+                  : visit ? 'زمان ویزیت * (شمسی/میلادی)'
+                  : 'موعد کار (اختیاری، شمسی/میلادی)'),
               leading: const Icon(Icons.calendar_month_outlined),
               onTap: _pickDate,
               trailing: !visit && _when != null
