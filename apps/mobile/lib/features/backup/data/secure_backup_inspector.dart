@@ -177,7 +177,10 @@ Map<String, int> _inspect(String path, BackupSchema expectedSchema) {
   }
   // sqlite3.open(readOnly) is not allowed to create or change the file.
   final db = sqlite.sqlite3.open(path, mode: sqlite.OpenMode.readOnly);
-  final callback = ffi.NativeCallable<_Authorization>.isolateLocal(_authorize);
+  final callback = ffi.NativeCallable<_Authorization>.isolateLocal(
+    _authorize,
+    exceptionalReturn: _sqliteDeny,
+  );
   try {
     // All config operations MUST succeed, otherwise stop before SQL executes.
     // sqlite3_db_config constants from sqlite3.h.
@@ -189,7 +192,8 @@ Map<String, int> _inspect(String path, BackupSchema expectedSchema) {
     db.execute('PRAGMA mmap_size=0');
     db.execute('PRAGMA cell_size_check=ON');
     db.execute('PRAGMA writable_schema=OFF');
-    if (_sqliteSetAuthorizer(db.handle, callback.nativeFunction, ffi.nullptr) != 0) {
+    if (_sqliteSetAuthorizer(db.handle.cast<ffi.Void>(), callback.nativeFunction,
+            ffi.nullptr) != 0) {
       throw const FormatException('SQLite authorizer unavailable');
     }
 
