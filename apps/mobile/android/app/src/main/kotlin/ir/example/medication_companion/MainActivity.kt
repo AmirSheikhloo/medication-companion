@@ -1,5 +1,98 @@
 package ir.example.medication_companion
 
+import android.app.Activity
+import android.content.Intent
+import android.os.Handler
+import android.os.Looper
+import android.net.Uri
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.Executors
 
-class MainActivity : FlutterActivity()
+class MainActivity : FlutterActivity() {
+    private val requestCreateDocument = 9321
+    private val worker = Executors.newSingleThreadExecutor()
+    private val ui = Handler(Looper.getMainLooper())
+    private var pendingPicker: MethodChannel.Result? = null
+    private var selectedDestination: Uri? = null
+    private var exporting = false
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        // In M4-01B no restore journal is ever written. Future M4-01D must run
+        // RestoreRecoveryBootstrapper before this cleanup or any DB access.
+        SecureBackupEngine(applicationContext).sweepAbandonedExportStaging()
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "medication_companion/secure_backup")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "chooseDestination" -> {
+                        if (pendingPicker != null || exporting) {
+                            result.error("BUSY", "یک پشتیبان دیگر در حال انجام است", null)
+                        } else {
+                            selectedDestination = null
+                            pendingPicker = result
+                            val filename = call.argument<String>("filename")
+                                ?: "medication-backup.medbackup"
+                            try {
+                                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                    addCategory(Intent.CATEGORY_OPENABLE)
+                                    type = "application/octet-stream"
+                                    putExtra(Intent.EXTRA_TITLE, filename)
+                                }
+                                startActivityForResult(intent, requestCreateDocument)
+                            } catch (error: Exception) {
+                                pendingPicker = null
+                                result.error("PICKER", "انتخاب محل ذخیره ممکن نشد", null)
+                            }
+                        }
+                    }
+                    "export" -> {
+                        val uri = selectedDestination
+                        val path = call.argument<String>("databasePath")
+                        val password = call.argument<String>("password")
+                        if (exporting || uri == null || path.isNullOrBlank() || password == null) {
+                            result.error("INVALID", "درخواست پشتیبان نامعتبر است", null)
+                        } else {
+                            exporting = true
+                            selectedDestination = null // consume one picker result exactly once
+                            worker.execute {
+                                try {
+                                    val output = SecureBackupEngine(applicationContext).export(path, uri, password)
+                                    ui.post {
+                                        exporting = false
+                                        result.success(output)
+                                    }
+                                } catch (error: Throwable) {
+                                    val message = if (error is BackupProblem) error.message
+                                        else "ساخت پشتیبان ناموفق بود؛ اطلاعات فعلی شما تغییر نکرد"
+                                    ui.post {
+                                        exporting = false
+                                        result.error("EXPORT_FAILED", message, null)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != requestCreateDocument) return
+        val callback = pendingPicker ?: return
+        pendingPicker = null
+        selectedDestination = if (resultCode == Activity.RESULT_OK) data?.data else null
+        callback.success(selectedDestination != null)
+    }
+
+    override fun onDestroy() {
+        pendingPicker?.error("CANCELLED", "انتخاب فایل متوقف شد", null)
+        pendingPicker = null
+        selectedDestination = null
+        worker.shutdown()
+        super.onDestroy()
+    }
+}

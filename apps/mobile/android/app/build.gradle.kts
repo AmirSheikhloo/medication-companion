@@ -39,6 +39,9 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Lightweight, incremental GCM engine and Argon2id; never use Conscrypt's
+    // buffer-accumulating AES/GCM Cipher.update for 64 MiB backups.
+    implementation("org.bouncycastle:bcprov-jdk18on:1.83")
 }
 
 flutter {
