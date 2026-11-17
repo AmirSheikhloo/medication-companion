@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../../../core/calendar/persian_date.dart';
+import '../../../core/calendar/persian_date_picker.dart';
 import '../data/health_repository.dart';
 import '../domain/health_metric.dart';
 import 'health_chart.dart';
@@ -406,11 +408,12 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
   }
 
   Future<void> _pickDate() async {
-    final date = await showDatePicker(
+    final date = await showPersianDatePicker(
       context: context,
       initialDate: _observedAt,
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
+      title: 'تاریخ اندازه‌گیری',
     );
     if (!mounted || date == null) return;
     setState(() => _observedAt = DateTime(
@@ -524,7 +527,7 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
               OutlinedButton.icon(
                 onPressed: _pickDate,
                 icon: const Icon(Icons.calendar_today_outlined),
-                label: const Text('تاریخ (میلادی)'),
+                label: const Text('تاریخ (شمسی/میلادی)'),
               ),
               OutlinedButton.icon(
                 onPressed: _pickTime,
@@ -533,7 +536,8 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
               ),
             ],
           ),
-          Text(healthDateTimeLabel(_observedAt)),
+          Text('شمسی: ${persianDateLabel(_observedAt, showTime: true)}'
+              ' · میلادی: ${healthDateTimeLabel(_observedAt)}'),
           const SizedBox(height: 12),
           TextField(
             controller: _note,

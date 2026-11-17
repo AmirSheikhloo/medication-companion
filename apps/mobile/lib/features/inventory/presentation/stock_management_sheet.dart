@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../../../core/calendar/persian_date.dart';
+import '../../../core/calendar/persian_date_picker.dart';
 import '../data/inventory_repository.dart';
 import '../domain/stock_quantity.dart';
 
@@ -153,12 +155,12 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   };
 
   Future<void> _chooseExpiry() async {
-    final date = await showDatePicker(
+    final date = await showPersianDatePicker(
       context: context,
       initialDate: _expiry ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
-      helpText: 'تاریخ انقضا (میلادی)',
+      title: 'تاریخ انقضای بسته',
     );
     if (mounted && date != null) setState(() => _expiry = date);
   }
@@ -320,7 +322,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                       icon: const Icon(Icons.event),
                       label: Text(_expiry == null
                           ? 'تاریخ انقضا (اختیاری)'
-                          : StockQuantity.isoDate(_expiry!)),
+                          : _precision == 'month'
+                              ? 'ماه میلادی ${gregorianDateLabel(_expiry!)}'
+                              : 'روز شمسی ${persianDateLabel(_expiry!)}'),
                     ),
                   ),
                   if (_expiry != null)
@@ -334,7 +338,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   DropdownButtonFormField<String>(
                     initialValue: _precision,
                     decoration: const InputDecoration(
-                      labelText: 'دقت تاریخ (میلادی)',
+                      labelText: 'دقت تاریخ (ماه فقط میلادی)',
                     ),
                     items: const [
                       DropdownMenuItem(value: 'day', child: Text('روز دقیق')),
@@ -344,6 +348,8 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                       if (value != null) setState(() => _precision = value);
                     },
                   ),
+                if (_expiry != null && _precision == 'month')
+                  const Text('برای تاریخ با دقت ماه، همان ماه میلادیِ تاریخ انتخابی ثبت می‌شود.'),
                 CheckboxListTile(
                   value: _selectNew,
                   title: const Text('این بسته برای کسر موجودی انتخاب شود'),
