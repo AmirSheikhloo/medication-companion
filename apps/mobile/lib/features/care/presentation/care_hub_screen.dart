@@ -778,7 +778,7 @@ class _CareEditorState extends State<_CareEditor> {
           if (visit) ...[
             if (followUp)
               const Padding(padding: EdgeInsets.all(8),
-                child: Text('ویزیت سه ماه تقویمی پس از تاریخ انتخابی ساخته می‌شود؛'
+                child: Text('ویزیت سه ماه تقویمی میلادی پس از تاریخ انتخابی ساخته می‌شود؛'
                     ' هیچ دارویی خودکار قطع یا تغییر نمی‌کند.')),
             TextField(controller: _doctor, maxLength: 120,
                 decoration: const InputDecoration(labelText: 'پزشک (اختیاری)')),
@@ -846,7 +846,7 @@ class _CareEditorState extends State<_CareEditor> {
                 DropdownMenuItem(value: 'none', child: Text('بدون تکرار')),
                 DropdownMenuItem(value: 'daily', child: Text('روزانه')),
                 DropdownMenuItem(value: 'weekly', child: Text('هفتگی')),
-                DropdownMenuItem(value: 'monthly', child: Text('ماهانه')),
+                DropdownMenuItem(value: 'monthly', child: Text('ماهانه (میلادی)')),
               ],
               onChanged: (value) => setState(() => _repeatRule = value ?? 'none'),
             ),
