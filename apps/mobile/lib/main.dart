@@ -9,6 +9,7 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'core/storage/app_database.dart';
+import 'features/backup/data/restore_startup_gate.dart';
 import 'features/medications/data/medication_repository.dart';
 import 'features/medications/presentation/medication_home.dart';
 import 'features/profiles/data/profile_repository.dart';
@@ -19,9 +20,41 @@ import 'features/care/data/care_reminder_coordinator.dart';
 import 'features/care/data/android_care_reminder_port.dart';
 import 'm0/test_timings.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MedicationM0App());
+  // Restore recovery must be proven safe BEFORE any widget, coordinator or
+  // database is constructed. Unknown journal state fails closed.
+  final safe = await RestoreStartupGate.runBeforeAppStart();
+  runApp(safe ? const MedicationM0App() : const RecoveryOnlyApp());
+}
+
+class RecoveryOnlyApp extends StatelessWidget {
+  const RecoveryOnlyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'همراه دارو — حفاظت از اطلاعات',
+        debugShowCheckedModeBanner: false,
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            appBar: AppBar(title: const Text('حفاظت از اطلاعات')),
+            body: const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  'وضعیت بازیابی پایگاه داده هنوز ایمن تأیید نشده است. '
+                  'برای جلوگیری از حذف یا تغییر ناخواستهٔ اطلاعات، '
+                  'برنامه در حالت محافظت باقی می‌ماند. '
+                  'برنامه یا فایل‌های آن را حذف نکنید. '
+                  'برای بررسی وضعیت بازیابی از نسخهٔ پشتیبانی و راهنمای فنی استفاده کنید.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class MedicationM0App extends StatelessWidget {

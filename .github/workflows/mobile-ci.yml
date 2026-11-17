@@ -56,6 +56,9 @@ jobs:
       - name: Assert Android SQLite authorizer exports
         run: python3 ../../.github/scripts/assert_android_sqlite_authorizer.py build/app/outputs/flutter-apk/app-debug.apk
 
+      - name: Assert safe notification boot receiver
+        run: python3 ../../.github/scripts/assert_safe_boot_receiver.py build/app/outputs/flutter-apk/app-debug.apk
+
       - name: Upload Android emulator test APK
         if: success()
         uses: actions/upload-artifact@v4

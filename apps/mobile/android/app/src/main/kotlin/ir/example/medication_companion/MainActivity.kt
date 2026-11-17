@@ -24,12 +24,18 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        // In M4-01B no restore journal is ever written. Future M4-01D must run
-        // RestoreRecoveryBootstrapper before this cleanup or any DB access.
-        SecureBackupEngine(applicationContext).sweepAbandonedExportStaging()
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "medication_companion/secure_backup")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "bootstrapRecovery" -> {
+                        worker.execute {
+                            val safe = NativeBackupStartupGate.isSafeForDatabaseOrBoot(applicationContext)
+                            if (safe) {
+                                SecureBackupEngine(applicationContext).sweepAbandonedExportStaging()
+                            }
+                            ui.post { result.success(safe) }
+                        }
+                    }
                     "testCryptoProvider" -> {
                         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 || exporting) {
                             result.error("DISABLED", "تست رمزنگاری فقط در نسخه آزمایشی فعال است", null)
