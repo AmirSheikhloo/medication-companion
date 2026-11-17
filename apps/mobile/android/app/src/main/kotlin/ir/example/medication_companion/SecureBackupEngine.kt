@@ -261,6 +261,63 @@ internal class SecureBackupEngine(private val context: Context) {
         }
     }
 
+    /** Debug-only, cross-runtime KAT from libsodium Argon2id13 and OpenSSL AES-GCM.
+     * No real data, filesystem access, or deterministic production nonce.
+     */
+    fun verifyKnownAnswerVector(): Boolean {
+        val password = "M4-01 vector فارسی🌷 2026!".toByteArray(Charsets.UTF_8)
+        val salt = ByteArray(16) { it.toByte() }
+        val nonce = ByteArray(12) { (it + 16).toByte() }
+        val key = deriveKey(password, salt)
+        try {
+            if (!MessageDigest.isEqual(key, hex("ecc6fe38b3878f93ac4e08419b09f4b17658bf02abd7f0da7be61601eb00827f"))) {
+                return false
+            }
+            val prefix = ByteBuffer.allocate(headerSize).order(ByteOrder.BIG_ENDIAN).apply {
+                put(byteArrayOf(0x4d, 0x43, 0x42, 0x4b))
+                put(1)
+                putShort(90)
+                put("medication-companion\u0000".toByteArray(Charsets.US_ASCII))
+                put(ByteArray(16) { (it + 32).toByte() })
+                putLong(1794910000000)
+                putInt(5)
+                put(1)
+                put(1)
+                putInt(65536)
+                putInt(3)
+                put(1)
+                put(salt)
+                put(nonce)
+                putShort(0)
+                putLong(4096)
+            }.array()
+            val payload = ByteArray(4096)
+            "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII).copyInto(payload)
+            val output = ByteArray(4096 + 32)
+            val encryptor = newGcm(true, key, nonce, prefix)
+            val chunk = encryptor.processBytes(payload, 0, payload.size, output, 0)
+            val finalBytes = encryptor.doFinal(output, chunk)
+            val sealed = output.copyOf(chunk + finalBytes)
+            val frameHash = MessageDigest.getInstance("SHA-256").digest(prefix + sealed)
+            if (!MessageDigest.isEqual(frameHash,
+                    hex("6e22ddbca135a55a2ec5e4febfd730c8c94cd17ee7f30138abc7b4c34851106f"))) {
+                return false
+            }
+            val decryptor = newGcm(false, key, nonce, prefix)
+            val recovered = ByteArray(4096 + 32)
+            val count = decryptor.processBytes(sealed, 0, sealed.size, recovered, 0)
+            val tail = decryptor.doFinal(recovered, count)
+            return count + tail == payload.size &&
+                MessageDigest.isEqual(payload, recovered.copyOf(count + tail))
+        } finally {
+            Arrays.fill(password, 0)
+            Arrays.fill(key, 0)
+        }
+    }
+
+    private fun hex(value: String): ByteArray = value.chunked(2)
+        .map { it.toInt(16).toByte() }.toByteArray()
+
     private fun newGcm(encrypting: Boolean, key: ByteArray, nonce: ByteArray, aad: ByteArray): GCMBlockCipher {
         val cipher = GCMBlockCipher(AESEngine())
         cipher.init(encrypting, AEADParameters(KeyParameter(key), 128, nonce, aad))

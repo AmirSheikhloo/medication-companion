@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 
 import '../../../core/storage/app_database.dart';
@@ -89,6 +90,30 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
     }
   }
 
+  Future<void> _testCryptoEngine() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+      _result = null;
+      _phase = 'بررسی مستقل Argon2id و AES-GCM روی همین گوشی...';
+    });
+    try {
+      final valid = await _channel.invokeMethod<bool>('testCryptoProvider');
+      if (mounted) {
+        setState(() {
+          _phase = '';
+          _result = valid == true
+              ? 'آزمون تطبیق رمزنگاری با بردار مرجع مستقل موفق بود.'
+              : 'آزمون رمزنگاری ناموفق بود؛ از این نسخه برای پشتیبان استفاده نکنید.';
+        });
+      }
+    } on PlatformException catch (error) {
+      if (mounted) setState(() => _error = error.message ?? 'آزمون رمزنگاری انجام نشد.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   String _two(int value) => value.toString().padLeft(2, '0');
 
   @override
@@ -156,6 +181,14 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
               icon: const Icon(Icons.save_alt),
               label: const Text('انتخاب محل و ساخت پشتیبان'),
             ),
+            if (kDebugMode) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _testCryptoEngine,
+                icon: const Icon(Icons.verified_outlined),
+                label: const Text('تست موتور رمزنگاری — نسخه آزمایشی'),
+              ),
+            ],
             if (_busy) ...[
               const SizedBox(height: 20),
               const Center(child: CircularProgressIndicator()),

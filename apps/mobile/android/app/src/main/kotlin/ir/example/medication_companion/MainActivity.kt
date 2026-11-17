@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.net.Uri
+import android.content.pm.ApplicationInfo
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -26,6 +27,18 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "medication_companion/secure_backup")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "testCryptoProvider" -> {
+                        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 || exporting) {
+                            result.error("DISABLED", "تست رمزنگاری فقط در نسخه آزمایشی فعال است", null)
+                        } else {
+                            worker.execute {
+                                val valid = try {
+                                    SecureBackupEngine(applicationContext).verifyKnownAnswerVector()
+                                } catch (_: Throwable) { false }
+                                ui.post { result.success(valid) }
+                            }
+                        }
+                    }
                     "chooseDestination" -> {
                         if (pendingPicker != null || exporting) {
                             result.error("BUSY", "یک پشتیبان دیگر در حال انجام است", null)
