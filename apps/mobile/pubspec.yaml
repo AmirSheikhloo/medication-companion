@@ -36,3 +36,15 @@ flutter:
   assets:
     - assets/fonts/NotoSansArabic-Regular.ttf
     - assets/fonts/NotoSansArabic-Bold.ttf
+
+# Linux native-assets builds strip sqlite3 symbols not named in upstream's
+# generated FFI bindings. The authorizer is deliberately not in that list.
+# Use the system SQLite on CI Linux so tests exercise the REAL authorizer;
+# mobile platforms keep the bundled native SQLite engine. The Android symbol
+# still requires device validation before release.
+hooks:
+  user_defines:
+    sqlite3:
+      source:
+        linux: system
+        default: sqlite3

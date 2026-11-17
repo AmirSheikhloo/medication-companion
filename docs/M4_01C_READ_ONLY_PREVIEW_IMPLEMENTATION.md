@@ -43,5 +43,8 @@ emulator security tests pass. R7 remains authoritative.
    schema as a local baseline, not a published per-version fixture hash.
    A maliciously modified local database is outside this beta trust model.
 6. Safety regression test depends on the `sqlite3` native asset exposing
-   `sqlite3_set_authorizer`. A missing symbol is a **CI blocker**; do not ship
-   any fallback that opens untrusted SQLite without authorizer protections.
+   `sqlite3_set_authorizer`. Linux CI uses the system libsqlite3 because the
+   upstream SQLite3 Linux *bundled* linker script strips this unbound symbol.
+   Android uses the bundled library and still requires a direct emulator test.
+   A missing symbol is a **device blocker**; do not ship any fallback that
+   opens untrusted SQLite without authorizer protections.

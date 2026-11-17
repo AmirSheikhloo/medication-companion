@@ -73,7 +73,7 @@ void main() {
   test('an altered trusted schema baseline is rejected', () {
     final altered = [...baseline]..removeLast();
     expect(
-      schemaTemplate([
+      () => schemaTemplate([
         {'type': 'view', 'name': 'evil', 'tbl_name': 'evil', 'sql': 'SELECT 1'},
       ]),
       throwsFormatException,
