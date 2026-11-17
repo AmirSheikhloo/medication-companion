@@ -25,7 +25,7 @@ class AndroidCareReminderPort implements CareReminderNotificationPort {
       _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
 
-  static const _details = NotificationDetails(
+  static NotificationDetails _details(String body) => NotificationDetails(
     android: AndroidNotificationDetails(
       'm3_care_reminder_v1',
       'پیگیری و ویزیت',
@@ -34,6 +34,7 @@ class AndroidCareReminderPort implements CareReminderNotificationPort {
       priority: Priority.high,
       category: AndroidNotificationCategory.reminder,
       visibility: NotificationVisibility.private,
+      styleInformation: BigTextStyleInformation(body),
       playSound: true,
       enableVibration: true,
       fullScreenIntent: false,
@@ -84,7 +85,7 @@ class AndroidCareReminderPort implements CareReminderNotificationPort {
         title: job.title,
         body: job.body,
         scheduledDate: tz.TZDateTime.from(job.localAt, tz.local),
-        notificationDetails: _details,
+        notificationDetails: _details(job.body),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
     }
@@ -97,7 +98,7 @@ class AndroidCareReminderPort implements CareReminderNotificationPort {
         body: 'اعلان آزمایشی ۵ ثانیه‌ای؛ نیاز به اقدام پزشکی نیست.',
         scheduledDate: tz.TZDateTime.now(tz.local)
             .add(const Duration(seconds: 5)),
-        notificationDetails: _details,
+        notificationDetails: _details('اعلان آزمایشی ۵ ثانیه‌ای؛ نیاز به اقدام پزشکی نیست.'),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
 }
