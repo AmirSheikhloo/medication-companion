@@ -25,7 +25,7 @@ class AndroidReminderPort implements ReminderNotificationPort {
       _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
 
-  static const _details = NotificationDetails(
+  static NotificationDetails _details(String body) => NotificationDetails(
     android: AndroidNotificationDetails(
       'm2_medication_reminder_v1',
       'یادآور دارو',
@@ -34,6 +34,7 @@ class AndroidReminderPort implements ReminderNotificationPort {
       priority: Priority.high,
       category: AndroidNotificationCategory.reminder,
       visibility: NotificationVisibility.private,
+      styleInformation: BigTextStyleInformation(body),
       playSound: true,
       enableVibration: true,
       fullScreenIntent: false,
@@ -89,7 +90,7 @@ class AndroidReminderPort implements ReminderNotificationPort {
         title: job.title,
         body: job.body,
         scheduledDate: local,
-        notificationDetails: _details,
+        notificationDetails: _details(job.body),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents:
             job.daily ? DateTimeComponents.time : null,
@@ -107,7 +108,7 @@ class AndroidReminderPort implements ReminderNotificationPort {
       body: 'اعلان آزمایشی ۵ ثانیه‌ای؛ دارویی مصرف نکنید.',
       scheduledDate:
           tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5)),
-      notificationDetails: _details,
+      notificationDetails: _details('اعلان آزمایشی ۵ ثانیه‌ای؛ دارویی مصرف نکنید.'),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
