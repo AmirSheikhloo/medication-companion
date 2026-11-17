@@ -19,6 +19,9 @@ dependencies:
   # M1 offline persistence (the M0 UI remains unchanged in this PR).
   drift: 2.35.4
   drift_flutter: 0.3.1
+  # M4-01C: pinned FFI SQLite engine for fail-closed, read-only backup inspection.
+  sqlite3: 3.9.1
+  ffi: 2.2.0
   uuid: 4.6.0
 
 dev_dependencies:
