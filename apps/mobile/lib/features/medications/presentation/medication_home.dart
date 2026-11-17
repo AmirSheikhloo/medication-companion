@@ -16,6 +16,7 @@ import '../../health/presentation/health_tab.dart';
 import '../../care/data/care_repository.dart';
 import '../../care/presentation/care_hub_screen.dart';
 import '../../care/data/care_reminder_coordinator.dart';
+import '../../backup/presentation/secure_backup_screen.dart';
 
 const _teal = Color(0xFF40E0D0);
 const _deepTeal = Color(0xFF008F87);
@@ -684,6 +685,20 @@ class _MedicationHomeState extends State<MedicationHome>
   Widget _moreTab() => ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _sectionTitle('پشتیبان و بازیابی'),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _saving
+                ? null
+                : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) =>
+                          SecureBackupScreen(database: widget.repository.db),
+                    )),
+            icon: const Icon(Icons.enhanced_encryption_outlined),
+            label: const Text('ساخت پشتیبان رمزگذاری‌شده'),
+          ),
+          const Text('بازگردانی فایل پشتیبان پس از آزمون‌های ایمنی فعال می‌شود.'),
+          const SizedBox(height: 20),
           _sectionTitle('پیگیری‌ها و ویزیت‌ها'),
           const SizedBox(height: 8),
           OutlinedButton.icon(
@@ -758,7 +773,7 @@ class _MedicationHomeState extends State<MedicationHome>
           ),
           const SizedBox(height: 20),
           const _InfoNote(
-            'حالت مهمان کاملاً محلی است. هنوز حساب آنلاین، همگام‌سازی، پشتیبان رمزنگاری‌شده و پنل مدیریتی فعال نیستند. برای داده پزشکی واقعی تا تکمیل امنیت و پشتیبان‌گیری از این نسخه آزمایشی استفاده نکنید.',
+            'حالت مهمان کاملاً محلی است. هنوز حساب آنلاین، همگام‌سازی، بازیابی پشتیبان و پنل مدیریتی فعال نیستند. برای داده پزشکی واقعی تا تکمیل امنیت و آزمون بازیابی از این نسخه آزمایشی استفاده نکنید.',
           ),
         ],
       );
