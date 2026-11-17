@@ -26,14 +26,19 @@ android {
 
     buildTypes {
         getByName("debug") {
-            // GitHub Actions uses an ephemeral Android debug signing key.
-            // A CI-built APK cannot update a locally signed APK with the same
-            // applicationId. Keep the owner's existing emulator data intact
-            // by installing the CI preview as a separate, isolated app.
+            // Hosted CI runners use ephemeral debug signing keys. Give each
+            // CI build its own applicationId: even the previous CI preview
+            // cannot be upgraded with a differently signed key. Never remove
+            // a user's installed test data merely to install the next build.
             if (System.getenv("GITHUB_ACTIONS") == "true") {
-                applicationIdSuffix = ".m401preview"
+                val runNumber = System.getenv("GITHUB_RUN_NUMBER")
+                    ?.filter { it.isDigit() }
+                    ?.take(10)
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: error("GITHUB_RUN_NUMBER is required for isolated CI preview")
+                applicationIdSuffix = ".m4r$runNumber"
                 versionNameSuffix = "-ci-preview"
-                manifestPlaceholders["appLabel"] = "همراه دارو (تست M4)"
+                manifestPlaceholders["appLabel"] = "همراه دارو (تست $runNumber)"
             }
         }
         release {

@@ -66,15 +66,17 @@ class MainActivity : FlutterActivity() {
                     "export" -> {
                         val uri = selectedDestination
                         val path = call.argument<String>("databasePath")
+                        val snapshotPath = call.argument<String>("snapshotPath")
                         val password = call.argument<String>("password")
-                        if (exporting || importing || uri == null || path.isNullOrBlank() || password == null) {
+                        if (exporting || importing || uri == null || path.isNullOrBlank() ||
+                            snapshotPath.isNullOrBlank() || password == null) {
                             result.error("INVALID", "درخواست پشتیبان نامعتبر است", null)
                         } else {
                             exporting = true
                             selectedDestination = null // consume one picker result exactly once
                             worker.execute {
                                 try {
-                                    val output = SecureBackupEngine(applicationContext).export(path, uri, password)
+                                    val output = SecureBackupEngine(applicationContext).export(path, snapshotPath, uri, password)
                                     ui.post {
                                         exporting = false
                                         result.success(output)
@@ -87,6 +89,35 @@ class MainActivity : FlutterActivity() {
                                         result.error("EXPORT_FAILED", message, null)
                                     }
                                 }
+                            }
+                        }
+                    }
+                    "prepareExport" -> {
+                        val path = call.argument<String>("databasePath")
+                        if (exporting || importing || selectedDestination == null || path.isNullOrBlank()) {
+                            result.error("INVALID", "درخواست آماده‌سازی پشتیبان نامعتبر است", null)
+                        } else {
+                            worker.execute {
+                                try {
+                                    val root = SecureBackupEngine(applicationContext).prepareExport(path)
+                                    ui.post { result.success(root) }
+                                } catch (error: Exception) {
+                                    val message = if (error is BackupProblem) error.message
+                                        else "فضای امن برای پشتیبان در دسترس نیست"
+                                    ui.post { result.error("PREPARE_FAILED", message, null) }
+                                }
+                            }
+                        }
+                    }
+                    "discardDestination" -> {
+                        val uri = selectedDestination
+                        selectedDestination = null
+                        if (uri == null) {
+                            result.success(true)
+                        } else {
+                            worker.execute {
+                                SecureBackupEngine(applicationContext).discardPendingDocument(uri)
+                                ui.post { result.success(true) }
                             }
                         }
                     }

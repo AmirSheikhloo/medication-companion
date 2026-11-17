@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/app_database.dart';
 import '../data/secure_backup_inspector.dart';
+import '../data/secure_backup_snapshot.dart';
 import '../domain/backup_password_policy.dart';
 
 class SecureBackupScreen extends StatefulWidget {
@@ -144,6 +148,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
       _result = null;
       _phase = 'در انتظار انتخاب محل ذخیره...';
     });
+    Directory? prepared;
     try {
       final now = DateTime.now();
       final date = '${now.year}${_two(now.month)}${_two(now.day)}';
@@ -157,15 +162,30 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
         if (mounted) setState(() => _phase = 'انتخاب فایل لغو شد؛ هیچ داده‌ای تغییر نکرد.');
         return;
       }
-      if (mounted) setState(() => _phase = 'ساخت تصویر امن، رمزگذاری و راستی‌آزمایی...');
+      if (mounted) setState(() => _phase = 'آماده‌سازی تصویر یکپارچه و خواندنی دیتابیس...');
       final info = await widget.database.customSelect('PRAGMA database_list').get();
       final files = info.where((row) => row.read<String>('name') == 'main');
       if (files.isEmpty) throw StateError('مسیر پایگاه داده پیدا نشد');
       final databasePath = files.first.read<String>('file');
       if (databasePath.isEmpty) throw StateError('مسیر پایگاه داده خالی است');
+      final stagingRoot = await _channel.invokeMethod<String>(
+        'prepareExport',
+        {'databasePath': databasePath},
+      );
+      if (stagingRoot == null || stagingRoot.isEmpty) {
+        throw StateError('فضای موقت خصوصی تأیید نشد');
+      }
+      prepared = await Directory('$stagingRoot/${const Uuid().v4()}').create();
+      final snapshotPath = '${prepared.path}/snapshot.sqlite';
+      await createReadOnlySnapshot(databasePath, snapshotPath);
+      if (mounted) setState(() => _phase = 'رمزگذاری و راستی‌آزمایی تصویر امن...');
       final output = await _channel.invokeMapMethod<String, dynamic>(
         'export',
-        {'databasePath': databasePath, 'password': password},
+        {
+          'databasePath': databasePath,
+          'snapshotPath': snapshotPath,
+          'password': password,
+        },
       );
       if (!mounted) return;
       final verified = output?['verified'] == true;
@@ -179,12 +199,31 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
         _password.clear();
         _confirmation.clear();
       });
+    } on SnapshotSqliteFailure catch (error) {
+      if (mounted) {
+        setState(() => _error = 'ساخت تصویر یکپارچه SQLite ناموفق بود '
+            '(کد تشخیصی ${error.sqliteCode}). اطلاعات فعلی تغییر نکرد.');
+      }
     } on PlatformException catch (error) {
       if (mounted) setState(() => _error = error.message ?? 'ساخت پشتیبان انجام نشد.');
     } catch (_) {
       if (mounted) setState(() => _error = 'ساخت پشتیبان انجام نشد؛ داده‌های فعلی تغییری نکردند.');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (prepared != null) {
+        try {
+          if (await prepared.exists()) await prepared.delete(recursive: true);
+        } catch (_) {
+          if (mounted) setState(() => _error = 'پاکسازی تصویر موقت تأیید نشد؛ '
+              'برنامه را ببندید و دوباره اجرا کنید.');
+        }
+      }
+      try {
+        await _channel.invokeMethod<bool>('discardDestination');
+      } catch (_) { /* Android cold-start sweep handles abandoned staging. */ }
+      if (mounted) setState(() {
+        _busy = false;
+        if (_error != null) _phase = '';
+      });
     }
   }
 

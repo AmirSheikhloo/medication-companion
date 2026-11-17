@@ -47,8 +47,40 @@ internal class SecureBackupEngine(private val context: Context) {
         "care_task_events", "visit_checklist_items", "visit_questions"
     )
 
-    fun export(sourcePath: String, uri: Uri, password: String): Map<String, Any> =
-        exportLock.withLock { exportUnlocked(sourcePath, uri, password) }
+    fun export(sourcePath: String, snapshotPath: String, uri: Uri, password: String): Map<String, Any> =
+        exportLock.withLock { exportUnlocked(sourcePath, snapshotPath, uri, password) }
+
+    /** Checks space and the trusted live database before Dart creates a
+     * consistent, bound VACUUM INTO snapshot through the app's own SQLite FFI.
+     * We only return our private no-backup directory, never an SAF URI.
+     */
+    fun prepareExport(sourcePath: String): String = exportLock.withLock {
+        val source = verifiedSource(sourcePath)
+        val stagingRoot = File(context.noBackupFilesDir, "backup_staging")
+        if (!stagingRoot.isDirectory && !stagingRoot.mkdirs()) {
+            throw BackupProblem("فضای امن موقت در دسترس نیست")
+        }
+        val estimated = (source.length() + File(source.path + "-wal").length())
+            .coerceIn(4096L, maxBytes)
+        if (context.noBackupFilesDir.usableSpace < estimated * 3 + 16L * 1024 * 1024) {
+            throw BackupProblem("فضای داخلی برای ساخت نسخه امن کافی نیست")
+        }
+        stagingRoot.canonicalPath
+    }
+
+    /** Only used for an unconsumed SAF document after an export was cancelled
+     * before encryption. Deletes the empty/partial file best-effort. */
+    fun discardPendingDocument(uri: Uri) = exportLock.withLock { tryDeletePartial(uri) }
+
+    private fun verifiedSource(sourcePath: String): File {
+        val root = context.applicationInfo.dataDir?.let(::File)?.canonicalFile
+            ?: throw BackupProblem("پوشه خصوصی برنامه پیدا نشد")
+        val source = File(sourcePath).canonicalFile
+        if (!source.path.startsWith(root.path + File.separator) || !source.isFile) {
+            throw BackupProblem("مسیر پایگاه داده برنامه تأیید نشد")
+        }
+        return source
+    }
 
     /** Cold-launch cleanup only. A future restore journal always takes priority. */
     fun sweepAbandonedExportStaging() {
@@ -176,34 +208,21 @@ internal class SecureBackupEngine(private val context: Context) {
         file.parentFile?.delete()
     }
 
-    private fun exportUnlocked(sourcePath: String, uri: Uri, password: String): Map<String, Any> {
+    private fun exportUnlocked(sourcePath: String, snapshotPath: String, uri: Uri, password: String): Map<String, Any> {
         requirePassword(password)
-        val root = context.applicationInfo.dataDir?.let(::File)?.canonicalFile
-            ?: throw BackupProblem("پوشه خصوصی برنامه پیدا نشد")
-        val source = File(sourcePath).canonicalFile
-        if (!source.path.startsWith(root.path + File.separator) || !source.isFile) {
-            throw BackupProblem("مسیر پایگاه داده برنامه تأیید نشد")
+        verifiedSource(sourcePath)
+        val stagingRoot = File(context.noBackupFilesDir, "backup_staging").canonicalFile
+        val snapshot = File(snapshotPath).canonicalFile
+        val work = snapshot.parentFile
+            ?: throw BackupProblem("مسیر تصویر موقت تأیید نشد")
+        if (snapshot.name != "snapshot.sqlite" || work.parentFile != stagingRoot ||
+            !Regex("[0-9a-fA-F-]{36}").matches(work.name) || !snapshot.isFile) {
+            throw BackupProblem("مسیر تصویر موقت تأیید نشد")
         }
-        val stagingRoot = File(context.noBackupFilesDir, "backup_staging")
-        if (!stagingRoot.isDirectory && !stagingRoot.mkdirs()) {
-            throw BackupProblem("فضای امن موقت در دسترس نیست")
-        }
-        val work = File(stagingRoot, UUID.randomUUID().toString())
-        if (!work.mkdir()) throw BackupProblem("ساخت پوشه موقت ناموفق بود")
-        val snapshot = File(work, "snapshot.sqlite")
         val encrypted = File(work, "export.medbackup.part")
         val verification = File(work, "verify.sqlite")
         var passwordBytes: ByteArray? = null
         try {
-            // Worst-case allowance covers snapshot, envelope, verification and margin.
-            // Refuse before VACUUM rather than filling internal storage.
-            val expected = (source.length() + File(source.path + "-wal").length())
-                .coerceIn(4096, maxBytes)
-            if (context.noBackupFilesDir.usableSpace < expected * 3 + 16L * 1024 * 1024) {
-                throw BackupProblem("فضای داخلی برای ساخت نسخه امن کافی نیست")
-            }
-
-            createConsistentSnapshot(source, snapshot)
             val snapshotLength = snapshot.length()
             if (snapshotLength !in 4096..maxBytes) {
                 throw BackupProblem("حجم پایگاه داده از سقف ۶۴ مگابایت خارج است")
@@ -274,19 +293,6 @@ internal class SecureBackupEngine(private val context: Context) {
                 if (Character.isLowSurrogate(c)) throw BackupProblem("رمز شامل نویسه نامعتبر است")
                 i++
             }
-        }
-    }
-
-    private fun createConsistentSnapshot(source: File, target: File) {
-        val connection = SQLiteDatabase.openDatabase(source.path, null, SQLiteDatabase.OPEN_READONLY)
-        try {
-            connection.execSQL("PRAGMA busy_timeout=5000")
-            // Parameter bound; no interpolation of paths or active DB copies.
-            connection.execSQL("VACUUM INTO ?", arrayOf(target.absolutePath))
-        } catch (error: Exception) {
-            throw BackupProblem("گرفتن تصویر یکپارچه دیتابیس ناموفق بود", error)
-        } finally {
-            connection.close()
         }
     }
 
