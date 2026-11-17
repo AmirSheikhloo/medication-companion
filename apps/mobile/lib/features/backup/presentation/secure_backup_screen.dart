@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../data/live_database_fingerprint.dart';
 import '../data/secure_backup_inspector.dart';
 import '../data/secure_backup_snapshot.dart';
 import '../domain/backup_password_policy.dart';
@@ -96,13 +97,15 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
         'sql': row.readNullable<String>('sql'),
       }));
       final backupCounts = await inspectAuthenticatedBackup(quarantinedPath, baseline);
-      final currentCounts = <String, int>{};
-      for (final table in backedUpTables) {
-        // Identifiers are from a compile-time whitelist, never from SAF.
-        final row = await widget.database
-            .customSelect('SELECT COUNT(*) AS n FROM "$table"').getSingle();
-        currentCounts[table] = row.read<int>('n');
-      }
+      final location = await widget.database.customSelect('PRAGMA database_list').get();
+      final mainFiles = location.where((row) => row.read<String>('name') == 'main');
+      if (mainFiles.isEmpty) throw const FormatException('Main database not found');
+      final path = mainFiles.first.read<String>('file');
+      // The eight visible counts and the fingerprint of all 17 tables share
+      // one consistent SQLite read snapshot. This fingerprint will be checked
+      // again under the exclusive native Phase B lease before any mutations.
+      final snapshot = await fingerprintLiveDatabase(path);
+      final currentCounts = snapshot.counts;
       if (mounted) {
         setState(() {
           _importCounts = backupCounts;

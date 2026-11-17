@@ -1,6 +1,6 @@
-# M4-01D — Recovery admission and Android boot guard (implementation slice D1)
+# M4-01D — Recovery admission and logical fingerprint (slices D1 + D2a)
 
-Status: **D1 implemented, full M4-01D NOT approved**. This stacked branch is
+Status: **D1 + D2a implemented, full M4-01D NOT approved**. This stacked branch is
 based on M4-01C. The R7 contract remains authoritative. No destructive restore
 action or replacement of the active SQLite database is exposed.
 
@@ -30,14 +30,38 @@ action or replacement of the active SQLite database is exposed.
    ensure the plugin receiver cannot be independently registered and validates
    the SQLite authorizer symbols in all three ABI libraries.
 
+## Implemented in D2a — preview-time logical fingerprint
+
+1. An isolated read-only native SQLite session reads the installed v5 database
+   inside **one SQLite read transaction**, returning exactly 17 table counts
+   and a single SHA-256 of deterministic logical contents.
+2. Fingerprinting domain-separates the format, includes the schema signature,
+   all ordered table/column names and all rows in stable binary-PK order, and
+   type/length-encodes NULL, 64-bit integers, IEEE doubles, UTF-8 and BLOBs.
+   It also includes `sqlite_sequence` **only if it exists** (including its
+   high-water marks), never unconditionally queries an absent internal table.
+3. The read-only import preview now uses counts produced by this same snapshot
+   instead of eight separate, potentially inconsistent live SELECTs. All
+   streaming row access runs off the UI isolate, without collecting plaintext
+   patient records into Dart lists and without logging record-level hashes.
+4. Tests check deterministic ordering, row-content changes despite identical
+   counts, the absence/presence of `sqlite_sequence`, sequence-only mutation,
+   and fail-closed database-version mismatch.
+
+**Not implemented in D2a:** The UI intentionally discards this digest when
+preview ends because the candidate staging file is still cleared and the
+destructive confirmation action is still disabled. D2b must retain the full
+fingerprint, staged candidate SHA and bounded consent session in memory only;
+then the exclusive Phase B owner must re-capture and compare both before any
+side effect. D2a does not itself make destructive restore safe.
+
 ## Required work before enabling replacement (D2–D4)
 
 - A **lifetime-held** database admission lease for every Drift/native handle,
   verified background/other-engine behavior, and a native exclusive restore
   owner. The D1 momentary probe **must not** be treated as that lease.
-- A consistent, all-table logical fingerprint including optional
-  `sqlite_sequence`, two separate consent actions, candidate SHA and strict
-  recheck after quiescing writers. Legacy schema migrations remain blocked
+- Two separate consent actions, candidate SHA and strict **recheck** of the
+  D2a snapshot after quiescing writers. Legacy schema migrations remain blocked
   until complete fixtures and exact authorizer/FK transaction tests exist.
 - Real native durable journal/fsync of files and parent directories, same
   device check, immutable rollback master, WAL-safe sidecar handling, retryable

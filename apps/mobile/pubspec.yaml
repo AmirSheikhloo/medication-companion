@@ -22,6 +22,7 @@ dependencies:
   # M4-01C: pinned FFI SQLite engine for fail-closed, read-only backup inspection.
   sqlite3: 3.9.1
   ffi: 2.2.0
+  crypto: 3.0.8
   uuid: 4.6.0
 
 dev_dependencies:
