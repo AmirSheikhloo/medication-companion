@@ -8,6 +8,7 @@ Scope: export only. **No import, restore, live database replacement, notificatio
 
 - `apps/mobile/lib/features/backup/presentation/secure_backup_screen.dart`: Persian passphrase and confirmation; SAF picker, status and non-recoverability warning.
 - `apps/mobile/lib/features/backup/domain/backup_password_policy.dart`: Unicode code-point policy, no trimming/normalization.
+- `apps/mobile/lib/features/backup/domain/mcbk_v1.dart`: independently reviewed Dart v1 framing/strict untrusted header parser (consolidated from PR #16), with adversarial header tests.
 - `apps/mobile/android/app/src/main/kotlin/ir/example/medication_companion/MainActivity.kt`: Android SAF picker and bounded single-worker channel orchestration.
 - `apps/mobile/android/app/src/main/kotlin/ir/example/medication_companion/SecureBackupEngine.kt`: SQLite `VACUUM INTO ?` on a read-only isolated connection, v5 integrity/FK/table-count verification, fixed 105-byte framing, native Android-side Argon2id, Bouncy Castle lightweight incremental GCM, local decrypt-and-verify, SAF file-streaming and readback.
 - `apps/mobile/android/app/src/main/AndroidManifest.xml`: no Android backup/device transfer of medical storage.
@@ -43,4 +44,8 @@ flutter devices
 flutter run -d emulator-5554
 ```
 
-Once the feature PR is merged to main, in the app open **داروها ← بیشتر ← پشتیبان و بازیابی ← ساخت پشتیبان رمزگذاری‌شده**. Enter the same long Persian passphrase twice, tap **انتخاب محل و ساخت پشتیبان**, choose Downloads and confirm. Wait for explicit readback success or the explicit unverified-provider warning. Retain the encrypted file for M4-01C read-only preview tests. If `flutter pub get` fails with `pub.dev 403`, fix configured mirror/network first; `flutter run --no-pub` only when dependencies already match.
+For testing the **draft PR branch** before merge, replace the `git pull` line above with `git fetch origin feature/m4-01b-encrypted-export` and `git switch --track origin/feature/m4-01b-encrypted-export` (if already created locally, use `git switch feature/m4-01b-encrypted-export` instead). Keep uncommitted `pubspec.lock` changes; do not reset or delete them.
+
+Alternatively, download the `medication-companion-debug-apk` artifact from the newest green run under PR #17 → **Checks** → **Details** → **Artifacts**, unzip it and install `app-debug.apk` on the emulator via Android Studio or `adb install -r`. This avoids local Dart/Gradle download blockers.
+
+In the app open **ورود به بخش داروهای من ← بیشتر ← پشتیبان و بازیابی ← ساخت پشتیبان رمزگذاری‌شده**. Enter the same long Persian passphrase twice, tap **انتخاب محل و ساخت پشتیبان**, choose Downloads and confirm. Wait for explicit readback success or the explicit unverified-provider warning. Retain the encrypted file for M4-01C read-only preview tests. If `flutter pub get` fails with `pub.dev 403`, fix configured mirror/network first; `flutter run --no-pub` only when dependencies already match.

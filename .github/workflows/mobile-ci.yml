@@ -50,3 +50,12 @@ jobs:
 
       - name: Build Android debug APK
         run: flutter build apk --debug
+
+      - name: Upload Android emulator test APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medication-companion-debug-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+          if-no-files-found: error
