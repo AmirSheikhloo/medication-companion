@@ -88,7 +88,7 @@ LiveDatabaseFingerprint _fingerprint(String path) {
         final cursor = statement.selectCursor();
         while (cursor.moveNext()) {
           final row = cursor.current;
-          if (row.values.length != names.length) {
+          if (row.values.length != names.length || row[key] is! String) {
             throw const FormatException('SQLite column shape changed');
           }
           encoder.string('ROW');
@@ -112,12 +112,18 @@ LiveDatabaseFingerprint _fingerprint(String path) {
     encoder.string(sequenceExists ? 'SEQUENCE-PRESENT' : 'SEQUENCE-ABSENT');
     if (sequenceExists) {
       final statement = db.prepare(
-          'SELECT name, seq FROM sqlite_sequence ORDER BY name COLLATE BINARY');
+          'SELECT name, seq FROM sqlite_sequence '
+          'ORDER BY name COLLATE BINARY, typeof(seq), seq, rowid');
       try {
         final cursor = statement.selectCursor();
         while (cursor.moveNext()) {
-          encoder.value(cursor.current['name']);
-          encoder.value(cursor.current['seq']);
+          final name = cursor.current['name'];
+          final sequence = cursor.current['seq'];
+          if (name is! String || sequence is! int) {
+            throw const FormatException('Invalid AUTOINCREMENT sequence');
+          }
+          encoder.string(name);
+          encoder.integer(sequence);
         }
       } finally {
         statement.close();
