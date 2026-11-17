@@ -48,3 +48,9 @@ emulator security tests pass. R7 remains authoritative.
    Android uses the bundled library and still requires a direct emulator test.
    A missing symbol is a **device blocker**; do not ship any fallback that
    opens untrusted SQLite without authorizer protections.
+7. GitHub Actions signs debug APKs with a different debug certificate from
+   each contributor's local Android SDK. CI-only Gradle `debug`
+   `applicationIdSuffix=.m401preview` ensures the downloadable test APK is
+   installed alongside the existing app, rather than replacing it or requiring
+   an unsafe `adb uninstall`. Its local database and user data are isolated;
+   testers must create sample data in the preview app for count comparison.

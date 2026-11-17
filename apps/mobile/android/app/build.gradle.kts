@@ -16,6 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "ir.example.medication_companion"
+        manifestPlaceholders["appLabel"] = "همراه دارو (آزمایش)"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         multiDexEnabled = true
@@ -24,6 +25,17 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            // GitHub Actions uses an ephemeral Android debug signing key.
+            // A CI-built APK cannot update a locally signed APK with the same
+            // applicationId. Keep the owner's existing emulator data intact
+            // by installing the CI preview as a separate, isolated app.
+            if (System.getenv("GITHUB_ACTIONS") == "true") {
+                applicationIdSuffix = ".m401preview"
+                versionNameSuffix = "-ci-preview"
+                manifestPlaceholders["appLabel"] = "همراه دارو (تست M4)"
+            }
+        }
         release {
             // Only an M0 debug experiment. Never publish with the debug signing key.
             signingConfig = signingConfigs.getByName("debug")
