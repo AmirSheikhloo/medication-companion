@@ -42,12 +42,18 @@ emulator security tests pass. R7 remains authoritative.
 5. Trust boundary: this v5 schema comparison uses the *installed* live Drift
    schema as a local baseline, not a published per-version fixture hash.
    A maliciously modified local database is outside this beta trust model.
-6. Safety regression test depends on the `sqlite3` native asset exposing
-   `sqlite3_set_authorizer`. Linux CI uses the system libsqlite3 because the
-   upstream SQLite3 Linux *bundled* linker script strips this unbound symbol.
-   Android uses the bundled library and still requires a direct emulator test.
-   A missing symbol is a **device blocker**; do not ship any fallback that
-   opens untrusted SQLite without authorizer protections.
+6. Safety regression test depends on the *same* `sqlite3` native asset
+   exposing `sqlite3_set_authorizer`. The initial Android preview failed
+   closed at this gate. Inspection of the shipped x86_64 `libsqlite3.so` with
+   `readelf -Ws` confirmed the symbol was missing. The upstream prebuilt
+   `package:sqlite3` library deliberately compiles with
+   `SQLITE_OMIT_AUTHORIZATION`; this is not repairable via FFI declarations.
+   Android now builds a pinned SQLite amalgamation from the `rusqlite`
+   submodule with `default_options: false` and `SQLITE_THREADSAFE=1`. Linux CI
+   retains the system library. The Android artifact gate checks the dynamic
+   export of `sqlite3_set_authorizer` for every packaged ABI. Device testing
+   must still prove callback invocation, schema checks and fail-closed
+   behavior. Never fall back to unauthenticated inspection.
 7. GitHub Actions can sign different runs with different temporary debug
    certificates. The CI-only Gradle `debug` configuration isolates **each CI
    run** with `applicationIdSuffix=.m4r<GITHUB_RUN_NUMBER>` to preserve both
@@ -55,3 +61,22 @@ emulator security tests pass. R7 remains authoritative.
    The new APK has a fresh local database; testers must create synthetic
    sample data for the source-versus-preview count comparison. The previous
    `.m401preview` test build is unaffected and may remain installed.
+
+## Android native authorization prerequisite
+
+The amalgamation is pinned at `rusqlite` tag `v0.41.1`, commit
+`18ee76dbb976d5ef7e37ad5a8fffae678ca21a78`, under
+`apps/mobile/third_party/rusqlite` as a Git submodule. For a fresh local
+checkout, from the repository root run:
+
+```powershell
+git submodule update --init --depth 1
+```
+
+The Android `source: source` hook compiles against
+`third_party/rusqlite/libsqlite3-sys/sqlite3/sqlite3.c` and must export
+`sqlite3_set_authorizer`. CI checks the packaged `.so` symbol table; a
+green Linux unit test alone is not sufficient evidence. Initial user tests
+with API 37 verified that the encrypted export/snapshot succeeded before
+the authorizer omission was detected in import preview. The encrypted
+file and live app data were not replaced.
