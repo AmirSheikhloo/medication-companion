@@ -211,19 +211,25 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
     } finally {
       if (prepared != null) {
         try {
-          if (await prepared.exists()) await prepared.delete(recursive: true);
+          if (await prepared.exists()) {
+            await prepared.delete(recursive: true);
+          }
         } catch (_) {
-          if (mounted) setState(() => _error = 'پاکسازی تصویر موقت تأیید نشد؛ '
-              'برنامه را ببندید و دوباره اجرا کنید.');
+          if (mounted) {
+            setState(() => _error = 'پاکسازی تصویر موقت تأیید نشد؛ '
+                'برنامه را ببندید و دوباره اجرا کنید.');
+          }
         }
       }
       try {
         await _channel.invokeMethod<bool>('discardDestination');
       } catch (_) { /* Android cold-start sweep handles abandoned staging. */ }
-      if (mounted) setState(() {
-        _busy = false;
-        if (_error != null) _phase = '';
-      });
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          if (_error != null) _phase = '';
+        });
+      }
     }
   }
 
