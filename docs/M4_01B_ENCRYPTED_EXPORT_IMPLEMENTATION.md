@@ -18,7 +18,7 @@ Scope: export only. **No import, restore, live database replacement, notificatio
 
 ### Native provider exception / open gate
 
-This candidate uses the pinned `org.bouncycastle:bcprov-jdk18on:1.83` Android Java **lightweight** `GCMBlockCipher`/`Argon2BytesGenerator` rather than an FFI-wrapped C Argon2 reference implementation. Bouncy Castle GCM `processBytes` is block-streaming and differs materially from Android Conscrypt `Cipher.update`, which can accumulate the complete input. **R7 §3 prefers audited native/FFI Argon2**; Android JVM-side KDF is a documented deviation requiring independent approval or replacement with pinned native C before release. Never label this deviation as having passed R7 automatically. Pin/verify the *actual* BC classes loaded on Android (platform classloader interference), the 64 MiB benchmark, and cross-runtime vectors before signing off.
+This candidate uses the pinned `org.bouncycastle:bcprov-jdk18on:1.86` Android Java **lightweight** `GCMBlockCipher`/`Argon2BytesGenerator` rather than an FFI-wrapped C Argon2 reference implementation. Bouncy Castle GCM `processBytes` is block-streaming and differs materially from Android Conscrypt `Cipher.update`, which can accumulate the complete input. **R7 §3 prefers audited native/FFI Argon2**; Android JVM-side KDF is a documented deviation requiring independent approval or replacement with pinned native C before release. Never label this deviation as having passed R7 automatically. Pin/verify the *actual* BC classes loaded on Android (platform classloader interference), the 64 MiB benchmark, and cross-runtime vectors before signing off.
 
 ## Required automated / device verification before release
 
