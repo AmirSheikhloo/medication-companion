@@ -1,0 +1,3 @@
+[submodule "apps/mobile/third_party/rusqlite"]
+	path = apps/mobile/third_party/rusqlite
+	url = https://github.com/rusqlite/rusqlite.git

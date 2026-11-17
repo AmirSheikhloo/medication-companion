@@ -28,6 +28,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install Flutter 3.50
         uses: subosito/flutter-action@v2
@@ -51,11 +53,14 @@ jobs:
       - name: Build Android debug APK
         run: flutter build apk --debug
 
+      - name: Assert Android SQLite authorizer exports
+        run: python3 ../../.github/scripts/assert_android_sqlite_authorizer.py build/app/outputs/flutter-apk/app-debug.apk
+
       - name: Upload Android emulator test APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: medication-companion-debug-apk
+          name: medication-companion-m4-preview-debug-apk
           path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7
           if-no-files-found: error

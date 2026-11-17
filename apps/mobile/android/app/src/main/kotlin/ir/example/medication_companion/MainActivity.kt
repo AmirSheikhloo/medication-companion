@@ -13,11 +13,14 @@ import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val requestCreateDocument = 9321
+    private val requestOpenDocument = 9322
     private val worker = Executors.newSingleThreadExecutor()
     private val ui = Handler(Looper.getMainLooper())
     private var pendingPicker: MethodChannel.Result? = null
     private var selectedDestination: Uri? = null
+    private var selectedImport: Uri? = null
     private var exporting = false
+    private var importing = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -40,7 +43,7 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                     "chooseDestination" -> {
-                        if (pendingPicker != null || exporting) {
+                        if (pendingPicker != null || exporting || importing) {
                             result.error("BUSY", "یک پشتیبان دیگر در حال انجام است", null)
                         } else {
                             selectedDestination = null
@@ -63,15 +66,17 @@ class MainActivity : FlutterActivity() {
                     "export" -> {
                         val uri = selectedDestination
                         val path = call.argument<String>("databasePath")
+                        val snapshotPath = call.argument<String>("snapshotPath")
                         val password = call.argument<String>("password")
-                        if (exporting || uri == null || path.isNullOrBlank() || password == null) {
+                        if (exporting || importing || uri == null || path.isNullOrBlank() ||
+                            snapshotPath.isNullOrBlank() || password == null) {
                             result.error("INVALID", "درخواست پشتیبان نامعتبر است", null)
                         } else {
                             exporting = true
                             selectedDestination = null // consume one picker result exactly once
                             worker.execute {
                                 try {
-                                    val output = SecureBackupEngine(applicationContext).export(path, uri, password)
+                                    val output = SecureBackupEngine(applicationContext).export(path, snapshotPath, uri, password)
                                     ui.post {
                                         exporting = false
                                         result.success(output)
@@ -87,6 +92,94 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    "prepareExport" -> {
+                        val path = call.argument<String>("databasePath")
+                        if (exporting || importing || selectedDestination == null || path.isNullOrBlank()) {
+                            result.error("INVALID", "درخواست آماده‌سازی پشتیبان نامعتبر است", null)
+                        } else {
+                            worker.execute {
+                                try {
+                                    val root = SecureBackupEngine(applicationContext).prepareExport(path)
+                                    ui.post { result.success(root) }
+                                } catch (error: Exception) {
+                                    val message = if (error is BackupProblem) error.message
+                                        else "فضای امن برای پشتیبان در دسترس نیست"
+                                    ui.post { result.error("PREPARE_FAILED", message, null) }
+                                }
+                            }
+                        }
+                    }
+                    "discardDestination" -> {
+                        val uri = selectedDestination
+                        selectedDestination = null
+                        if (uri == null) {
+                            result.success(true)
+                        } else {
+                            worker.execute {
+                                SecureBackupEngine(applicationContext).discardPendingDocument(uri)
+                                ui.post { result.success(true) }
+                            }
+                        }
+                    }
+                    "chooseImport" -> {
+                        if (pendingPicker != null || exporting || importing) {
+                            result.error("BUSY", "عملیات دیگری در حال انجام است", null)
+                        } else {
+                            selectedImport = null
+                            pendingPicker = result
+                            try {
+                                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                    addCategory(Intent.CATEGORY_OPENABLE)
+                                    type = "*/*"
+                                }
+                                startActivityForResult(intent, requestOpenDocument)
+                            } catch (_: Exception) {
+                                pendingPicker = null
+                                result.error("PICKER", "انتخاب فایل ممکن نشد", null)
+                            }
+                        }
+                    }
+                    "decryptImport" -> {
+                        val uri = selectedImport
+                        val password = call.argument<String>("password")
+                        if (importing || exporting || uri == null || password == null) {
+                            result.error("INVALID", "فایل یا رمز پشتیبان مشخص نیست", null)
+                        } else {
+                            selectedImport = null
+                            importing = true
+                            worker.execute {
+                                try {
+                                    val path = SecureBackupEngine(applicationContext).decryptImport(uri, password)
+                                    ui.post {
+                                        importing = false
+                                        result.success(path)
+                                    }
+                                } catch (error: Throwable) {
+                                    val message = if (error is BackupProblem) error.message
+                                        else "بررسی فایل ناموفق بود؛ هیچ اطلاعاتی تغییر نکرد"
+                                    ui.post {
+                                        importing = false
+                                        result.error("IMPORT_FAILED", message, null)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "clearImport" -> {
+                        val path = call.argument<String>("path")
+                        if (path.isNullOrBlank()) {
+                            result.error("INVALID", "مسیر فایل موقت مشخص نیست", null)
+                        } else {
+                            worker.execute {
+                                try {
+                                    SecureBackupEngine(applicationContext).clearImport(path)
+                                    ui.post { result.success(true) }
+                                } catch (_: Exception) {
+                                    ui.post { result.error("CLEANUP", "پاکسازی فایل موقت تأیید نشد", null) }
+                                }
+                            }
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -94,17 +187,20 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != requestCreateDocument) return
+        if (requestCode != requestCreateDocument && requestCode != requestOpenDocument) return
         val callback = pendingPicker ?: return
         pendingPicker = null
-        selectedDestination = if (resultCode == Activity.RESULT_OK) data?.data else null
-        callback.success(selectedDestination != null)
+        val uri = if (resultCode == Activity.RESULT_OK) data?.data else null
+        if (requestCode == requestCreateDocument) selectedDestination = uri
+        else selectedImport = uri
+        callback.success(uri != null)
     }
 
     override fun onDestroy() {
         pendingPicker?.error("CANCELLED", "انتخاب فایل متوقف شد", null)
         pendingPicker = null
         selectedDestination = null
+        selectedImport = null
         worker.shutdown()
         super.onDestroy()
     }

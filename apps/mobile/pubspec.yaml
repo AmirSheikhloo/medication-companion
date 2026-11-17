@@ -19,6 +19,9 @@ dependencies:
   # M1 offline persistence (the M0 UI remains unchanged in this PR).
   drift: 2.35.4
   drift_flutter: 0.3.1
+  # M4-01C: pinned FFI SQLite engine for fail-closed, read-only backup inspection.
+  sqlite3: 3.9.1
+  ffi: 2.2.0
   uuid: 4.6.0
 
 dev_dependencies:
@@ -33,3 +36,27 @@ flutter:
   assets:
     - assets/fonts/NotoSansArabic-Regular.ttf
     - assets/fonts/NotoSansArabic-Bold.ttf
+
+# sqlite3's downloadable Android binary is built with SQLITE_OMIT_AUTHORIZATION
+# and cannot safely inspect untrusted restore candidates. For Android we build
+# an amalgamation pinned in the public rusqlite submodule *without* that flag.
+# The authorizer and all database operations MUST use this one SQLite binary.
+# Linux CI still uses system SQLite (with its authorizer compiled in).
+hooks:
+  user_defines:
+    sqlite3:
+      source:
+        linux: system
+        android: source
+        default: sqlite3
+      path: third_party/rusqlite/libsqlite3-sys/sqlite3/sqlite3.c
+      defines:
+        default_options: false
+        defines:
+          - SQLITE_THREADSAFE=1
+          - SQLITE_DQS=0
+          - SQLITE_DEFAULT_MEMSTATUS=0
+          - SQLITE_TEMP_STORE=2
+          - SQLITE_ENABLE_FTS5
+          - SQLITE_ENABLE_RTREE
+          - SQLITE_ENABLE_MATH_FUNCTIONS

@@ -65,3 +65,26 @@ For testing the **draft PR branch** before merge, replace the `git pull` line ab
 Alternatively, download the `medication-companion-debug-apk` artifact from the newest green run under PR #17 → **Checks** → **Details** → **Artifacts**, unzip it and install `app-debug.apk` on the emulator via Android Studio or `adb install -r`. This avoids local Dart/Gradle download blockers.
 
 In the app open **ورود به بخش داروهای من ← بیشتر ← پشتیبان و بازیابی ← ساخت پشتیبان رمزگذاری‌شده**. Enter the same long Persian passphrase twice, tap **انتخاب محل و ساخت پشتیبان**, choose Downloads and confirm. Wait for explicit readback success or the explicit unverified-provider warning. Retain the encrypted file for M4-01C read-only preview tests. If `flutter pub get` fails with `pub.dev 403`, fix configured mirror/network first; `flutter run --no-pub` only when dependencies already match.
+# Android emulator export snapshot correction (M4-01B device gate)
+
+The first M4-01C preview APK passed the Argon2id/GCM known-answer test on
+Android API 37 but reported a snapshot failure before encryption during export.
+Android `logcat` had no SQLite exception details. Do **not** mark the original
+Kotlin `SQLiteDatabase.OPEN_READONLY` + `execSQL("VACUUM INTO ?")` adapter as
+device-approved. That adapter has been removed from the export flow.
+
+The corrected adapter uses the app's pinned Dart `sqlite3` native asset in a
+separate isolate: a new `sqlite3.open(livePath, mode: OpenMode.readOnly)`
+connection, `PRAGMA busy_timeout=5000`, and strictly bound `VACUUM INTO ?`
+to a UUID staging path under Android `noBackupFilesDir`. Kotlin independently
+validates live/staging paths, free space, the resulting SQLite snapshot, and
+round-trip encryption; no live write path is added. A stage-specific SQLite
+extended result code is surfaced on device without printing patient data or
+paths. Unknown failures are fail-closed and empty SAF documents are cleaned
+best-effort. The new WAL fixture test proves committed but uncheckpointed
+rows are included and pre-existing targets are never overwritten.
+
+**Device gate still pending:** Re-run export, SAF readback, valid preview,
+wrong-password and cancellation checks on an Android emulator with sample
+data. Do not merge M4-01B/C until both have passed and the native Argon2
+release deviation is resolved.
