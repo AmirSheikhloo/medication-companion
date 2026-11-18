@@ -1,6 +1,6 @@
-# M4-01D — Recovery admission and logical fingerprint (slices D1 + D2a)
+# M4-01D — Recovery admission, logical fingerprint and DB leases (D1 + D2a + D2b-1)
 
-Status: **D1 + D2a implemented, full M4-01D NOT approved**. This stacked branch is
+Status: **D1 + D2a + D2b-1 implemented, full M4-01D NOT approved**. This stacked branch is
 based on M4-01C. The R7 contract remains authoritative. No destructive restore
 action or replacement of the active SQLite database is exposed.
 
@@ -55,11 +55,39 @@ fingerprint, staged candidate SHA and bounded consent session in memory only;
 then the exclusive Phase B owner must re-capture and compare both before any
 side effect. D2a does not itself make destructive restore safe.
 
+## Implemented in D2b-1 — lifetime native DB session admission
+
+1. The app's only production `AppDatabase` creation path is now the async
+   `AppDatabase.openGuarded()`, which obtains `DatabaseLifecycleLease` before
+   constructing the lazy Drift executor. Direct runtime construction is
+   private; `AppDatabase.forTesting` remains exclusively for injected
+   test executors. Channel absence/denial fails closed.
+2. A native, shared kernel `FileLock` on `database_lifecycle.lock` stays open
+   for the entire lifetime of registered Drift sessions. An in-process
+   synchronized token registry supports concurrent Flutter sessions without
+   overlapping JVM file locks; each token must be explicitly released after
+   `await AppDatabase.close()`. A different process can only take an exclusive
+   recovery lock when all shared sessions have stopped.
+3. The Android boot probe recognizes already-active, valid shared sessions,
+   but still checks durable restore/reconciliation markers before allowing
+   replay. Native failures and unacknowledged release cannot be treated as
+   permission to open a database.
+4. Mocked Flutter tests cover admission, missing channel, denial, errors,
+   explicit token release and idempotent acknowledged close. Native concurrent
+   ref-count and OS lock tests are still required on Android devices.
+
+**Remaining D2b requirement:** Add the *exclusive* native restore owner,
+quiesce active repository/notification workers, retain an ephemeral preview
+consent session (including candidate SHA and logical-data digest), and perform
+the under-lock recheck. A shared lease by itself does not authorize writes to
+the live DB or implement restore recovery.
+
 ## Required work before enabling replacement (D2–D4)
 
-- A **lifetime-held** database admission lease for every Drift/native handle,
-  verified background/other-engine behavior, and a native exclusive restore
-  owner. The D1 momentary probe **must not** be treated as that lease.
+- Device validation of the **lifetime-held** native lease (including a
+  separate headless Flutter engine and Android process), with a native
+  exclusive restore owner. The original D1 momentary boot probe remains
+  distinct from the D2b-1 lease and cannot authorize replacement.
 - Two separate consent actions, candidate SHA and strict **recheck** of the
   D2a snapshot after quiescing writers. Legacy schema migrations remain blocked
   until complete fixtures and exact authorizer/FK transaction tests exist.

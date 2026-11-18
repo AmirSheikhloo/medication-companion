@@ -290,22 +290,24 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
   }
 
   Future<void> _openMedicationHome() async {
-    final db = AppDatabase();
-    final medications = MedicationRepository(db);
-    final profiles = ProfileRepository(db);
-    final reminders = ReminderCoordinator(
-      database: db,
-      medications: medications,
-      profiles: profiles,
-      notifications: AndroidReminderPort(),
-    );
-    final careReminders = CareReminderCoordinator(
-      database: db,
-      care: CareRepository(db),
-      profiles: profiles,
-      notifications: AndroidCareReminderPort(),
-    );
+    AppDatabase? db;
     try {
+      db = await AppDatabase.openGuarded();
+      final medications = MedicationRepository(db);
+      final profiles = ProfileRepository(db);
+      final reminders = ReminderCoordinator(
+        database: db,
+        medications: medications,
+        profiles: profiles,
+        notifications: AndroidReminderPort(),
+      );
+      final careReminders = CareReminderCoordinator(
+        database: db,
+        care: CareRepository(db),
+        profiles: profiles,
+        notifications: AndroidCareReminderPort(),
+      );
+      if (!mounted) return;
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
           builder: (_) => MedicationHome(
@@ -316,8 +318,22 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
           ),
         ),
       );
+    } catch (_) {
+      if (mounted) {
+        setState(() => _status = 'ورود ایمن به پایگاه داده تأیید نشد. '
+            'برای حفاظت از اطلاعات، صفحهٔ داروها باز نشد.');
+      }
     } finally {
-      await db.close();
+      if (db != null) {
+        try {
+          await db.close();
+        } catch (_) {
+          if (mounted) {
+            setState(() => _status = 'بسته‌شدن ایمن پایگاه داده تأیید نشد. '
+                'برنامه را کاملاً ببندید و دوباره باز کنید.');
+          }
+        }
+      }
     }
   }
 

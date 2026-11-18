@@ -36,6 +36,23 @@ class MainActivity : FlutterActivity() {
                             ui.post { result.success(safe) }
                         }
                     }
+                    "acquireDatabaseLease" -> {
+                        worker.execute {
+                            val token = NativeBackupStartupGate.acquireDatabaseSession(applicationContext)
+                            ui.post { result.success(token) }
+                        }
+                    }
+                    "releaseDatabaseLease" -> {
+                        val token = call.argument<String>("token")
+                        if (token.isNullOrBlank()) {
+                            result.error("INVALID", "شناسهٔ قفل پایگاه داده معتبر نیست", null)
+                        } else {
+                            worker.execute {
+                                val released = NativeBackupStartupGate.releaseDatabaseSession(token)
+                                ui.post { result.success(released) }
+                            }
+                        }
+                    }
                     "testCryptoProvider" -> {
                         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 || exporting) {
                             result.error("DISABLED", "تست رمزنگاری فقط در نسخه آزمایشی فعال است", null)
