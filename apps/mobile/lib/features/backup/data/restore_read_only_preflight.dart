@@ -81,6 +81,7 @@ final class RestoreReadOnlyPreviewEvidence {
   final String _livePath;
   final String _candidatePath;
   final String _liveDigest;
+  final Map<String, int> liveCounts;
   final ReadOnlyCandidateSeal _candidate;
   final Duration _validFor;
   final Stopwatch _lifetime;
@@ -88,7 +89,7 @@ final class RestoreReadOnlyPreviewEvidence {
 
   RestoreReadOnlyPreviewEvidence._(
     this._livePath, this._candidatePath, this._liveDigest,
-    this._candidate, this._validFor,
+    this.liveCounts, this._candidate, this._validFor,
   ) : _lifetime = Stopwatch()..start();
 
   /// Capture is permitted only AFTER successful authenticated decryption and
@@ -108,7 +109,8 @@ final class RestoreReadOnlyPreviewEvidence {
     final candidate = await Isolate.run(
         () => _sealCandidate(validatedCandidatePath));
     return RestoreReadOnlyPreviewEvidence._(
-      liveDatabasePath, validatedCandidatePath, live.sha256, candidate, maxAge,
+      liveDatabasePath, validatedCandidatePath, live.sha256,
+      Map<String, int>.unmodifiable(live.counts), candidate, maxAge,
     );
   }
 
