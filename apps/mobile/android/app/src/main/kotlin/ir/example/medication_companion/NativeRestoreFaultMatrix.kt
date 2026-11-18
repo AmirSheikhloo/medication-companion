@@ -297,6 +297,120 @@ internal object NativeRestoreFaultMatrix {
         return true
     }
 
+
+    /** D3d debug-only, cross-process crash preparation. The process serving
+     * this method is killed by a separate debug-only ContentProvider AFTER
+     * all state below is fsynced. Only random sandbox SQLite files are used.
+     */
+    internal fun prepareProcessDeathSandbox(context: Context, id: String, checkpoint: String) {
+        require(UUID.fromString(id).toString() == id)
+        require(checkpoint == "OLD_SAVED" || checkpoint == "NEW_INSTALLED")
+        val root = File(context.noBackupFilesDir, "backup_journal_probe_$id")
+        val journal = NativeRestoreJournal.debugOnlySandbox(context, id)
+        if (!root.mkdir()) throw IllegalStateException("process-death sandbox already exists")
+        Os.chmod(root.path, 448) // 0700
+        NativeRestoreJournal.fsyncDirectory(context.noBackupFilesDir)
+
+        val old = File(root, "old.sqlite")
+        val candidate = File(root, "candidate.sqlite")
+        val master = File(root, "old_db.master")
+        val active = File(root, "medication_companion_m1.sqlite")
+        createFixture(old, "OLD")
+        createFixture(candidate, "NEW")
+        copyImmutable(old, master)
+        val seed = RestoreJournalEntry(
+            operationId = id,
+            backupId = UUID.randomUUID().toString(),
+            oldAbsent = false,
+            previousDbSize = old.length(),
+            previousDbSha256 = fileSha256(old),
+            candidateSize = candidate.length(),
+            candidateSha256 = fileSha256(candidate),
+            activePath = active.canonicalPath,
+            candidatePath = candidate.canonicalPath,
+            rollbackPath = master.canonicalPath,
+            state = RestoreJournalState.PREPARED,
+        )
+        journal.write(seed)
+        journal.write(seed.copy(state = RestoreJournalState.OLD_SAVED))
+        copyImmutable(candidate, active)
+        if (checkpoint == "NEW_INSTALLED") {
+            verifySqlite(active, "NEW", seed.candidateSize, seed.candidateSha256)
+            journal.write(seed.copy(state = RestoreJournalState.NEW_INSTALLED))
+        }
+    }
+
+    /** This runs only in a NEW Android process after the debug worker dies.
+     * Return the durable terminal state; do not consume corrupt journals or
+     * delete unknown DB sidecars. No real application DB is ever accessed.
+     */
+    internal fun recoverProcessDeathSandbox(context: Context, id: String, checkpoint: String): String {
+        require(UUID.fromString(id).toString() == id)
+        require(checkpoint == "OLD_SAVED" || checkpoint == "NEW_INSTALLED")
+        val root = File(context.noBackupFilesDir, "backup_journal_probe_$id")
+        val canonicalRoot = root.canonicalFile
+        if (canonicalRoot.parentFile != context.noBackupFilesDir.canonicalFile ||
+            !canonicalRoot.isDirectory) throw IllegalStateException("unsafe process-death sandbox")
+        val journal = NativeRestoreJournal.debugOnlySandbox(context, id)
+        val record = journal.read() ?: throw IllegalStateException("process-death journal missing")
+        val expectedState = RestoreJournalState.valueOf(checkpoint)
+        if (record.state != expectedState || record.oldAbsent ||
+            record.operationId != id) throw IllegalStateException("wrong recovered checkpoint")
+
+        val old = File(canonicalRoot, "old.sqlite")
+        val master = File(canonicalRoot, "old_db.master")
+        val candidate = File(canonicalRoot, "candidate.sqlite")
+        val active = File(canonicalRoot, "medication_companion_m1.sqlite")
+        if (record.activePath != active.path ||
+            record.candidatePath != candidate.path ||
+            record.rollbackPath != master.path) {
+            throw IllegalStateException("unbound cross-process paths")
+        }
+        for (suffix in listOf("-wal", "-shm", "-journal")) {
+            if (pathExistsNoFollow(File(active.path + suffix))) {
+                throw IllegalStateException("unknown cross-process DB sidecar")
+            }
+        }
+        verifySqlite(old, "OLD", record.previousDbSize, record.previousDbSha256)
+        verifySqlite(master, "OLD", record.previousDbSize, record.previousDbSha256)
+        verifySqlite(candidate, "NEW", record.candidateSize, record.candidateSha256)
+        verifySqlite(active, "NEW", record.candidateSize, record.candidateSha256)
+
+        val terminal = if (record.state == RestoreJournalState.OLD_SAVED) {
+            val reinstall = File(canonicalRoot, "old_reinstall.ready")
+            if (pathExistsNoFollow(reinstall)) throw IllegalStateException("unexpected reinstall temp")
+            copyImmutable(master, reinstall)
+            verifySqlite(reinstall, "OLD", record.previousDbSize, record.previousDbSha256)
+            Os.rename(reinstall.path, active.path)
+            NativeRestoreJournal.fsyncDirectory(canonicalRoot)
+            verifySqlite(active, "OLD", record.previousDbSize, record.previousDbSha256)
+            journal.write(record.copy(state = RestoreJournalState.ROLLED_BACK))
+            RestoreJournalState.ROLLED_BACK
+        } else {
+            journal.write(record.copy(state = RestoreJournalState.VERIFIED))
+            journal.write(record.copy(state = RestoreJournalState.COMMITTED))
+            RestoreJournalState.COMMITTED
+        }
+        journal.clearTerminal()
+        if (journal.read() != null ||
+            fileSha256(master) != record.previousDbSha256 ||
+            fileSha256(candidate) != record.candidateSha256) {
+            throw IllegalStateException("cross-process recovery lost durable artifacts")
+        }
+        return terminal.name
+    }
+
+    /** Tests may erase only a validated, completed sandbox after asserting its
+     * terminal result. A failed recovery leaves disk evidence for diagnosis.
+     */
+    internal fun cleanupCompletedProcessDeathSandbox(context: Context, id: String) {
+        require(UUID.fromString(id).toString() == id)
+        val root = File(context.noBackupFilesDir, "backup_journal_probe_$id")
+        val journal = NativeRestoreJournal.debugOnlySandbox(context, id)
+        if (journal.read() != null) throw IllegalStateException("nonterminal journal not cleaned")
+        cleanupProbe(context, root)
+    }
+
     private fun createFixture(path: File, value: String) {
         if (path.exists()) throw IllegalStateException("fixture path already exists")
         SQLiteDatabase.openOrCreateDatabase(path, null).use { db ->

@@ -1,6 +1,6 @@
-# M4-01D — Admission, fingerprint, locks, journal and fault matrix (D1–D3b)
+# M4-01D — Admission, fingerprint, locks, journal and fault matrix (D1–D3d)
 
-Status: **D1 + D2a + D2b-1 + D2b-2 + D3a + D3b implemented, full M4-01D NOT approved**. This stacked branch is
+Status: **D1 + D2a + D2b-1 + D2b-2 + D3a + D3b + D3c + D3d (isolated debug) implemented; full M4-01D NOT approved**. This stacked branch is
 based on M4-01C. The R7 contract remains authoritative. No destructive restore
 action or replacement of the active SQLite database is exposed.
 
@@ -174,6 +174,27 @@ journal. Android lstat detects present files without following symlinks.
 **Not a production restore implementation:** There is still no production
 journal factory, actual process-kill cold-start executor, live-DB replacement,
 or alarm reconciliation. All R7 blockers and the Draft PR safety gate remain.
+
+## D3d — real Android process death, isolated debug worker
+
+A separate **non-exported, debug-only** Android ContentProvider runs in
+`:m4killprobe`. The Android instrumentation runner talks to it using the
+platform Binder, asserts its PID differs from the test process, and tells it
+to create a random synthetic SQLite probe and durable journal. It then calls
+`android.os.Process.killProcess(myPid())` in the worker immediately after
+either durable `OLD_SAVED` or `NEW_INSTALLED` and before sending a reply.
+A subsequent ContentResolver call launches a fresh isolated worker process,
+checks the new PID, reopens and validates the persisted journal and SQLite
+fixtures, and completes a durable `ROLLED_BACK` or `COMMITTED` outcome.
+The test asserts the original immutable master and candidate remain intact.
+
+This is an **actual Android worker-process kill**, not merely a thrown
+exception. It is still not a full app-process force-stop, production
+cold-start recovery, restored user database, WAL-positive checkpoint,
+background Flutter engine, notification reconciliation, or a review of all
+R7 kill points. The fixture remains in a random `no_backup` probe folder,
+and only the successful test deletes that completed probe. No production
+restore is exposed or enabled.
 
 ## Required work before enabling replacement (D2–D4)
 
