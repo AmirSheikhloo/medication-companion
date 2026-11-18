@@ -1,6 +1,6 @@
-# M4-01D — Recovery admission, logical fingerprint and DB leases (D1 + D2a + D2b-1)
+# M4-01D — Admission, fingerprint, session and restore-owner locks (D1–D2b-2)
 
-Status: **D1 + D2a + D2b-1 implemented, full M4-01D NOT approved**. This stacked branch is
+Status: **D1 + D2a + D2b-1 + D2b-2 implemented, full M4-01D NOT approved**. This stacked branch is
 based on M4-01C. The R7 contract remains authoritative. No destructive restore
 action or replacement of the active SQLite database is exposed.
 
@@ -76,18 +76,38 @@ side effect. D2a does not itself make destructive restore safe.
    explicit token release and idempotent acknowledged close. Native concurrent
    ref-count and OS lock tests are still required on Android devices.
 
-**Remaining D2b requirement:** Add the *exclusive* native restore owner,
-quiesce active repository/notification workers, retain an ephemeral preview
+**Remaining D2b requirement:** Connect the *exclusive* native restore owner
+to the real Phase B orchestrator, quiesce repository/notification workers, retain an ephemeral preview
 consent session (including candidate SHA and logical-data digest), and perform
 the under-lock recheck. A shared lease by itself does not authorize writes to
 the live DB or implement restore recovery.
 
+## Implemented in D2b-2 — exclusive lock primitive and debug-only self-test
+
+1. Native `acquireRestoreOwner` attempts an **exclusive** kernel file lock and
+   requires zero active shared sessions and absent journal/reconcile markers.
+   It issues an unguessable owner token and keeps the exclusive lock alive
+   until a matching-token release. No public Dart method is provided to
+   acquire this restore privilege yet, because crash-safe Phase B is absent.
+2. A debug-only, non-destructive `testNativeLockExclusion` method verifies:
+   - existing shared DB lease rejects exclusive restore ownership;
+   - exclusive ownership rejects another shared DB lease, another exclusive
+     owner and regular boot admission;
+   - all test leases are released and a subsequent shared admission succeeds.
+3. The M0 home screen exposes the clearly labeled **debug-only** test button.
+   It must be used only when the medication screen is closed (no active DB).
+   It writes no journal, touches no live SQLite data and cancels no alarms.
+
+This is not proof of cross-process/kernel recovery or crash-safe rollback.
+The separate-engine/process, kill-point, journal, WAL and notification tests
+required by R7 remain unverified. The destructive replacement UI stays off.
+
 ## Required work before enabling replacement (D2–D4)
 
 - Device validation of the **lifetime-held** native lease (including a
-  separate headless Flutter engine and Android process), with a native
-  exclusive restore owner. The original D1 momentary boot probe remains
-  distinct from the D2b-1 lease and cannot authorize replacement.
+  separate headless Flutter engine and Android process), plus a complete
+  Phase B orchestrator controlling the D2b-2 exclusive owner. The original D1
+  momentary boot probe remains distinct and cannot authorize replacement.
 - Two separate consent actions, candidate SHA and strict **recheck** of the
   D2a snapshot after quiescing writers. Legacy schema migrations remain blocked
   until complete fixtures and exact authorizer/FK transaction tests exist.

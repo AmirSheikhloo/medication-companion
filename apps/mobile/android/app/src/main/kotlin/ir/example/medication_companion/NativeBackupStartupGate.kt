@@ -21,6 +21,9 @@ internal object NativeBackupStartupGate {
     private var sharedLeaseFile: RandomAccessFile? = null
     private var sharedLeaseLock: FileLock? = null
     private val activeLeaseIds = mutableSetOf<String>()
+    private var restoreOwnerFile: RandomAccessFile? = null
+    private var restoreOwnerLock: FileLock? = null
+    private var restoreOwnerToken: String? = null
 
     private fun markersAbsent(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -146,5 +149,95 @@ internal object NativeBackupStartupGate {
             }
         }
         true
+    }
+
+    /** The future Phase B orchestrator MUST take this exclusive OS lease
+     * before creating any durable marker, stopping alarms or touching SQLite.
+     * There is deliberately no runtime MethodChannel to obtain this token yet:
+     * consent, quiescence and crash-safe journal operations are not ready.
+     */
+    private fun acquireRestoreOwner(context: Context): String? = synchronized(monitor) {
+        try {
+            if (restoreOwnerToken != null || activeLeaseIds.isNotEmpty() ||
+                !markersAbsent(context)) return@synchronized null
+
+            val root = context.noBackupFilesDir.canonicalFile
+            val file = RandomAccessFile(File(root, "database_lifecycle.lock"), "rw")
+            var lock: FileLock? = null
+            try {
+                lock = try {
+                    file.channel.tryLock()
+                } catch (_: OverlappingFileLockException) { null }
+                if (lock == null || !markersAbsent(context)) return@synchronized null
+                val token = UUID.randomUUID().toString()
+                restoreOwnerFile = file
+                restoreOwnerLock = lock
+                restoreOwnerToken = token
+                token
+            } finally {
+                if (restoreOwnerFile !== file) {
+                    try { lock?.release() } catch (_: Exception) {}
+                    try { file.close() } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) { null }
+    }
+
+    private fun releaseRestoreOwner(token: String): Boolean = synchronized(monitor) {
+        if (token != restoreOwnerToken) return@synchronized false
+        try {
+            restoreOwnerLock?.release()
+            restoreOwnerFile?.close()
+        } catch (_: Exception) {
+            return@synchronized false
+        } finally {
+            restoreOwnerLock = null
+            restoreOwnerFile = null
+            restoreOwnerToken = null
+        }
+        true
+    }
+
+    /** Debug-only, non-destructive proof of lock exclusion. It performs no DB
+     * I/O, writes no journal or reconcile marker and always releases tokens.
+     * The caller must ensure that the normal medication screen is closed.
+     */
+    fun testLockExclusion(context: Context): Boolean = synchronized(monitor) {
+        if (activeLeaseIds.isNotEmpty() || restoreOwnerToken != null) {
+            return@synchronized false
+        }
+        val shared = acquireDatabaseSession(context) ?: return@synchronized false
+        var releasedShared = false
+        val firstPhase = try {
+            val unexpectedRestore = acquireRestoreOwner(context)
+            try {
+                unexpectedRestore == null && isSafeForDatabaseOrBoot(context)
+            } finally {
+                if (unexpectedRestore != null) releaseRestoreOwner(unexpectedRestore)
+            }
+        } finally {
+            releasedShared = releaseDatabaseSession(shared)
+        }
+        if (!firstPhase || !releasedShared) return@synchronized false
+
+        val exclusive = acquireRestoreOwner(context) ?: return@synchronized false
+        var releasedExclusive = false
+        val secondPhase = try {
+            val unexpectedShared = acquireDatabaseSession(context)
+            val unexpectedRestore = acquireRestoreOwner(context)
+            try {
+                unexpectedShared == null && unexpectedRestore == null &&
+                    !isSafeForDatabaseOrBoot(context)
+            } finally {
+                if (unexpectedShared != null) releaseDatabaseSession(unexpectedShared)
+                if (unexpectedRestore != null) releaseRestoreOwner(unexpectedRestore)
+            }
+        } finally {
+            releasedExclusive = releaseRestoreOwner(exclusive)
+        }
+        if (!secondPhase || !releasedExclusive) return@synchronized false
+
+        val finalShared = acquireDatabaseSession(context) ?: return@synchronized false
+        releaseDatabaseSession(finalShared)
     }
 }

@@ -199,6 +199,14 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
     await _notifications.cancel(id: 202);
   }
 
+  Future<void> _testNativeLockExclusion() async {
+    const channel = MethodChannel('medication_companion/secure_backup');
+    final passed = await channel.invokeMethod<bool>('testNativeLockExclusion');
+    if (passed != true) {
+      throw StateError('قفل اشتراکی یا انحصاری آزمون را نگذرانده؛ بازیابی ممنوع است.');
+    }
+  }
+
   Future<void> _sharePersianPdf() async {
     // Every PDF font is bundled inside the APK: no network request is made.
     final regularBytes = await rootBundle.load(
@@ -401,6 +409,12 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           _button('ساخت و اشتراک گزارش PDF',
               _ready ? () => _act('PDF ساخته شد و صفحه اشتراک باز شد.', _sharePersianPdf) : null),
+          const SizedBox(height: 16),
+          const Text('۴. آزمون ایمنی قفل پایگاه داده',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          _button('تست قفل اشتراکی و انحصاری — نسخهٔ آزمایشی',
+              _ready ? () => _act('قفل اشتراکی و انحصاری اندروید با موفقیت آزمون شد.',
+                  _testNativeLockExclusion) : null),
           const SizedBox(height: 16),
           const Text(
             'هشدار: این صفحه فقط آزمایش فنی است. هیچ پیشنهاد یا دستور مصرف دارویی ارائه نمی‌کند.',
