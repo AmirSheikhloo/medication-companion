@@ -200,6 +200,32 @@ R7 kill points. The fixture remains in a random `no_backup` probe folder,
 and only the successful test deletes that completed probe. No production
 restore is exposed or enabled.
 
+## D4a — read-only preview binding prototype (no Phase B)
+
+A new Dart-only `RestoreReadOnlyPreviewEvidence` prototype captures the v5
+logical snapshot SHA-256 (all 17 app tables including optional
+`sqlite_sequence`) and an independently streamed SHA-256/byte-count seal of an
+**already authenticated and defensively inspected** candidate. An in-memory
+monotonic Stopwatch limits the observation lifetime to five minutes by
+default. It supports explicit invalidation and a read-only recheck that
+fails closed for changed live rows, changed candidate bytes/size, lost
+files, changed paths, cancellation, and expiry.
+
+**Safety limitation:** This is a future-facing reusable comparison helper,
+not yet wired to the current import-preview UI because that UI intentionally
+removes plaintext candidate staging immediately after rendering a read-only
+preview. The helper neither acquires the exclusive native Phase B lease nor
+authenticates/decrypts candidates, freezes writers, retains a safely bounded
+consent session, authorizes restoration, creates a journal, or changes alarms
+or databases. Even an `unchanged` result is **not** authorization for
+destructive restore. The production Phase B orchestrator and final
+under-lock recheck remain unimplemented and blocked by R7.
+
+Automated unit tests cover unchanged files, same-count live-data mutations,
+same-size candidate mutation, truncated/deleted candidates, missing live DB,
+invalidated/expired evidence, and path rebinding. Real Android process-kill
+tests D3d remain separate from this Dart-only prototype.
+
 ## Required work before enabling replacement (D2–D4)
 
 - Device validation of the **lifetime-held** native lease (including a
