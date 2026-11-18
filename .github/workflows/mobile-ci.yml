@@ -21,7 +21,8 @@ concurrency:
 jobs:
   analyze-and-test:
     name: Flutter analyze and test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: apps/mobile
@@ -59,7 +60,15 @@ jobs:
       - name: Assert safe notification boot receiver
         run: python3 ../../.github/scripts/assert_safe_boot_receiver.py build/app/outputs/flutter-apk/app-debug.apk
 
+      - name: Enable hardware acceleration for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -c /dev/kvm
+
       - name: Execute isolated rollback matrix on Android emulator
+        timeout-minutes: 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
