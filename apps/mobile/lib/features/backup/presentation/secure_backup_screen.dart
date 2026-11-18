@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/app_database.dart';
@@ -103,8 +102,10 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> with WidgetsBin
         });
       }
     } catch (_) {
-      if (mounted) setState(() =>
-          _error = 'حذف فایل موقت تأیید نشد؛ برنامه را ببندید و دوباره باز کنید.');
+      if (mounted) {
+        setState(() => _error =
+            'حذف فایل موقت تأیید نشد؛ برنامه را ببندید و دوباره باز کنید.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -138,17 +139,21 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> with WidgetsBin
         });
       }
     } catch (_) {
-      if (mounted) setState(() {
-        _importCounts = null;
-        _currentCounts = null;
-        _error = 'بازبینی یا پاکسازی ایمن ناموفق بود؛ برنامه را ببندید '
-            'و دوباره باز کنید.';
-      });
+      if (mounted) {
+        setState(() {
+          _importCounts = null;
+          _currentCounts = null;
+          _error = 'بازبینی یا پاکسازی ایمن ناموفق بود؛ برنامه را ببندید '
+              'و دوباره باز کنید.';
+        });
+      }
     } finally {
-      if (mounted) setState(() {
-        _busy = false;
-        _phase = '';
-      });
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _phase = '';
+        });
+      }
     }
   }
 

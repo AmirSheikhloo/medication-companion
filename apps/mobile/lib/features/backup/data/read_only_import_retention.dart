@@ -11,8 +11,8 @@ final class ReadOnlyImportRetention {
   final RestoreReadOnlyPreviewEvidence evidence;
   final String liveDatabasePath;
   final String validatedCandidatePath;
-  final Future<bool> Function(String path) _clearNative;
-  final void Function(bool success)? _onExpiry;
+  final Future<bool> Function(String path) clearNative;
+  final void Function(bool success)? onExpiry;
   Timer? _expiry;
   bool _closed = false;
   bool _cleaned = false;
@@ -22,11 +22,10 @@ final class ReadOnlyImportRetention {
     required this.evidence,
     required this.liveDatabasePath,
     required this.validatedCandidatePath,
-    required Future<bool> Function(String path) clearNative,
-    void Function(bool success)? onExpiry,
+    required this.clearNative,
+    this.onExpiry,
     Duration maxRetention = const Duration(minutes: 5),
-  })  : _clearNative = clearNative,
-        _onExpiry = onExpiry {
+  }) {
     if (maxRetention <= Duration.zero ||
         liveDatabasePath.isEmpty || validatedCandidatePath.isEmpty ||
         liveDatabasePath == validatedCandidatePath) {
@@ -34,8 +33,8 @@ final class ReadOnlyImportRetention {
     }
     _expiry = Timer(maxRetention, () {
       unawaited(close().then(
-        (_) => _onExpiry?.call(true),
-        onError: (Object _) => _onExpiry?.call(false),
+        (_) => onExpiry?.call(true),
+        onError: (Object _) => onExpiry?.call(false),
       ));
     });
   }
@@ -68,7 +67,7 @@ final class ReadOnlyImportRetention {
 
   Future<void> _doClear() async {
     try {
-      final ok = await _clearNative(validatedCandidatePath);
+      final ok = await clearNative(validatedCandidatePath);
       if (!ok) throw StateError('Native import cleanup was not acknowledged');
       _cleaned = true;
     } finally {
