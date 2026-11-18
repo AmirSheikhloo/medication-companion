@@ -1,6 +1,6 @@
-# M4-01D — Admission, fingerprint, session and restore-owner locks (D1–D2b-2)
+# M4-01D — Admission, fingerprint, locks and durable-journal probe (D1–D3a)
 
-Status: **D1 + D2a + D2b-1 + D2b-2 implemented, full M4-01D NOT approved**. This stacked branch is
+Status: **D1 + D2a + D2b-1 + D2b-2 + D3a implemented, full M4-01D NOT approved**. This stacked branch is
 based on M4-01C. The R7 contract remains authoritative. No destructive restore
 action or replacement of the active SQLite database is exposed.
 
@@ -101,6 +101,34 @@ the live DB or implement restore recovery.
 This is not proof of cross-process/kernel recovery or crash-safe rollback.
 The separate-engine/process, kill-point, journal, WAL and notification tests
 required by R7 remain unverified. The destructive replacement UI stays off.
+
+## Implemented in D3a — native durable-journal storage probe
+
+1. `NativeRestoreJournal` implements a strictly typed, byte-canonical JSON
+   record with checksum across the preceding fields. Parsing refuses extra,
+   duplicate, missing, reordered, corrupt or unknown-state fields. It checks
+   app-private paths, SHA-256 encodings, UUIDs, size limits and immutable
+   operation binding across state transitions.
+2. Unique `O_EXCL|O_NOFOLLOW` temporary creation uses explicit write loops,
+   `fsync(file)`, same-directory `Os.rename`, and `fsync(parent directory)`.
+   Directory creation and terminal unlink also fsync their parent. No journal
+   transition permits erasing a nonterminal state.
+3. A **debug-only** device probe exercises transitions through `COMMITTED`,
+   byte-exact reopening after every update, forbidden backward transitions,
+   terminal clearing and deliberate corruption rejection. It operates only
+   in a newly generated `backup_journal_probe_<uuid>` directory, removes only
+   its own test files and never creates a production restore marker or opens
+   the user's SQLite file. The M0 home screen now performs both D2b-2 and D3a
+   tests with **one** button.
+
+**Critical limits:** There is deliberately **no production factory** for the
+journal store and no Restore Phase B code, because a real recovery owner,
+immutable verified rollback master, WAL-sidecar handling, notification
+reconciliation and process-kill tests are still missing. A debug probe that
+successfully fsyncs a file does not establish crash-safe replacement. The
+production store will additionally require a strict per-operation path
+allowlist, proof of the actual active DB filesystem device, and native
+cross-process crash/restart fault-injection tests.
 
 ## Required work before enabling replacement (D2–D4)
 

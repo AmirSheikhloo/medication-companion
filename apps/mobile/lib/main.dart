@@ -199,11 +199,15 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
     await _notifications.cancel(id: 202);
   }
 
-  Future<void> _testNativeLockExclusion() async {
+  Future<void> _testRecoveryFoundations() async {
     const channel = MethodChannel('medication_companion/secure_backup');
     final passed = await channel.invokeMethod<bool>('testNativeLockExclusion');
     if (passed != true) {
       throw StateError('قفل اشتراکی یا انحصاری آزمون را نگذرانده؛ بازیابی ممنوع است.');
+    }
+    final journalPassed = await channel.invokeMethod<bool>('testNativeJournalDurability');
+    if (journalPassed != true) {
+      throw StateError('آزمون نوشتن اتمیک، fsync یا صحت ژورنال ناموفق بود؛ بازیابی ممنوع است.');
     }
   }
 
@@ -410,11 +414,11 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
           _button('ساخت و اشتراک گزارش PDF',
               _ready ? () => _act('PDF ساخته شد و صفحه اشتراک باز شد.', _sharePersianPdf) : null),
           const SizedBox(height: 16),
-          const Text('۴. آزمون ایمنی قفل پایگاه داده',
+          const Text('۴. آزمون ایمنی قفل و ژورنال بازیابی',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          _button('تست قفل اشتراکی و انحصاری — نسخهٔ آزمایشی',
-              _ready ? () => _act('قفل اشتراکی و انحصاری اندروید با موفقیت آزمون شد.',
-                  _testNativeLockExclusion) : null),
+          _button('تست قفل و ثبت اتمیک وضعیت — نسخهٔ آزمایشی',
+              _ready ? () => _act('قفل انحصاری و ثبت اتمیک ژورنال با fsync و بررسی فساد فایل موفق شد.',
+                  _testRecoveryFoundations) : null),
           const SizedBox(height: 16),
           const Text(
             'هشدار: این صفحه فقط آزمایش فنی است. هیچ پیشنهاد یا دستور مصرف دارویی ارائه نمی‌کند.',

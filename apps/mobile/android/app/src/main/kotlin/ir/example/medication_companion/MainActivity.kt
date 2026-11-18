@@ -66,6 +66,19 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    "testNativeJournalDurability" -> {
+                        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 ||
+                            exporting || importing || pendingPicker != null) {
+                            result.error("DISABLED", "آزمون ژورنال فقط در نسخهٔ آزمایشی و حالت بیکار مجاز است", null)
+                        } else {
+                            worker.execute {
+                                val valid = try {
+                                    NativeRestoreJournal.debugDurabilityProbe(applicationContext)
+                                } catch (_: Throwable) { false }
+                                ui.post { result.success(valid) }
+                            }
+                        }
+                    }
                     "testCryptoProvider" -> {
                         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 || exporting) {
                             result.error("DISABLED", "تست رمزنگاری فقط در نسخه آزمایشی فعال است", null)
