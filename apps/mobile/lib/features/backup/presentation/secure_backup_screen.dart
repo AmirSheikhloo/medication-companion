@@ -291,8 +291,10 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> with WidgetsBin
           }
         }
       }
-      _importPassword.clear();
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        _importPassword.clear();
+        setState(() => _busy = false);
+      }
     }
   }
 
