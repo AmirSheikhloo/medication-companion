@@ -241,15 +241,16 @@ internal class SecureBackupEngine(private val context: Context) {
                 if ((info.st_mode and OsConstants.S_IFMT) != OsConstants.S_IFREG) {
                     throw BackupProblem("پیوند یا نوع فایل موقت نامعتبر است")
                 }
-                try {
-                    Os.unlink(target.path)
-                } catch (error: ErrnoException) {
-                    throw BackupProblem("حذف فایل موقت ناموفق بود", error)
+                // File.delete() unlinks the pathname without following it,
+                // and its result must be checked. This public Android API
+                // works on all supported SDK versions.
+                if (!target.delete()) {
+                    throw BackupProblem("حذف فایل موقت ناموفق بود")
                 }
             }
         }
         NativeRestoreJournal.fsyncDirectory(folder)
-        Os.rmdir(folder.path)
+        if (!folder.delete()) throw BackupProblem("حذف پوشه موقت ناموفق بود")
         NativeRestoreJournal.fsyncDirectory(root)
     }
 
