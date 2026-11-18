@@ -85,10 +85,15 @@ class MainActivity : FlutterActivity() {
                             result.error("DISABLED", "آزمون ضدکرش فقط در نسخهٔ آزمایشی و حالت بیکار مجاز است", null)
                         } else {
                             worker.execute {
-                                val valid = try {
-                                    NativeRestoreFaultMatrix.run(applicationContext)
-                                } catch (_: Throwable) { false }
-                                ui.post { result.success(valid) }
+                                val diagnostic = try {
+                                    NativeRestoreFaultMatrix.runDiagnostic(applicationContext)
+                                } catch (error: Throwable) {
+                                    "UNCAUGHT / ${error.javaClass.simpleName}: ${error.message.orEmpty().take(180)}"
+                                }
+                                ui.post {
+                                    if (diagnostic == null) result.success(true)
+                                    else result.error("RESTORE_FAULT_MATRIX", diagnostic, null)
+                                }
                             }
                         }
                     }

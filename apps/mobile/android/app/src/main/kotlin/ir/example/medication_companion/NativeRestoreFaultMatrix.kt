@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.system.Os
 import android.system.OsConstants
+import android.util.Log
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -31,11 +32,16 @@ internal object NativeRestoreFaultMatrix {
         "install.ready", "old_reinstall.ready", "restore_journal.json",
     )
 
-    fun run(context: Context): Boolean {
+    /** Returns null on success, or a bounded debug-only diagnostic on failure.
+     * A failed safety probe still prohibits enabling the actual restore path.
+     */
+    fun runDiagnostic(context: Context): String? {
         val operationId = UUID.randomUUID().toString()
         val journal = NativeRestoreJournal.debugOnlySandbox(context, operationId)
         val root = File(context.noBackupFilesDir, "backup_journal_probe_$operationId")
         var passed = false
+        var stage = "INITIALIZE_SANDBOX"
+        var failure: String? = null
         try {
             if (!root.mkdir()) throw IllegalStateException("sandbox is not fresh")
             Os.chmod(root.path, 448) // 0700
@@ -44,8 +50,11 @@ internal object NativeRestoreFaultMatrix {
             val candidate = File(root, "candidate.sqlite")
             val rollback = File(root, "old_db.master")
             val active = File(root, "medication_companion_m1.sqlite")
+            stage = "CREATE_OLD_SQLITE"
             createFixture(old, "OLD")
+            stage = "CREATE_NEW_SQLITE"
             createFixture(candidate, "NEW")
+            stage = "CREATE_IMMUTABLE_MASTER"
             copyImmutable(old, rollback)
             val originalHash = fileSha256(old)
             val candidateHash = fileSha256(candidate)
@@ -66,16 +75,20 @@ internal object NativeRestoreFaultMatrix {
             // recovery call must complete from it without consuming the only
             // valid immutable rollback source.
             for (fault in Fault.entries) {
+                stage = "PREPARE_${fault.name}"
                 copyImmutable(candidate, active)
                 journal.write(seed)
                 journal.write(seed.copy(state = RestoreJournalState.OLD_SAVED))
                 writeStaleSidecar(File(active.path + "-wal"))
                 writeStaleSidecar(File(active.path + "-shm"))
+                stage = "INJECT_${fault.name}"
                 val crashed = runCatching { rollbackOldSaved(journal, root, fault) }
                 if (crashed.exceptionOrNull() !is InjectedCrash) {
                     throw IllegalStateException("fault injection did not stop at $fault")
                 }
+                stage = "RECOVER_${fault.name}"
                 rollbackOldSaved(journal, root, null)
+                stage = "VERIFY_${fault.name}"
                 verifySqlite(active, "OLD", seed.previousDbSize, originalHash)
                 if (File(active.path + "-wal").exists() ||
                     File(active.path + "-shm").exists() ||
@@ -86,6 +99,7 @@ internal object NativeRestoreFaultMatrix {
                 }
             }
 
+            stage = "HOT_ROLLBACK_JOURNAL"
             // A hot rollback journal is NOT an inert WAL/SHM sidecar: keep
             // every file and the journal untouched until handled by SQLite.
             copyImmutable(candidate, active)
@@ -103,6 +117,7 @@ internal object NativeRestoreFaultMatrix {
             NativeRestoreJournal.fsyncDirectory(root)
             rollbackOldSaved(journal, root, null)
 
+            stage = "CORRUPTED_MASTER"
             // If the only rollback master is corrupted, the active candidate
             // and durable journal MUST remain untouched (fail closed).
             copyImmutable(candidate, active)
@@ -119,12 +134,20 @@ internal object NativeRestoreFaultMatrix {
                 throw IllegalStateException("corrupted master was not rejected")
             }
             passed = true
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             passed = false
+            Log.e("M4FaultMatrix", "Probe failed at $stage", error)
+            failure = "$stage / ${error.javaClass.simpleName}: ${error.message.orEmpty().take(180)}"
         } finally {
-            try { cleanupProbe(context, root) } catch (_: Exception) { passed = false }
+            try {
+                cleanupProbe(context, root)
+            } catch (error: Exception) {
+                passed = false
+                Log.e("M4FaultMatrix", "Sandbox cleanup failed", error)
+                failure = "CLEANUP_SANDBOX / ${error.javaClass.simpleName}: ${error.message.orEmpty().take(180)}"
+            }
         }
-        return passed
+        return if (passed) null else (failure ?: "UNKNOWN_FAULT_MATRIX_FAILURE")
     }
 
     private fun createFixture(path: File, value: String) {
