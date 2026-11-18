@@ -226,6 +226,33 @@ same-size candidate mutation, truncated/deleted candidates, missing live DB,
 invalidated/expired evidence, and path rebinding. Real Android process-kill
 tests D3d remain separate from this Dart-only prototype.
 
+## D4b-1 — ephemeral read-only import retention & checked native cleanup
+
+The validated Phase A import-preview screen retains its authenticated,
+defensively inspected `import.sqlite` quarantine for **at most five minutes**
+in an app-private `no_backup/backup_staging/<UUID>` directory. The session
+uses the D4a logical-data/byte-seal recheck, exposes separate **read-only
+recheck** and **cancel & discard** buttons, and invalidates the evidence when
+the app leaves foreground, the screen is disposed, a new import begins, or
+the timer expires. Even an unchanged recheck does not grant user consent or
+enable a destructive restore action. No private medical rows/hashes or paths
+are shown in the interface.
+
+A `ReadOnlyImportRetention` helper owns the cleanup callback and refuses to
+report cleanup success unless Android explicitly acknowledges deletion. A
+failed cleanup is retryable. Android's `clearImport` is now strict: it allows
+only a UUID-scoped import quarantine, rejects unknown or symlinked sidecars,
+checks each unlink, fsyncs the directory, and only then removes the folder
+and fsyncs the staging parent. The normal cold-start sweep remains the
+crash fallback; do not treat its best-effort cleanup as Phase B completion.
+
+Dart unit tests cover preserved read-only files, changed live data with equal
+row counts, cancellation, cleanup failure/retry, and timeout. Android tests
+cover idempotent cleanup and rejecting unexpected files in a synthetic
+quarantine. **No production exclusive restore ownership, consent token,
+candidate source-to-commit authentication, WAL replacement, or alarm
+reconciliation has been implemented**; R7 still blocks Phase B.
+
 ## Required work before enabling replacement (D2–D4)
 
 - Device validation of the **lifetime-held** native lease (including a

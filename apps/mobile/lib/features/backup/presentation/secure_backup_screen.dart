@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/app_database.dart';
-import '../data/live_database_fingerprint.dart';
+import '../data/read_only_import_retention.dart';
+import '../data/restore_read_only_preflight.dart';
 import '../data/secure_backup_inspector.dart';
 import '../data/secure_backup_snapshot.dart';
 import '../domain/backup_password_policy.dart';
@@ -20,7 +23,7 @@ class SecureBackupScreen extends StatefulWidget {
   State<SecureBackupScreen> createState() => _SecureBackupScreenState();
 }
 
-class _SecureBackupScreenState extends State<SecureBackupScreen> {
+class _SecureBackupScreenState extends State<SecureBackupScreen> with WidgetsBindingObserver {
   static const _channel = MethodChannel('medication_companion/secure_backup');
   final _password = TextEditingController();
   final _confirmation = TextEditingController();
@@ -32,6 +35,123 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
   String? _result;
   Map<String, int>? _importCounts;
   Map<String, int>? _currentCounts;
+  ReadOnlyImportRetention? _retainedPreview;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  Future<bool> _nativeClearImport(String path) async =>
+      await _channel.invokeMethod<bool>('clearImport', {'path': path}) == true;
+
+  Future<void> _clearRetainedPreview() async {
+    final retained = _retainedPreview;
+    if (retained == null) return;
+    await retained.close();
+    if (identical(_retainedPreview, retained)) _retainedPreview = null;
+  }
+
+  void _invalidateForLifecycle() {
+    final retained = _retainedPreview;
+    if (retained == null) return;
+    // Close is idempotent and invalidates synchronously, before the
+    // platform-channel deletion is acknowledged.
+    unawaited(retained.close().then((_) {
+      if (mounted && identical(_retainedPreview, retained)) {
+        setState(() {
+          _retainedPreview = null;
+          _importCounts = null;
+          _currentCounts = null;
+          _result = 'پیش‌نمایش با خروج از صفحه یا پس‌زمینه رفتن برنامه لغو شد.';
+        });
+      }
+    }, onError: (Object _) {
+      if (mounted) {
+        setState(() {
+          _importCounts = null;
+          _currentCounts = null;
+          _error = 'پاکسازی فایل موقت تأیید نشد؛ برنامه را ببندید و دوباره باز کنید.';
+        });
+      }
+    }));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // A decrypt operation may be awaiting Android's document picker.
+      // Only an already completed retained preview can be invalidated.
+      _invalidateForLifecycle();
+    }
+  }
+
+  Future<void> _cancelPreview() async {
+    if (_busy || _retainedPreview == null) return;
+    setState(() => _busy = true);
+    try {
+      await _clearRetainedPreview();
+      if (mounted) {
+        setState(() {
+          _importCounts = null;
+          _currentCounts = null;
+          _result = 'پیش‌نمایش لغو شد؛ فایل موقت پاک شد.';
+          _error = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() =>
+          _error = 'حذف فایل موقت تأیید نشد؛ برنامه را ببندید و دوباره باز کنید.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _recheckPreview() async {
+    if (_busy) return;
+    final retained = _retainedPreview;
+    if (retained == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+      _phase = 'بازبینی مجدد اطلاعات (فقط خواندنی)...';
+    });
+    try {
+      final status = await retained.recheckReadOnly();
+      if (!mounted || !identical(_retainedPreview, retained)) return;
+      if (status == RestorePreviewRecheck.unchanged) {
+        setState(() {
+          _result = 'اطلاعات در این بازبینی تغییر نکرده‌اند؛ این نتیجه '
+              'مجوز بازیابی یا جایگزینی اطلاعات نیست.';
+        });
+      } else {
+        setState(() {
+          _retainedPreview = null;
+          _importCounts = null;
+          _currentCounts = null;
+          _result = null;
+          _error = 'پیش‌نمایش قبلی دیگر معتبر نیست (${status.name}). '
+              'برای مقایسه دوباره، فایل را از ابتدا انتخاب کنید.';
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() {
+        _importCounts = null;
+        _currentCounts = null;
+        _error = 'بازبینی یا پاکسازی ایمن ناموفق بود؛ برنامه را ببندید '
+            'و دوباره باز کنید.';
+      });
+    } finally {
+      if (mounted) setState(() {
+        _busy = false;
+        _phase = '';
+      });
+    }
+  }
+
 
   static const _tableLabels = <String, String>{
     'profiles': 'پروفایل‌ها',
@@ -46,6 +166,14 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    final retained = _retainedPreview;
+    _retainedPreview = null;
+    if (retained != null) {
+      unawaited(retained.close().catchError((Object _) {
+        // Cold-start staging sweep is the crash/failure fallback.
+      }));
+    }
     _password.clear();
     _confirmation.clear();
     _importPassword.clear();
@@ -56,6 +184,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
   }
 
   Future<void> _previewImport() async {
+    if (_busy) return;
     if (_importPassword.text.isEmpty) {
       setState(() => _error = 'رمز فایل پشتیبان را وارد کنید.');
       return;
@@ -70,6 +199,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
     });
     String? quarantinedPath;
     try {
+      await _clearRetainedPreview(); // close previous plaintext staging first
       final selected = await _channel.invokeMethod<bool>('chooseImport');
       if (selected != true) {
         if (mounted) setState(() => _phase = 'انتخاب فایل لغو شد.');
@@ -104,17 +234,42 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
       // The eight visible counts and the fingerprint of all 17 tables share
       // one consistent SQLite read snapshot. This fingerprint will be checked
       // again under the exclusive native Phase B lease before any mutations.
-      final snapshot = await fingerprintLiveDatabase(path);
-      final currentCounts = snapshot.counts;
+      final evidence = await RestoreReadOnlyPreviewEvidence.captureReadOnly(
+        liveDatabasePath: path,
+        validatedCandidatePath: quarantinedPath,
+      );
       if (mounted) {
+        late final ReadOnlyImportRetention retained;
+        retained = ReadOnlyImportRetention(
+          evidence: evidence,
+          liveDatabasePath: path,
+          validatedCandidatePath: quarantinedPath,
+          clearNative: _nativeClearImport,
+          onExpiry: (cleaned) {
+            if (!mounted || !identical(_retainedPreview, retained)) return;
+            setState(() {
+              if (cleaned) _retainedPreview = null;
+              _importCounts = null;
+              _currentCounts = null;
+              _result = null;
+              _error = cleaned
+                  ? 'اعتبار پیش‌نمایش پایان یافت و فایل موقت پاک شد.'
+                  : 'اعتبار پیش‌نمایش پایان یافت؛ پاکسازی فایل موقت تأیید نشد.';
+            });
+          },
+        );
         setState(() {
+          _retainedPreview = retained;
           _importCounts = backupCounts;
-          _currentCounts = currentCounts;
+          _currentCounts = evidence.liveCounts;
           _phase = '';
-          _result = 'رمز و اصالت فایل، یکپارچگی SQLite و ساختار نسخه ۵ تأیید شد. '
-              'این فقط پیش‌نمایش است و هیچ اطلاعاتی بازیابی یا جایگزین نشده است.';
-          _importPassword.clear();
+          _result = 'رمز، اصالت و ساختار نسخه ۵ بررسی شدند. فایل موقت '
+              'فقط تا پنج دقیقه برای بازبینی دوباره نگهداری می‌شود. '
+              'هیچ اطلاعاتی بازیابی یا جایگزین نشده است.';
         });
+        quarantinedPath = null; // the retained session now owns cleanup
+      } else {
+        evidence.invalidate();
       }
     } on PlatformException catch (error) {
       if (mounted) setState(() => _error = error.message ?? 'خواندن فایل پشتیبان ناموفق بود.');
@@ -126,7 +281,9 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
     } finally {
       if (quarantinedPath != null) {
         try {
-          await _channel.invokeMethod<bool>('clearImport', {'path': quarantinedPath});
+          if (!await _nativeClearImport(quarantinedPath)) {
+            throw StateError('Native cleanup not acknowledged');
+          }
         } catch (_) {
           if (mounted) {
             setState(() => _error = 'پاکسازی فایل موقت تأیید نشد؛ '
@@ -134,11 +291,13 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
           }
         }
       }
+      _importPassword.clear();
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _startExport() async {
+    if (_busy) return;
     final password = _password.text;
     final problem = backupPasswordError(password, _confirmation.text);
     if (problem != null) {
@@ -153,6 +312,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
     });
     Directory? prepared;
     try {
+      await _clearRetainedPreview();
       final now = DateTime.now();
       final date = '${now.year}${_two(now.month)}${_two(now.day)}';
       final time = '${_two(now.hour)}${_two(now.minute)}${_two(now.second)}';
@@ -354,6 +514,21 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
               icon: const Icon(Icons.fact_check_outlined),
               label: const Text('انتخاب فایل و نمایش پیش‌نمایش امن'),
             ),
+            if (_retainedPreview != null) ...[
+              const SizedBox(height: 10),
+              const Text('پیش‌نمایش موقت، فقط برای مقایسه مجدد. '
+                  'بازگردانی اطلاعات همچنان غیرفعال است.'),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _recheckPreview,
+                icon: const Icon(Icons.refresh),
+                label: const Text('بازبینی دوباره بدون تغییر اطلاعات'),
+              ),
+              TextButton.icon(
+                onPressed: _busy ? null : _cancelPreview,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('لغو پیش‌نمایش و پاک‌سازی فایل موقت'),
+              ),
+            ],
             if (kDebugMode) ...[
               const SizedBox(height: 8),
               OutlinedButton.icon(
