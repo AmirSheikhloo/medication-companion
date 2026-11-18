@@ -282,9 +282,15 @@ internal object NativeRestoreFaultMatrix {
         val active = File(record.activePath)
         val master = File(record.rollbackPath)
         val candidate = File(record.candidatePath)
-        if (active.parentFile?.canonicalFile != root.canonicalFile ||
-            master != File(root, "old_db.master") ||
-            candidate != File(root, "candidate.sqlite")) {
+        // Android may expose app-private storage via /data/user/0 while
+        // canonicalPath resolves that same directory under /data/data.
+        // Bind all paths to the *same canonical root* before comparing exact
+        // filenames; never loosen this to prefix or suffix matching.
+        val canonicalRoot = root.canonicalFile
+        if (active != File(canonicalRoot, "medication_companion_m1.sqlite") ||
+            master != File(canonicalRoot, "old_db.master") ||
+            candidate != File(canonicalRoot, "candidate.sqlite") ||
+            active.parentFile?.canonicalFile != canonicalRoot) {
             throw IllegalStateException("unbound probe paths")
         }
         // Verify the immutable master BEFORE touching the possibly damaged
