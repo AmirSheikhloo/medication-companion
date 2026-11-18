@@ -4,7 +4,7 @@
             android:name="ir.example.medication_companion.NativeRestoreKillProbeProvider"
             android:authorities="${applicationId}.m4killprobe"
             android:process=":m4killprobe"
-            android:exported="false"
+            android:exported="true"
             android:enabled="true" />
     </application>
 </manifest>

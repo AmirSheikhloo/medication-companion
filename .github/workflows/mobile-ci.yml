@@ -76,7 +76,7 @@ jobs:
           target: google_apis
           profile: pixel_5
           disable-animations: true
-          script: cd apps/mobile/android && ./gradlew connectedDebugAndroidTest --stacktrace --no-daemon
+          script: cd apps/mobile/android && ./gradlew connectedDebugAndroidTest --stacktrace --no-daemon && cd ../../.. && python3 .github/scripts/assert_android_process_kill_reentry.py
 
       - name: Upload Android emulator test APK
         if: success()

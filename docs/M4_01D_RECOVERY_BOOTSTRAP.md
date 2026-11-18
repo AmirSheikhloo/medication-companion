@@ -178,14 +178,18 @@ or alarm reconciliation. All R7 blockers and the Draft PR safety gate remain.
 ## D3d — real Android process death, isolated debug worker
 
 A separate **non-exported, debug-only** Android ContentProvider runs in
-`:m4killprobe`. The Android instrumentation runner talks to it using the
-platform Binder, asserts its PID differs from the test process, and tells it
-to create a random synthetic SQLite probe and durable journal. It then calls
-`android.os.Process.killProcess(myPid())` in the worker immediately after
-either durable `OLD_SAVED` or `NEW_INSTALLED` and before sending a reply.
-A subsequent ContentResolver call launches a fresh isolated worker process,
-checks the new PID, reopens and validates the persisted journal and SQLite
-fixtures, and completes a durable `ROLLED_BACK` or `COMMITTED` outcome.
+`:m4killprobe`. To avoid killing the Android instrumentation runner, a **host-side GitHub
+Actions Python script** uses ADB's `content call` interface to the debug-only
+provider. The provider is exported in DEBUG builds only and refuses all callers
+except the owning app UID or Android SHELL_UID. The host script records the
+provider's PID, asks it to create a random synthetic SQLite probe and durable
+journal, then the provider calls `android.os.Process.killProcess(myPid())`
+after either `OLD_SAVED` or `NEW_INSTALLED` and before sending any reply.
+The host script survives the kill and requests recovery in a newly started
+isolated worker process, verifies the PID changed, reopens the persisted
+journal, validates SQLite fixtures, and verifies durable `ROLLED_BACK` or
+`COMMITTED` output. The instrumentation suite runs first and must pass
+before the host-side process-kill script is run.
 The test asserts the original immutable master and candidate remain intact.
 
 This is an **actual Android worker-process kill**, not merely a thrown

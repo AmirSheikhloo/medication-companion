@@ -9,7 +9,7 @@ import android.os.Bundle
 import android.os.Process
 import android.os.Binder
 
-/** Debug-only, app-private, separate Android process used ONLY for the
+/** Debug-only, CLI-controlled, separate Android process used ONLY for the
  * synthetic D3d process-kill matrix. It does not open production databases.
  */
 class NativeRestoreKillProbeProvider : ContentProvider() {
@@ -18,7 +18,8 @@ class NativeRestoreKillProbeProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
         val ctx = context ?: throw IllegalStateException("provider has no context")
         if ((ctx.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) == 0 ||
-            Binder.getCallingUid() != Process.myUid()) {
+            (Binder.getCallingUid() != Process.myUid() &&
+                Binder.getCallingUid() != Process.SHELL_UID)) {
             throw SecurityException("debug-only local recovery probe")
         }
         return when (method) {
