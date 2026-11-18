@@ -59,6 +59,16 @@ jobs:
       - name: Assert safe notification boot receiver
         run: python3 ../../.github/scripts/assert_safe_boot_receiver.py build/app/outputs/flutter-apk/app-debug.apk
 
+      - name: Execute isolated rollback matrix on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_5
+          disable-animations: true
+          script: cd apps/mobile/android && ./gradlew connectedDebugAndroidTest --stacktrace --no-daemon
+
       - name: Upload Android emulator test APK
         if: success()
         uses: actions/upload-artifact@v4
