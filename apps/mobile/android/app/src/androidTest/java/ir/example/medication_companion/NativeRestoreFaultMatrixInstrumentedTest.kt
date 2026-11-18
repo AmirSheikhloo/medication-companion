@@ -12,7 +12,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class NativeRestoreFaultMatrixInstrumentedTest {
     @Test
-    fun allFourRollbackInterruptionsAreRecoverable() {
+    fun rollbackInterruptionsAndFreshInstallStatesAreRecoverable() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val diagnostic = NativeRestoreFaultMatrix.runDiagnostic(context)
         assertNull("M4 rollback matrix failed at: $diagnostic", diagnostic)

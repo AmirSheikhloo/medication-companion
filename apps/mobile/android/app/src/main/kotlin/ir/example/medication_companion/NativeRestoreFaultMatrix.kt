@@ -2,6 +2,7 @@ package ir.example.medication_companion
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
 import android.util.Log
@@ -22,6 +23,9 @@ import java.util.UUID
  */
 internal object NativeRestoreFaultMatrix {
     private enum class Fault { AFTER_COPY, AFTER_SIDECARS, AFTER_RENAME, AFTER_JOURNAL }
+    private enum class FreshCase {
+        NO_ACTIVE, MATCHING_ACTIVE, DIFFERENT_ACTIVE, STALE_WAL, STALE_SHM, HOT_JOURNAL
+    }
     private class InjectedCrash : RuntimeException()
 
     private const val maxTestBytes = 1024L * 1024L
@@ -139,6 +143,11 @@ internal object NativeRestoreFaultMatrix {
                 journal.read()?.state != RestoreJournalState.OLD_SAVED) {
                 throw IllegalStateException("corrupted master was not rejected")
             }
+            // D3c: six independent disposable fresh-install probe directories.
+            for (freshCase in FreshCase.entries) {
+                stage = "OLD_ABSENT_" + freshCase.name
+                runOldAbsentCase(context, freshCase)
+            }
             passed = true
         } catch (error: Exception) {
             passed = false
@@ -154,6 +163,138 @@ internal object NativeRestoreFaultMatrix {
             }
         }
         return if (passed) null else (failure ?: "UNKNOWN_FAULT_MATRIX_FAILURE")
+    }
+
+
+    /** Debug-only D3c scenarios. This must NEVER target the real Drift DB. */
+    private fun runOldAbsentCase(context: Context, scenario: FreshCase) {
+        val operationId = UUID.randomUUID().toString()
+        val root = File(context.noBackupFilesDir, "backup_journal_probe_" + operationId)
+        val journal = NativeRestoreJournal.debugOnlySandbox(context, operationId)
+        try {
+            if (!root.mkdir()) throw IllegalStateException("fresh sandbox not created")
+            Os.chmod(root.path, 448) // 0700
+            NativeRestoreJournal.fsyncDirectory(context.noBackupFilesDir)
+
+            val candidate = File(root, "candidate.sqlite")
+            val active = File(root, "medication_companion_m1.sqlite")
+            val master = File(root, "old_db.master") // deliberately absent
+            createFixture(candidate, "NEW")
+            val candidateHash = fileSha256(candidate)
+            val seed = RestoreJournalEntry(
+                operationId = operationId,
+                backupId = UUID.randomUUID().toString(),
+                oldAbsent = true,
+                previousDbSize = 0,
+                previousDbSha256 = "",
+                candidateSize = candidate.length(),
+                candidateSha256 = candidateHash,
+                activePath = active.canonicalPath,
+                candidatePath = candidate.canonicalPath,
+                rollbackPath = master.canonicalPath,
+                state = RestoreJournalState.PREPARED,
+            )
+            journal.write(seed)
+            val saved = seed.copy(state = RestoreJournalState.OLD_SAVED)
+            journal.write(saved)
+
+            when (scenario) {
+                FreshCase.NO_ACTIVE -> Unit
+                FreshCase.DIFFERENT_ACTIVE -> createFixture(active, "OTHER")
+                else -> copyImmutable(candidate, active)
+            }
+            when (scenario) {
+                FreshCase.STALE_WAL -> writeStaleSidecar(File(active.path + "-wal"))
+                FreshCase.STALE_SHM -> writeStaleSidecar(File(active.path + "-shm"))
+                FreshCase.HOT_JOURNAL -> writeStaleSidecar(File(active.path + "-journal"))
+                else -> Unit
+            }
+
+            if (scenario == FreshCase.NO_ACTIVE || scenario == FreshCase.MATCHING_ACTIVE) {
+                val installed = recoverOldAbsentSaved(journal, root)
+                if (installed != (scenario == FreshCase.MATCHING_ACTIVE) ||
+                    pathExistsNoFollow(master) ||
+                    journal.read() != null ||
+                    fileSha256(candidate) != candidateHash ||
+                    pathExistsNoFollow(active) != installed ||
+                    (installed && fileSha256(active) != candidateHash)) {
+                    throw IllegalStateException("old_absent failed to converge: " + scenario.name)
+                }
+            } else {
+                // Never erase a mismatched DB, sidecar, or nonterminal journal.
+                val activeHash = fileSha256(active)
+                val sidecar = when (scenario) {
+                    FreshCase.STALE_WAL -> File(active.path + "-wal")
+                    FreshCase.STALE_SHM -> File(active.path + "-shm")
+                    FreshCase.HOT_JOURNAL -> File(active.path + "-journal")
+                    else -> null
+                }
+                val outcome = runCatching { recoverOldAbsentSaved(journal, root) }
+                if (outcome.isSuccess ||
+                    journal.read() != saved ||
+                    fileSha256(active) != activeHash ||
+                    fileSha256(candidate) != candidateHash ||
+                    (sidecar != null && !pathExistsNoFollow(sidecar)) ||
+                    pathExistsNoFollow(master)) {
+                    throw IllegalStateException("old_absent modified unknown state: " + scenario.name)
+                }
+            }
+        } finally {
+            cleanupProbe(context, root)
+        }
+    }
+
+    private fun pathExistsNoFollow(path: File): Boolean = try {
+        Os.lstat(path.path)
+        true
+    } catch (error: ErrnoException) {
+        if (error.errno != OsConstants.ENOENT) throw error
+        false
+    }
+
+    /** Synthetic cold-reentry state machine for the explicitly bound
+     * oldAbsent=true case. NOT callable as a production restore handler.
+     */
+    private fun recoverOldAbsentSaved(journal: NativeRestoreJournal, root: File): Boolean {
+        val record = journal.read() ?: throw IllegalStateException("missing fresh-install journal")
+        if (!record.oldAbsent || record.state != RestoreJournalState.OLD_SAVED ||
+            record.previousDbSize != 0L || record.previousDbSha256.isNotEmpty()) {
+            throw IllegalStateException("unexpected fresh-install journal state")
+        }
+
+        val canonicalRoot = root.canonicalFile
+        val active = File(canonicalRoot, "medication_companion_m1.sqlite")
+        val candidate = File(canonicalRoot, "candidate.sqlite")
+        val master = File(canonicalRoot, "old_db.master")
+        if (File(record.activePath) != active ||
+            File(record.candidatePath) != candidate ||
+            File(record.rollbackPath) != master ||
+            active.parentFile?.canonicalFile != canonicalRoot ||
+            pathExistsNoFollow(master)) {
+            throw IllegalStateException("unbound fresh-install paths")
+        }
+
+        // lstat also catches dangling symlinks; unknown sidecars are never
+        // deleted to force a successful restore.
+        for (suffix in listOf("-wal", "-shm", "-journal")) {
+            if (pathExistsNoFollow(File(active.path + suffix))) {
+                throw IllegalStateException("unexpected fresh-install sidecar")
+            }
+        }
+        if (!pathExistsNoFollow(active)) {
+            journal.write(record.copy(state = RestoreJournalState.ROLLED_BACK))
+            journal.clearTerminal()
+            return false
+        }
+
+        // Verify size, SHA-256, SQLite integrity, foreign keys, and v5 row
+        // before recording NEW_INSTALLED, VERIFIED and durable COMMITTED.
+        verifySqlite(active, "NEW", record.candidateSize, record.candidateSha256)
+        journal.write(record.copy(state = RestoreJournalState.NEW_INSTALLED))
+        journal.write(record.copy(state = RestoreJournalState.VERIFIED))
+        journal.write(record.copy(state = RestoreJournalState.COMMITTED))
+        journal.clearTerminal()
+        return true
     }
 
     private fun createFixture(path: File, value: String) {

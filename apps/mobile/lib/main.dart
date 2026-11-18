@@ -421,7 +421,7 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
           const Text('۴. آزمون قفل، ژورنال و خرابی ناگهانی',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           _button('آزمون جامع قفل و بازیابی ضدکرش — نسخهٔ آزمایشی',
-              _ready ? () => _act('قفل، ژورنال و چهار نقطه قطع ناگهانی بازیابی با موفقیت آزمون شدند.',
+              _ready ? () => _act('قفل، ژورنال، چهار نقطه قطع و حالت‌های نصب تازه با موفقیت آزمون شدند.',
                   _testRecoveryFoundations) : null),
           const SizedBox(height: 16),
           const Text(

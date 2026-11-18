@@ -155,6 +155,26 @@ test.** It does not demonstrate real cross-process ownership, post-boot
 recovery, `old_absent`, actual active Drift-handle shutdown, real checkpoint
 classification or reminder reconciliation. Production Phase B remains off.
 
+## D3c — Android old_absent fail-closed sandbox matrix
+
+The existing Android instrumentation test and M0 debug diagnostic now execute
+six additional, mutually isolated fresh-install (`oldAbsent=true`) scenarios:
+no active file, matching verified candidate, different active contents, stray
+WAL, stray SHM, and unexpected rollback-journal sidecar. Each case creates a
+fresh random `no_backup/backup_journal_probe_<uuid>` directory, an authenticated
+durable PREPARED/OLD_SAVED test journal and a synthetic v5 SQLite candidate.
+
+With no active DB, the test records ROLLED_BACK durably and clears its terminal
+journal. With a matching candidate and no sidecars, it verifies SHA/size,
+SQLite integrity and v5 contents, advances NEW_INSTALLED → VERIFIED → COMMITTED,
+then clears its journal. An unknown active file or unexpected sidecar
+**fails closed** without modifying the candidate, active file or OLD_SAVED
+journal. Android lstat detects present files without following symlinks.
+
+**Not a production restore implementation:** There is still no production
+journal factory, actual process-kill cold-start executor, live-DB replacement,
+or alarm reconciliation. All R7 blockers and the Draft PR safety gate remain.
+
 ## Required work before enabling replacement (D2–D4)
 
 - Device validation of the **lifetime-held** native lease (including a
