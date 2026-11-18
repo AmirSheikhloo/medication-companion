@@ -140,8 +140,18 @@ internal class NativeRestoreJournal private constructor(
         }
 
         private fun fsyncDirectory(dir: File) {
-            val fd = Os.open(dir.path, OsConstants.O_RDONLY or OsConstants.O_DIRECTORY, 0)
-            try { Os.fsync(fd) } finally { Os.close(fd) }
+            // The Android public SDK exposes O_RDONLY, but not O_DIRECTORY.
+            // Validate the descriptor target before opening and fsyncing it.
+            if ((Os.lstat(dir.path).st_mode and OsConstants.S_IFMT) != OsConstants.S_IFDIR) {
+                throw IllegalStateException("cannot fsync a non-directory")
+            }
+            val fd = Os.open(dir.path, OsConstants.O_RDONLY or OsConstants.O_NOFOLLOW, 0)
+            try {
+                if ((Os.fstat(fd).st_mode and OsConstants.S_IFMT) != OsConstants.S_IFDIR) {
+                    throw IllegalStateException("directory descriptor changed")
+                }
+                Os.fsync(fd)
+            } finally { Os.close(fd) }
         }
 
         private fun sha256(bytes: ByteArray): String =
@@ -345,7 +355,9 @@ internal class NativeRestoreJournal private constructor(
             current.state != RestoreJournalState.ROLLED_BACK) {
             throw IllegalStateException("cannot erase a nonterminal journal")
         }
-        Os.unlink(file.path)
+        // Android's public Os facade does not expose unlink(). File.delete()
+        // performs the unlink; parent-directory fsync makes it durable.
+        if (!file.delete()) throw IllegalStateException("journal unlink failed")
         fsyncDirectory(directory)
     }
 }
