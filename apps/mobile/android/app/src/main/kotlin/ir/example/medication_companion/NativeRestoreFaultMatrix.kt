@@ -83,8 +83,14 @@ internal object NativeRestoreFaultMatrix {
                 writeStaleSidecar(File(active.path + "-shm"))
                 stage = "INJECT_${fault.name}"
                 val crashed = runCatching { rollbackOldSaved(journal, root, fault) }
-                if (crashed.exceptionOrNull() !is InjectedCrash) {
-                    throw IllegalStateException("fault injection did not stop at $fault")
+                val injectedFailure = crashed.exceptionOrNull()
+                if (injectedFailure !is InjectedCrash) {
+                    throw IllegalStateException(
+                        "checkpoint $fault failed before injection: " +
+                            "${injectedFailure?.javaClass?.simpleName ?: "NO_EXCEPTION"}: " +
+                            injectedFailure?.message.orEmpty().take(140),
+                        injectedFailure,
+                    )
                 }
                 stage = "RECOVER_${fault.name}"
                 rollbackOldSaved(journal, root, null)
