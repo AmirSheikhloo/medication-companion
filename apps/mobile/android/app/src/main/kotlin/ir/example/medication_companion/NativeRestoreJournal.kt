@@ -48,7 +48,7 @@ internal class NativeRestoreJournal private constructor(
         /** There is intentionally NO production factory until the exclusive
          * owner and complete crash-safe recovery state machine are connected.
          */
-        private fun dryRun(context: Context, id: String): NativeRestoreJournal {
+        internal fun debugOnlySandbox(context: Context, id: String): NativeRestoreJournal {
             require(UUID.fromString(id).toString() == id)
             return NativeRestoreJournal(
                 context,
@@ -58,7 +58,7 @@ internal class NativeRestoreJournal private constructor(
 
         fun debugDurabilityProbe(context: Context): Boolean {
             val id = UUID.randomUUID().toString()
-            val store = dryRun(context, id)
+            val store = debugOnlySandbox(context, id)
             var passed = false
             try {
                 // Probe app-private directories actually mounted on the
@@ -139,7 +139,7 @@ internal class NativeRestoreJournal private constructor(
             return passed
         }
 
-        private fun fsyncDirectory(dir: File) {
+        internal fun fsyncDirectory(dir: File) {
             // The Android public SDK exposes O_RDONLY, but not O_DIRECTORY.
             // Validate the descriptor target before opening and fsyncing it.
             if ((Os.lstat(dir.path).st_mode and OsConstants.S_IFMT) != OsConstants.S_IFDIR) {

@@ -1,6 +1,6 @@
-# M4-01D — Admission, fingerprint, locks and durable-journal probe (D1–D3a)
+# M4-01D — Admission, fingerprint, locks, journal and fault matrix (D1–D3b)
 
-Status: **D1 + D2a + D2b-1 + D2b-2 + D3a implemented, full M4-01D NOT approved**. This stacked branch is
+Status: **D1 + D2a + D2b-1 + D2b-2 + D3a + D3b implemented, full M4-01D NOT approved**. This stacked branch is
 based on M4-01C. The R7 contract remains authoritative. No destructive restore
 action or replacement of the active SQLite database is exposed.
 
@@ -129,6 +129,31 @@ successfully fsyncs a file does not establish crash-safe replacement. The
 production store will additionally require a strict per-operation path
 allowlist, proof of the actual active DB filesystem device, and native
 cross-process crash/restart fault-injection tests.
+
+## Implemented in D3b — isolated Android SQLite rollback fault matrix
+
+1. `NativeRestoreFaultMatrix` creates two valid, synthetic v5 SQLite fixtures
+   (`OLD` and `NEW`) under a random, isolated no-backup probe directory; it
+   never opens or modifies the application's Drift database. It creates an
+   immutable old master and a durable `PREPARED`/`OLD_SAVED` journal record.
+2. It simulates a newly installed candidate and stale new-database WAL/SHM
+   sidecars, then injects an exception at **four disk checkpoints**: after a
+   fully synced rollback copy, after confirmed sidecar unlink + dir fsync,
+   after atomic rollback rename + dir fsync, and after durable `ROLLED_BACK`
+   journal advancement. A fresh rollback invocation must converge each time,
+   checking SHA-256, SQLite integrity, foreign keys, v5 marker, old row value,
+   preserved master/candidate, absent incompatible sidecars and removed journal.
+3. A fake hot SQLite rollback-journal sidecar is rejected without overwriting
+   the active database. A deliberately corrupted rollback master is rejected
+   before changing the active candidate. Each simulated fault is isolated and
+   only its own synthetic files are removed afterward.
+4. The M0 debug page now combines D2b-2/D3a/D3b into **one** non-destructive
+   (to the app database) button to reduce repeated user installations/tests.
+
+**This is an exception-injection simulation, not an Android process-kill
+test.** It does not demonstrate real cross-process ownership, post-boot
+recovery, `old_absent`, actual active Drift-handle shutdown, real checkpoint
+classification or reminder reconciliation. Production Phase B remains off.
 
 ## Required work before enabling replacement (D2–D4)
 

@@ -209,6 +209,10 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
     if (journalPassed != true) {
       throw StateError('آزمون نوشتن اتمیک، fsync یا صحت ژورنال ناموفق بود؛ بازیابی ممنوع است.');
     }
+    final faultPassed = await channel.invokeMethod<bool>('testNativeRollbackFaultMatrix');
+    if (faultPassed != true) {
+      throw StateError('آزمون خرابی و تکرار بازیابی نسخهٔ قدیمی ناموفق بود؛ بازیابی ممنوع است.');
+    }
   }
 
   Future<void> _sharePersianPdf() async {
@@ -414,10 +418,10 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
           _button('ساخت و اشتراک گزارش PDF',
               _ready ? () => _act('PDF ساخته شد و صفحه اشتراک باز شد.', _sharePersianPdf) : null),
           const SizedBox(height: 16),
-          const Text('۴. آزمون ایمنی قفل و ژورنال بازیابی',
+          const Text('۴. آزمون قفل، ژورنال و خرابی ناگهانی',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          _button('تست قفل و ثبت اتمیک وضعیت — نسخهٔ آزمایشی',
-              _ready ? () => _act('قفل انحصاری و ثبت اتمیک ژورنال با fsync و بررسی فساد فایل موفق شد.',
+          _button('آزمون جامع قفل و بازیابی ضدکرش — نسخهٔ آزمایشی',
+              _ready ? () => _act('قفل، ژورنال و چهار نقطه قطع ناگهانی بازیابی با موفقیت آزمون شدند.',
                   _testRecoveryFoundations) : null),
           const SizedBox(height: 16),
           const Text(
