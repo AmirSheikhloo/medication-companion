@@ -56,7 +56,13 @@ internal object NativeBackupStartupGate {
      */
     fun isSafeForDatabaseOrBoot(context: Context): Boolean = synchronized(monitor) {
         try {
-            if (!markersAbsent(context)) return@synchronized false
+            // Android/POSIX can drop *all* process file locks on an inode when
+            // ANY descriptor for it is closed. Never even open a second handle
+            // during our own exclusive owner: closing it would invalidate the
+            // kernel exclusion despite FileLock.isValid still appearing true.
+            if (restoreOwnerToken != null || !markersAbsent(context)) {
+                return@synchronized false
+            }
             // Existing in-process DB sessions already hold a native shared
             // lease, so they cannot overlap a correctly acquired restore
             // exclusive lock. Java disallows overlapping locks in one VM.
@@ -95,7 +101,12 @@ internal object NativeBackupStartupGate {
      */
     fun acquireDatabaseSession(context: Context): String? = synchronized(monitor) {
         try {
-            if (!markersAbsent(context)) return@synchronized null
+            // Do not open/close a competing descriptor while exclusive owner
+            // holds the lifecycle inode. On POSIX even a failed tryLock and
+            // subsequent close can drop that owner's process-wide kernel lock.
+            if (restoreOwnerToken != null || !markersAbsent(context)) {
+                return@synchronized null
+            }
             if (activeLeaseIds.isEmpty()) {
                 val root = context.noBackupFilesDir.canonicalFile
                 val file = RandomAccessFile(File(root, "database_lifecycle.lock"), "rw")
