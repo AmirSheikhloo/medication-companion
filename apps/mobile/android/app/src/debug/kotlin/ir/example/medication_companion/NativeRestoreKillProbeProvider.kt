@@ -30,9 +30,13 @@ class NativeRestoreKillProbeProvider : ContentProvider() {
                 val token = NativeBackupStartupGate.acquireDatabaseSession(ctx)
                 val released = token != null &&
                     NativeBackupStartupGate.releaseDatabaseSession(token)
+                val lockFile = java.io.File(ctx.noBackupFilesDir, "database_lifecycle.lock").canonicalFile
+                val stat = android.system.Os.stat(lockFile.absolutePath)
                 Bundle().apply {
                     putInt("pid", Process.myPid())
                     putBoolean("admitted", token != null && released)
+                    putString("lockPath", lockFile.absolutePath)
+                    putString("lockIdentity", "${stat.st_dev}:${stat.st_ino}")
                 }
             }
             "kill_OLD_SAVED", "kill_NEW_INSTALLED" -> {
