@@ -198,6 +198,31 @@ internal object NativeBackupStartupGate {
         true
     }
 
+    /**
+     * D4b-2 fixture-only boundary: run non-mutating verification while the
+     * same native/OS exclusive owner is held. This is deliberately NOT a
+     * Flutter MethodChannel and must never be used as authorization for
+     * replacing the actual app database or cancelling reminders.
+     *
+     * Null means exclusive admission was denied (existing shared session,
+     * another restore owner, pending recovery marker or unavailable storage).
+     * The caller must use synthetic isolated fixtures, and the lease remains
+     * held until the callback returns or throws.
+     */
+    internal fun withExclusiveFixtureOwnerForTest(
+        context: Context,
+        verifyReadOnly: () -> Boolean,
+    ): Boolean? {
+        val owner = acquireRestoreOwner(context) ?: return null
+        try {
+            return verifyReadOnly()
+        } finally {
+            if (!releaseRestoreOwner(owner)) {
+                throw IllegalStateException("Exclusive fixture owner release could not be verified")
+            }
+        }
+    }
+
     /** Debug-only, non-destructive proof of lock exclusion. It performs no DB
      * I/O, writes no journal or reconcile marker and always releases tokens.
      * The caller must ensure that the normal medication screen is closed.
