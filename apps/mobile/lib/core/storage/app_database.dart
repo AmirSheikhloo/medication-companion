@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import 'database_lifecycle_lease.dart';
+
 part 'app_database.g.dart';
 
 /// Every health-related row belongs to a profile. Never query across profiles
@@ -272,8 +274,35 @@ class VisitQuestions extends Table {
   VisitQuestions,
 ])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(driftDatabase(name: 'medication_companion_m1'));
-  AppDatabase.forTesting(super.executor);
+  final DatabaseLifecycleLease? _lease;
+
+  AppDatabase._guarded(this._lease)
+      : super(driftDatabase(name: 'medication_companion_m1'));
+  AppDatabase.forTesting(super.executor) : _lease = null;
+
+  /// No production constructor may create or open a database before acquiring
+  /// a lifetime-held native lock. A headless engine lacking the MethodChannel
+  /// must fail without constructing Drift, rather than silently bypassing it.
+  static Future<AppDatabase> openGuarded() async {
+    final lease = await DatabaseLifecycleLease.acquire();
+    try {
+      return AppDatabase._guarded(lease);
+    } catch (_) {
+      await lease.release();
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    try {
+      // Await every Drift executor shutdown before releasing the native lease.
+      await super.close();
+    } finally {
+      final lease = _lease;
+      if (lease != null) await lease.release();
+    }
+  }
 
   @override
   int get schemaVersion => 5;

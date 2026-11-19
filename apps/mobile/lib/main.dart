@@ -9,6 +9,7 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'core/storage/app_database.dart';
+import 'features/backup/data/restore_startup_gate.dart';
 import 'features/medications/data/medication_repository.dart';
 import 'features/medications/presentation/medication_home.dart';
 import 'features/profiles/data/profile_repository.dart';
@@ -19,9 +20,41 @@ import 'features/care/data/care_reminder_coordinator.dart';
 import 'features/care/data/android_care_reminder_port.dart';
 import 'm0/test_timings.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MedicationM0App());
+  // Restore recovery must be proven safe BEFORE any widget, coordinator or
+  // database is constructed. Unknown journal state fails closed.
+  final safe = await RestoreStartupGate.runBeforeAppStart();
+  runApp(safe ? const MedicationM0App() : const RecoveryOnlyApp());
+}
+
+class RecoveryOnlyApp extends StatelessWidget {
+  const RecoveryOnlyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'همراه دارو — حفاظت از اطلاعات',
+        debugShowCheckedModeBanner: false,
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            appBar: AppBar(title: const Text('حفاظت از اطلاعات')),
+            body: const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  'وضعیت بازیابی پایگاه داده هنوز ایمن تأیید نشده است. '
+                  'برای جلوگیری از حذف یا تغییر ناخواستهٔ اطلاعات، '
+                  'برنامه در حالت محافظت باقی می‌ماند. '
+                  'برنامه یا فایل‌های آن را حذف نکنید. '
+                  'برای بررسی وضعیت بازیابی از نسخهٔ پشتیبانی و راهنمای فنی استفاده کنید.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class MedicationM0App extends StatelessWidget {
@@ -166,6 +199,22 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
     await _notifications.cancel(id: 202);
   }
 
+  Future<void> _testRecoveryFoundations() async {
+    const channel = MethodChannel('medication_companion/secure_backup');
+    final passed = await channel.invokeMethod<bool>('testNativeLockExclusion');
+    if (passed != true) {
+      throw StateError('قفل اشتراکی یا انحصاری آزمون را نگذرانده؛ بازیابی ممنوع است.');
+    }
+    final journalPassed = await channel.invokeMethod<bool>('testNativeJournalDurability');
+    if (journalPassed != true) {
+      throw StateError('آزمون نوشتن اتمیک، fsync یا صحت ژورنال ناموفق بود؛ بازیابی ممنوع است.');
+    }
+    final faultPassed = await channel.invokeMethod<bool>('testNativeRollbackFaultMatrix');
+    if (faultPassed != true) {
+      throw StateError('آزمون خرابی و تکرار بازیابی نسخهٔ قدیمی ناموفق بود؛ بازیابی ممنوع است.');
+    }
+  }
+
   Future<void> _sharePersianPdf() async {
     // Every PDF font is bundled inside the APK: no network request is made.
     final regularBytes = await rootBundle.load(
@@ -257,22 +306,24 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
   }
 
   Future<void> _openMedicationHome() async {
-    final db = AppDatabase();
-    final medications = MedicationRepository(db);
-    final profiles = ProfileRepository(db);
-    final reminders = ReminderCoordinator(
-      database: db,
-      medications: medications,
-      profiles: profiles,
-      notifications: AndroidReminderPort(),
-    );
-    final careReminders = CareReminderCoordinator(
-      database: db,
-      care: CareRepository(db),
-      profiles: profiles,
-      notifications: AndroidCareReminderPort(),
-    );
+    AppDatabase? db;
     try {
+      db = await AppDatabase.openGuarded();
+      final medications = MedicationRepository(db);
+      final profiles = ProfileRepository(db);
+      final reminders = ReminderCoordinator(
+        database: db,
+        medications: medications,
+        profiles: profiles,
+        notifications: AndroidReminderPort(),
+      );
+      final careReminders = CareReminderCoordinator(
+        database: db,
+        care: CareRepository(db),
+        profiles: profiles,
+        notifications: AndroidCareReminderPort(),
+      );
+      if (!mounted) return;
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
           builder: (_) => MedicationHome(
@@ -283,8 +334,22 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
           ),
         ),
       );
+    } catch (_) {
+      if (mounted) {
+        setState(() => _status = 'ورود ایمن به پایگاه داده تأیید نشد. '
+            'برای حفاظت از اطلاعات، صفحهٔ داروها باز نشد.');
+      }
     } finally {
-      await db.close();
+      if (db != null) {
+        try {
+          await db.close();
+        } catch (_) {
+          if (mounted) {
+            setState(() => _status = 'بسته‌شدن ایمن پایگاه داده تأیید نشد. '
+                'برنامه را کاملاً ببندید و دوباره باز کنید.');
+          }
+        }
+      }
     }
   }
 
@@ -352,6 +417,12 @@ class _M0HomeScreenState extends State<M0HomeScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           _button('ساخت و اشتراک گزارش PDF',
               _ready ? () => _act('PDF ساخته شد و صفحه اشتراک باز شد.', _sharePersianPdf) : null),
+          const SizedBox(height: 16),
+          const Text('۴. آزمون قفل، ژورنال و خرابی ناگهانی',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          _button('آزمون جامع قفل و بازیابی ضدکرش — نسخهٔ آزمایشی',
+              _ready ? () => _act('قفل، ژورنال، چهار نقطه قطع و حالت‌های نصب تازه با موفقیت آزمون شدند.',
+                  _testRecoveryFoundations) : null),
           const SizedBox(height: 16),
           const Text(
             'هشدار: این صفحه فقط آزمایش فنی است. هیچ پیشنهاد یا دستور مصرف دارویی ارائه نمی‌کند.',

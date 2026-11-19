@@ -165,6 +165,43 @@ void main() {
     await expectLater(coordinator.refreshIfEnabled(), throwsStateError);
   });
 
+
+  test('repeated reminder reconciliation is idempotent and writes no history',
+      () async {
+    final profile = await profiles.createGuestProfile(forSelf: true);
+    await meds.addDailyMedication(
+      profileId: profile.id,
+      name: 'نمونه',
+      doseText: 'نمونه',
+      time: const TimeOfDayValue(8, 0),
+    );
+    await coordinator.enable();
+    final before = port.scheduled.map((job) =>
+        '${job.id}:${job.localAt.millisecondsSinceEpoch}:${job.daily}').toList();
+    Future<int> rowCount(String table) async {
+      final rows = await db.customSelect('SELECT COUNT(*) AS n FROM $table').getSingle();
+      return rows.read<int>('n');
+    }
+    final events = await rowCount('dose_events');
+    final stock = await rowCount('stock_movements');
+    final settings = await rowCount('app_settings');
+
+    for (var i = 0; i < 3; i++) {
+      expect(await coordinator.refreshIfEnabled(), before.length);
+      expect(port.scheduled.map((job) =>
+          '${job.id}:${job.localAt.millisecondsSinceEpoch}:${job.daily}').toList(),
+          before);
+    }
+    expect(await rowCount('dose_events'), events);
+    expect(await rowCount('stock_movements'), stock);
+    expect(await rowCount('app_settings'), settings);
+    final replacements = port.syncCount;
+    port.permissions = false;
+    await expectLater(coordinator.refreshIfEnabled(), throwsStateError);
+    expect(port.syncCount, replacements);
+    expect(await coordinator.isEnabled(), isTrue);
+  });
+
   test('five-second demo requires opt-in and does not change plan', () async {
     await expectLater(coordinator.demoInFiveSeconds(), throwsStateError);
     await coordinator.enable();

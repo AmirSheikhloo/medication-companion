@@ -24,12 +24,79 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        // In M4-01B no restore journal is ever written. Future M4-01D must run
-        // RestoreRecoveryBootstrapper before this cleanup or any DB access.
-        SecureBackupEngine(applicationContext).sweepAbandonedExportStaging()
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "medication_companion/secure_backup")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "bootstrapRecovery" -> {
+                        worker.execute {
+                            val safe = NativeBackupStartupGate.isSafeForDatabaseOrBoot(applicationContext)
+                            if (safe) {
+                                SecureBackupEngine(applicationContext).sweepAbandonedExportStaging()
+                            }
+                            ui.post { result.success(safe) }
+                        }
+                    }
+                    "acquireDatabaseLease" -> {
+                        worker.execute {
+                            val token = NativeBackupStartupGate.acquireDatabaseSession(applicationContext)
+                            ui.post { result.success(token) }
+                        }
+                    }
+                    "releaseDatabaseLease" -> {
+                        val token = call.argument<String>("token")
+                        if (token.isNullOrBlank()) {
+                            result.error("INVALID", "شناسهٔ قفل پایگاه داده معتبر نیست", null)
+                        } else {
+                            worker.execute {
+                                val released = NativeBackupStartupGate.releaseDatabaseSession(token)
+                                ui.post { result.success(released) }
+                            }
+                        }
+                    }
+                    "testNativeLockExclusion" -> {
+                        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 ||
+                            exporting || importing || pendingPicker != null) {
+                            result.error("DISABLED", "تست قفل فقط در نسخهٔ آزمایشی و حالت بیکار مجاز است", null)
+                        } else {
+                            worker.execute {
+                                val valid = try {
+                                    NativeBackupStartupGate.testLockExclusion(applicationContext)
+                                } catch (_: Throwable) { false }
+                                ui.post { result.success(valid) }
+                            }
+                        }
+                    }
+                    "testNativeJournalDurability" -> {
+                        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 ||
+                            exporting || importing || pendingPicker != null) {
+                            result.error("DISABLED", "آزمون ژورنال فقط در نسخهٔ آزمایشی و حالت بیکار مجاز است", null)
+                        } else {
+                            worker.execute {
+                                val valid = try {
+                                    NativeRestoreJournal.debugDurabilityProbe(applicationContext)
+                                } catch (_: Throwable) { false }
+                                ui.post { result.success(valid) }
+                            }
+                        }
+                    }
+                    "testNativeRollbackFaultMatrix" -> {
+                        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 ||
+                            exporting || importing || pendingPicker != null) {
+                            result.error("DISABLED", "آزمون ضدکرش فقط در نسخهٔ آزمایشی و حالت بیکار مجاز است", null)
+                        } else {
+                            worker.execute {
+                                val diagnostic = try {
+                                    NativeRestoreFaultMatrix.runDiagnostic(applicationContext)
+                                } catch (error: Throwable) {
+                                    "UNCAUGHT / ${error.javaClass.simpleName}: ${error.message.orEmpty().take(180)}"
+                                }
+                                ui.post {
+                                    if (diagnostic == null) result.success(true)
+                                    else result.error("RESTORE_FAULT_MATRIX", diagnostic, null)
+                                }
+                            }
+                        }
+                    }
                     "testCryptoProvider" -> {
                         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 || exporting) {
                             result.error("DISABLED", "تست رمزنگاری فقط در نسخه آزمایشی فعال است", null)

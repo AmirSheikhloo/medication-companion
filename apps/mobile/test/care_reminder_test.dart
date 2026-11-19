@@ -12,6 +12,7 @@ class _FakePort implements CareReminderNotificationPort {
   bool permitted = true;
   bool initialized = false;
   int demoCount = 0;
+  int replaceCount = 0;
   List<CareReminderJob> jobs = [];
 
   @override
@@ -25,6 +26,7 @@ class _FakePort implements CareReminderNotificationPort {
 
   @override
   Future<void> replaceManaged(List<CareReminderJob> next) async {
+    replaceCount++;
     jobs = [...next];
   }
 
@@ -146,6 +148,39 @@ void main() {
       expect(port.jobs, isEmpty);
       await coordinator.disable();
       expect(await coordinator.isEnabled(), isFalse);
+    });
+
+
+    test('repeated follow-up reconciliation is stable and does not write events',
+        () async {
+      final p = await profiles.createGuestProfile(forSelf: true);
+      await care.addVisit(
+        profileId: p.id, title: 'ویزیت نمونه',
+        scheduledAt: DateTime(2027, 5, 10, 12),
+        reminderMinutesBefore: 30,
+      );
+      await coordinator.enable();
+      final original = port.jobs.map((job) =>
+          '${job.id}:${job.localAt.millisecondsSinceEpoch}').toList();
+      Future<int> count(String table) async =>
+          (await db.customSelect('SELECT COUNT(*) AS n FROM $table').getSingle())
+              .read<int>('n');
+      final eventCount = await count('care_task_events');
+      final visitCount = await count('care_visits');
+
+      for (var i = 0; i < 3; i++) {
+        expect(await coordinator.refreshIfEnabled(), original.length);
+        expect(port.jobs.map((job) =>
+            '${job.id}:${job.localAt.millisecondsSinceEpoch}').toList(),
+            original);
+      }
+      expect(await count('care_task_events'), eventCount);
+      expect(await count('care_visits'), visitCount);
+      final replaced = port.replaceCount;
+      port.permitted = false;
+      await expectLater(coordinator.refreshIfEnabled(), throwsStateError);
+      expect(port.replaceCount, replaced);
+      expect(await coordinator.isEnabled(), isTrue);
     });
 
     test('repeating task advances independently and schedules future cycles', () async {

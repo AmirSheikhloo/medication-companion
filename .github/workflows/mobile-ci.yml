@@ -21,7 +21,8 @@ concurrency:
 jobs:
   analyze-and-test:
     name: Flutter analyze and test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: apps/mobile
@@ -41,6 +42,21 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
+      # API 37 medication screen startup uses getApplicationSupportDirectory.
+      # path_provider_android 2.3.x moved this lookup to JNI and raised
+      # ClassNotFoundException on the user's emulator. Do not silently upgrade.
+      - name: Guard Android database path startup dependency
+        run: |
+          flutter pub deps --json > /tmp/medication-companion-deps.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          deps = json.loads(Path('/tmp/medication-companion-deps.json').read_text())['packages']
+          android = next(p for p in deps if p['name'] == 'path_provider_android')
+          assert android['version'] == '2.2.23', android
+          print('PASS Android pre-JNI path_provider_android 2.2.23')
+          PY
       - name: Generate Drift database code
         run: dart run build_runner build --delete-conflicting-outputs
 
@@ -50,17 +66,47 @@ jobs:
       - name: Widget and unit tests
         run: flutter test --reporter expanded
 
+      - name: Verify CI preview installer safe selection
+        run: pwsh -NoProfile -File ../../.github/scripts/Install_Medication_Companion_CI_Preview.ps1 -SelfTest
+
       - name: Build Android debug APK
         run: flutter build apk --debug
 
       - name: Assert Android SQLite authorizer exports
         run: python3 ../../.github/scripts/assert_android_sqlite_authorizer.py build/app/outputs/flutter-apk/app-debug.apk
 
+      - name: Assert safe notification boot receiver
+        run: python3 ../../.github/scripts/assert_safe_boot_receiver.py build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Enable hardware acceleration for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -c /dev/kvm
+
+      - name: Execute isolated rollback matrix on Android emulator
+        timeout-minutes: 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_5
+          disable-animations: true
+          script: cd apps/mobile/android && ./gradlew connectedDebugAndroidTest --stacktrace --no-daemon && cd ../../.. && python3 .github/scripts/assert_android_process_kill_reentry.py
+
+      - name: Stage verified preview installer next to APK
+        if: success()
+        run: cp ../../.github/scripts/Install_Medication_Companion_CI_Preview.ps1 build/app/outputs/flutter-apk/Install_Medication_Companion_CI_Preview.ps1
+
       - name: Upload Android emulator test APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: medication-companion-m4-preview-debug-apk
-          path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+          path: |
+            apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+            apps/mobile/build/app/outputs/flutter-apk/Install_Medication_Companion_CI_Preview.ps1
           retention-days: 7
           if-no-files-found: error

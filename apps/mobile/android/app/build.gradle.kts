@@ -20,6 +20,7 @@ android {
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         multiDexEnabled = true
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -56,6 +57,8 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
     // Lightweight, incremental GCM engine and Argon2id; never use Conscrypt's
     // buffer-accumulating AES/GCM Cipher.update for 64 MiB backups.
     implementation("org.bouncycastle:bcprov-jdk18on:1.86")

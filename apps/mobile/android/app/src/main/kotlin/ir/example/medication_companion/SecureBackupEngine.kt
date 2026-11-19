@@ -7,6 +7,9 @@ import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.database.sqlite.SQLiteDatabase
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import org.bouncycastle.crypto.engines.AESEngine
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
 import org.bouncycastle.crypto.modes.GCMBlockCipher
@@ -193,19 +196,62 @@ internal class SecureBackupEngine(private val context: Context) {
         }
     }
 
-    /** Only accepts the exact quarantined filename within a UUID work folder. */
+    /** Only the exact no_backup/backup_staging/<UUID>/import.sqlite
+     * quarantine is accepted. Every deletion is checked and directory-fsynced.
+     * Unknown files, symlinks, and permission errors must fail closed.
+     */
     fun clearImport(path: String) = exportLock.withLock {
         val root = File(context.noBackupFilesDir, "backup_staging").canonicalFile
         val file = File(path).canonicalFile
-        if (file.name != "import.sqlite" || file.parentFile?.parentFile != root ||
-            file.parentFile?.name?.matches(Regex("[0-9a-fA-F-]{36}")) != true) {
+        val folder = file.parentFile
+        if (file.name != "import.sqlite" || folder?.parentFile != root ||
+            folder.name.matches(Regex("[0-9a-fA-F-]{36}")) != true) {
             throw BackupProblem("مسیر فایل موقت تأیید نشد")
         }
-        file.delete()
-        File(file.parentFile, "import.sqlite-wal").delete()
-        File(file.parentFile, "import.sqlite-shm").delete()
-        File(file.parentFile, "import.medbackup.part").delete()
-        file.parentFile?.delete()
+        if (!root.isDirectory) throw BackupProblem("پوشه موقت امن موجود نیست")
+        // A successful previous cleanup is idempotent, but an unexpected
+        // directory entry is not authorization to delete arbitrary files.
+        val folderInfo = try {
+            Os.lstat(folder.path)
+        } catch (error: ErrnoException) {
+            if (error.errno == OsConstants.ENOENT) return@withLock
+            throw BackupProblem("بررسی پوشه موقت ناموفق بود", error)
+        }
+        if ((folderInfo.st_mode and OsConstants.S_IFMT) != OsConstants.S_IFDIR) {
+            throw BackupProblem("نوع پوشه موقت نامعتبر است")
+        }
+        val allowed = setOf(
+            "import.sqlite", "import.sqlite-wal",
+            "import.sqlite-shm", "import.medbackup.part"
+        )
+        val entries = folder.listFiles()
+            ?: throw BackupProblem("فهرست فایل‌های موقت قابل بررسی نیست")
+        if (entries.any { it.name !in allowed }) {
+            throw BackupProblem("فایل ناشناخته در پوشه موقت؛ پاکسازی متوقف شد")
+        }
+        for (name in allowed) {
+            val target = File(folder, name)
+            val info = try {
+                Os.lstat(target.path)
+            } catch (error: ErrnoException) {
+                if (error.errno == OsConstants.ENOENT) null
+                else throw BackupProblem("بازرسی فایل موقت ناموفق بود", error)
+            }
+            if (info != null) {
+                if ((info.st_mode and OsConstants.S_IFMT) != OsConstants.S_IFREG) {
+                    throw BackupProblem("پیوند یا نوع فایل موقت نامعتبر است")
+                }
+                // File.delete() unlinks the pathname without following it,
+                // and its result must be checked. This public Android API
+                // works on all supported SDK versions.
+                if (!target.delete()) {
+                    throw BackupProblem("حذف فایل موقت ناموفق بود")
+                }
+            }
+        }
+        NativeRestoreJournal.fsyncDirectory(folder)
+        if (!folder.delete()) throw BackupProblem("حذف پوشه موقت ناموفق بود")
+        NativeRestoreJournal.fsyncDirectory(root)
     }
 
     private fun exportUnlocked(sourcePath: String, snapshotPath: String, uri: Uri, password: String): Map<String, Any> {
