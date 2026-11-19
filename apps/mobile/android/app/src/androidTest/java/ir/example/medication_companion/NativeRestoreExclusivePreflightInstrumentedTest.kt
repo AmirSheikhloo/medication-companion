@@ -114,10 +114,13 @@ class NativeRestoreExclusivePreflightInstrumentedTest {
     ): Boolean? = NativeBackupStartupGate.withExclusiveFixtureOwnerForTest(context) {
         // This check must be performed before marker creation, alarm changes,
         // a journal write, or any actual SQLite replacement.
+        // Exercise both admission paths before the OTHER process checks the
+        // kernel exclusion; neither may open/close a second file descriptor
+        // and silently drop the owner's POSIX file lock.
         assertNull(NativeBackupStartupGate.acquireDatabaseSession(context))
+        assertFalse(NativeBackupStartupGate.isSafeForDatabaseOrBoot(context))
         assertFalse(otherProcessCanAcquireSession())
-        !NativeBackupStartupGate.isSafeForDatabaseOrBoot(context) &&
-            logicalDigest(live) == expectedLive &&
+        logicalDigest(live) == expectedLive &&
             candidateSeal(candidate) == expectedCandidate
     }
 
