@@ -24,6 +24,17 @@ class NativeRestoreKillProbeProvider : ContentProvider() {
         }
         return when (method) {
             "pid" -> Bundle().apply { putInt("pid", Process.myPid()) }
+            // D4b-2: a second Android process attempts only the shared admission
+            // lease. It never opens SQLite or changes any user data.
+            "probeAcquireSession" -> {
+                val token = NativeBackupStartupGate.acquireDatabaseSession(ctx)
+                val released = token != null &&
+                    NativeBackupStartupGate.releaseDatabaseSession(token)
+                Bundle().apply {
+                    putInt("pid", Process.myPid())
+                    putBoolean("admitted", token != null && released)
+                }
+            }
             "kill_OLD_SAVED", "kill_NEW_INSTALLED" -> {
                 val id = arg ?: throw IllegalArgumentException("missing probe ID")
                 val state = method.removePrefix("kill_")
