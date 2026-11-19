@@ -109,6 +109,48 @@ def main() -> None:
 
     print("PASS D3d: both real Android process-death checkpoints recovered", flush=True)
 
+    # D4b-3: a separate native worker acquires the same exclusive kernel
+    # lifecycle lock used by future restore, writes a PID witness while held,
+    # and is SIGKILLed. A newly started PID must recover ordinary admission.
+    # The witness is in a random synthetic folder; the real database and
+    # backup_journal directories are never modified.
+    owner_id = str(uuid.uuid4())
+    owner_pid = int(require_field(call("pid"), "pid"))
+    print(f"D4b-3 exclusive owner before kill = {owner_pid}", flush=True)
+    try:
+        killed = adb(
+            "shell", "content", "call", "--uri", URI,
+            "--method", "kill_EXCLUSIVE_OWNER", "--arg", owner_id, timeout=40,
+        )
+        print(f"D4b-3 owner kill RPC exit={killed.returncode}", flush=True)
+    except subprocess.TimeoutExpired:
+        print("D4b-3 owner kill RPC interrupted by process death", flush=True)
+
+    ownership_reentry = None
+    last_error = None
+    for _ in range(12):
+        try:
+            ownership_reentry = call("verify_EXCLUSIVE_OWNER_DEATH", owner_id)
+            break
+        except (RuntimeError, subprocess.TimeoutExpired) as error:
+            last_error = error
+            time.sleep(0.25)
+    if ownership_reentry is None:
+        raise AssertionError(f"No owner-death reentry: {last_error}")
+    next_pid = int(require_field(ownership_reentry, "pid"))
+    witness_pid = int(require_field(ownership_reentry, "witnessPid"))
+    if next_pid == owner_pid or witness_pid != owner_pid:
+        raise AssertionError(
+            f"Owner was not demonstrably killed while holding lease: {ownership_reentry}"
+        )
+    if require_field(ownership_reentry, "admitted") != "true":
+        raise AssertionError(
+            f"Native OS owner lock was not released on SIGKILL: {ownership_reentry}"
+        )
+    if require_field(call("cleanup_EXCLUSIVE_OWNER_DEATH", owner_id), "ok") != "true":
+        raise AssertionError("Owner-death witness cleanup failed")
+    print(f"PASS D4b-3: exclusive owner pid {owner_pid} -> {next_pid}; admission recovered", flush=True)
+
 
 if __name__ == "__main__":
     try:

@@ -1,6 +1,7 @@
 package ir.example.medication_companion
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
 import android.os.Process
@@ -44,6 +45,17 @@ class NativeRestoreExclusivePreflightInstrumentedTest {
         assertEquals("Debug processes targeted different lifecycle inodes",
             "${ownStat.st_dev}:${ownStat.st_ino}", response.getString("lockIdentity"))
         return response.getBoolean("admitted")
+    }
+
+    private fun otherProcessBootIsSafe(): Boolean {
+        val response = context.contentResolver.call(
+            Uri.parse("content://${context.packageName}.m4killprobe"),
+            "probeBootSafe", null, null,
+        )
+        assertNotNull("Debug second-process boot probe is unavailable", response)
+        assertNotEquals("Boot probe must execute in a different Android PID",
+            Process.myPid(), response!!.getInt("pid"))
+        return response.getBoolean("safe")
     }
 
     private fun fixture(run: (File, File) -> Unit) {
@@ -120,6 +132,7 @@ class NativeRestoreExclusivePreflightInstrumentedTest {
         assertNull(NativeBackupStartupGate.acquireDatabaseSession(context))
         assertFalse(NativeBackupStartupGate.isSafeForDatabaseOrBoot(context))
         assertFalse(otherProcessCanAcquireSession())
+        assertFalse(otherProcessBootIsSafe())
         logicalDigest(live) == expectedLive &&
             candidateSeal(candidate) == expectedCandidate
     }
@@ -143,6 +156,7 @@ class NativeRestoreExclusivePreflightInstrumentedTest {
             }
             assertEquals(true, verifyUnderExclusive(live, candidate, expectedLive, expectedCandidate))
             assertTrue(otherProcessCanAcquireSession())
+            assertTrue(otherProcessBootIsSafe())
             val after = NativeBackupStartupGate.acquireDatabaseSession(context)
             assertNotNull(after)
             assertTrue(NativeBackupStartupGate.releaseDatabaseSession(after!!))
@@ -174,6 +188,47 @@ class NativeRestoreExclusivePreflightInstrumentedTest {
             }
             assertEquals(expectedCandidate.size, candidate.length())
             assertEquals(false, verifyUnderExclusive(live, candidate, expectedLive, expectedCandidate))
+        }
+    }
+
+    @Test
+    fun syntheticDurableMarkersAndTornNamesFailClosedWithoutTouchingRealData() {
+        val root = File(context.noBackupFilesDir, "backup_journal_probe_${UUID.randomUUID()}")
+        assertTrue(root.mkdir())
+        val syntheticContext = object : ContextWrapper(context) {
+            override fun getNoBackupFilesDir(): File = root
+        }
+        try {
+            assertTrue(NativeBackupStartupGate.isSafeForDatabaseOrBoot(syntheticContext))
+            val shared = NativeBackupStartupGate.acquireDatabaseSession(syntheticContext)
+            assertNotNull(shared)
+            val journalDir = File(root, "backup_journal")
+            assertTrue(journalDir.mkdir())
+            val liveJournal = File(journalDir, "restore_journal.json")
+            assertTrue(liveJournal.createNewFile())
+            // Markers must reject even if a shared token was already granted.
+            assertFalse(NativeBackupStartupGate.isSafeForDatabaseOrBoot(syntheticContext))
+            assertNull(NativeBackupStartupGate.acquireDatabaseSession(syntheticContext))
+            assertTrue(NativeBackupStartupGate.releaseDatabaseSession(shared!!))
+            for (markerName in listOf(
+                "restore_journal.json", "restore_journal.partial",
+                "reconcile_pending.flag", "reconcile_pending.torn",
+            )) {
+                val marker = File(journalDir, markerName)
+                if (!marker.exists()) assertTrue(marker.createNewFile())
+                assertFalse("Marker $markerName allowed normal admission",
+                    NativeBackupStartupGate.isSafeForDatabaseOrBoot(syntheticContext))
+                assertNull("Marker $markerName allowed a database session",
+                    NativeBackupStartupGate.acquireDatabaseSession(syntheticContext))
+                assertNull("Marker $markerName allowed exclusive owner",
+                    NativeBackupStartupGate.withExclusiveFixtureOwnerForTest(syntheticContext) { true })
+                assertTrue(marker.delete())
+            }
+            assertTrue(NativeBackupStartupGate.isSafeForDatabaseOrBoot(syntheticContext))
+            assertEquals(true,
+                NativeBackupStartupGate.withExclusiveFixtureOwnerForTest(syntheticContext) { true })
+        } finally {
+            assertTrue("Synthetic marker fixture cleanup failed", root.deleteRecursively())
         }
     }
 

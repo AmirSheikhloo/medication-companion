@@ -1,4 +1,4 @@
-# M4-01D — Admission, fingerprint, locks, journal and fault matrix (D1–D3d)
+# M4-01D — Admission, fingerprint, locks, journal and fault matrix (D1–D4b-3)
 
 Status: **D1 + D2a + D2b-1 + D2b-2 + D3a + D3b + D3c + D3d (isolated debug) implemented; full M4-01D NOT approved**. This stacked branch is
 based on M4-01C. The R7 contract remains authoritative. No destructive restore
@@ -287,6 +287,38 @@ rollback journal, production crash recovery or full R7 matrix). In
 particular, synthetic fixture hashing is **not** a substitute for the
 canonical 17-table logical fingerprint in the R7 contract. The destructive
 Replace action remains **absent** and PR #19 stays **DRAFT**.
+
+## D4b-3 — real exclusive-owner process death and fail-closed marker tests
+
+This stage extends the isolated fixture evidence to cover critical Android
+lifecycle failures that were not exercised by D4b-2:
+
+1. The debug-only second Android process takes the **actual native exclusive
+   lifecycle file lock**, writes and fsyncs a PID witness under a unique
+   `no_backup/backup_journal_probe_<UUID>` fixture, and then dies via
+   `Process.killProcess(myPid())` **before releasing the lock**. The
+   independent ADB host script verifies a new PID, the previous owner's
+   durable witness, and successful shared-session admission after OS cleanup.
+   The actual Drift database, alarm set and production journal are untouched.
+2. Android instrumentation now tests separate-process boot admission denial
+   while the exclusive owner is held, ordinary admission recovery after
+   release, and every synthetic durable `restore_journal` /
+   `reconcile_pending` exact or torn-prefix marker. All marker tests use an
+   isolated ContextWrapper pointing at a random probe folder; a rejected
+   marker cannot authorize a shared lease or an exclusive owner.
+3. The GitHub CI workflow tests the reusable PowerShell preview installer
+   selection with a synthetic mixed list (old/current/new CI versions, base
+   app, unrelated packages and hostile suffix). The built artifact includes
+   the installer alongside the APK. **Only strictly older numbered CI preview
+   packages** are uninstalled, and only after validating and launching the new
+   APK; the base application and newer previews are preserved.
+
+These are additional safety proofs, **not completion of the production Phase B
+gate**. They do not close/reopen real Drift sessions, recheck the live 17-table
+fingerprint under an exclusive owner, create the production durable journal,
+handle real WAL checkpoint ownership, or reconcile actual alarms. Destructive
+replacement stays disabled and PR #19 remains DRAFT. Formal R7 release-gate
+count is unchanged.
 
 ## Required work before enabling replacement (D2–D4)
 
