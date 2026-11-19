@@ -2,6 +2,8 @@ package ir.example.medication_companion
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.net.Uri
+import android.os.Process
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
@@ -12,6 +14,7 @@ import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,6 +30,15 @@ import org.junit.runner.RunWith
 class NativeRestoreExclusivePreflightInstrumentedTest {
     private val context: Context
         get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    private fun otherProcessCanAcquireSession(): Boolean {
+        val uri = Uri.parse("content://${context.packageName}.m4killprobe")
+        val response = context.contentResolver.call(uri, "probeAcquireSession", null, null)
+        assertNotNull("Debug second-process probe is unavailable", response)
+        assertNotEquals("Probe must execute in another Android PID",
+            Process.myPid(), response!!.getInt("pid"))
+        return response.getBoolean("admitted")
+    }
 
     private fun fixture(run: (File, File) -> Unit) {
         val root = File(context.noBackupFilesDir, "backup_journal_probe_${UUID.randomUUID()}")
@@ -97,6 +109,7 @@ class NativeRestoreExclusivePreflightInstrumentedTest {
         // This check must be performed before marker creation, alarm changes,
         // a journal write, or any actual SQLite replacement.
         assertNull(NativeBackupStartupGate.acquireDatabaseSession(context))
+        assertFalse(otherProcessCanAcquireSession())
         !NativeBackupStartupGate.isSafeForDatabaseOrBoot(context) &&
             logicalDigest(live) == expectedLive &&
             candidateSeal(candidate) == expectedCandidate
@@ -111,6 +124,7 @@ class NativeRestoreExclusivePreflightInstrumentedTest {
             assertNotNull(second)
             val expectedLive = logicalDigest(live)
             val expectedCandidate = candidateSeal(candidate)
+            assertTrue(otherProcessCanAcquireSession())
             try {
                 assertNull(verifyUnderExclusive(live, candidate, expectedLive, expectedCandidate))
                 assertTrue(NativeBackupStartupGate.releaseDatabaseSession(first!!))
@@ -119,6 +133,7 @@ class NativeRestoreExclusivePreflightInstrumentedTest {
                 assertTrue(NativeBackupStartupGate.releaseDatabaseSession(second!!))
             }
             assertEquals(true, verifyUnderExclusive(live, candidate, expectedLive, expectedCandidate))
+            assertTrue(otherProcessCanAcquireSession())
             val after = NativeBackupStartupGate.acquireDatabaseSession(context)
             assertNotNull(after)
             assertTrue(NativeBackupStartupGate.releaseDatabaseSession(after!!))
