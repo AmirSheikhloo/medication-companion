@@ -37,6 +37,12 @@ class NativeRestoreExclusivePreflightInstrumentedTest {
         assertNotNull("Debug second-process probe is unavailable", response)
         assertNotEquals("Probe must execute in another Android PID",
             Process.myPid(), response!!.getInt("pid"))
+        val ownLock = File(context.noBackupFilesDir, "database_lifecycle.lock").canonicalFile
+        val ownStat = android.system.Os.stat(ownLock.absolutePath)
+        assertEquals("Debug processes targeted different lifecycle paths",
+            ownLock.absolutePath, response.getString("lockPath"))
+        assertEquals("Debug processes targeted different lifecycle inodes",
+            "${ownStat.st_dev}:${ownStat.st_ino}", response.getString("lockIdentity"))
         return response.getBoolean("admitted")
     }
 
