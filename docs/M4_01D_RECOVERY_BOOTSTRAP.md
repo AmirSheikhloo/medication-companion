@@ -253,6 +253,41 @@ quarantine. **No production exclusive restore ownership, consent token,
 candidate source-to-commit authentication, WAL replacement, or alarm
 reconciliation has been implemented**; R7 still blocks Phase B.
 
+## D4b-2 — read-only exclusive-owner fixture gate and alarm-plan invariants
+
+D4b-2 adds a **synthetic, instrumented Android proof** for the future
+exclusive Phase B boundary. The core production lock remains private and
+there is **no MethodChannel**, UI route, consent token or destructive
+replacement API that can acquire the restore owner.
+
+- `NativeBackupStartupGate.withExclusiveFixtureOwnerForTest` holds the same
+  kernel-backed exclusive lock for the entire test callback and always releases
+  it after completion or an exception. This API is deliberately fixture-only.
+- Android instrumentation creates small, unique SQLite fixtures only under
+  `no_backup/backup_journal_probe_<UUID>`; no real Drift database, rollback
+  master, restore journal or Android alarm is accessed.
+- Two in-process lifetime-held shared leases prevent an exclusive owner until
+  **both** close. During the exclusive read-only callback, new ordinary
+  admission fails both in-process **and from an actual second Android process**
+  (`:m4killprobe`); after release both can acquire compatible leases again.
+- Under exclusive fixture ownership, a deterministic synthetic SQLite row
+  fingerprint plus a bounded candidate size/SHA-256 reject same-count live row
+  mutations and same-size candidate corruption. A repeated unchanged check
+  succeeds; an exception releases ownership.
+- Medication and care reminder tests verify that repeated reconciliation of
+  unchanged schedules preserves stable IDs and inserts no dose/stock/care
+  history. Permission revocation prevents new scheduling attempts and retains
+  truthful enabled-state reporting.
+
+These checks cover **admission and pure preflight evidence only**. They do
+not prove the production Phase B lifecycle handoff (actual Drift closure,
+profile/callback freeze, v5 17-table recheck under exclusive ownership,
+persistent reconcile marker, alarm cancellation/rebuild, WAL checkpoint,
+rollback journal, production crash recovery or full R7 matrix). In
+particular, synthetic fixture hashing is **not** a substitute for the
+canonical 17-table logical fingerprint in the R7 contract. The destructive
+Replace action remains **absent** and PR #19 stays **DRAFT**.
+
 ## Required work before enabling replacement (D2–D4)
 
 - Device validation of the **lifetime-held** native lease (including a
