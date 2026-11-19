@@ -19,6 +19,10 @@ dependencies:
   # M1 offline persistence (the M0 UI remains unchanged in this PR).
   drift: 2.35.4
   drift_flutter: 0.3.1
+  # API 37 startup hotfix: 2.3.x switched Android paths to JNI and
+  # crashes while opening the Drift database (ClassNotFoundException).
+  # Retain the previous platform-channel implementation until verified.
+  path_provider_android: 2.2.23
   # M4-01C: pinned FFI SQLite engine for fail-closed, read-only backup inspection.
   sqlite3: 3.9.1
   ffi: 2.2.0
