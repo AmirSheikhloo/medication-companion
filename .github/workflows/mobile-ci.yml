@@ -96,6 +96,10 @@ jobs:
           disable-animations: true
           script: cd apps/mobile/android && ./gradlew connectedDebugAndroidTest --stacktrace --no-daemon && cd ../../.. && python3 .github/scripts/assert_android_process_kill_reentry.py
 
+      - name: Stage verified preview installer next to APK
+        if: success()
+        run: cp ../../.github/scripts/Install_Medication_Companion_CI_Preview.ps1 build/app/outputs/flutter-apk/Install_Medication_Companion_CI_Preview.ps1
+
       - name: Upload Android emulator test APK
         if: success()
         uses: actions/upload-artifact@v4
@@ -103,6 +107,6 @@ jobs:
           name: medication-companion-m4-preview-debug-apk
           path: |
             apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
-            .github/scripts/Install_Medication_Companion_CI_Preview.ps1
+            apps/mobile/build/app/outputs/flutter-apk/Install_Medication_Companion_CI_Preview.ps1
           retention-days: 7
           if-no-files-found: error
