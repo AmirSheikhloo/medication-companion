@@ -2,6 +2,14 @@
 
 Updated: 2026-11-20. Scope: `feature/mobile-mvp-beta` (based on the read-only backup preview, M4-01C).
 
+## Proven baseline and next beta increment
+
+- CI105: all eight automated acceptance checks succeeded (GitHub Actions run 44783026354).
+- User confirmed all six CI105 manual checks passed on the emulator.
+- Next increment: remove M0 engineering entry code, add medicine search and today's status summary, identify build number in More, and automatically find the APK beside the bundled installer.
+- The new increment must have a fresh green CI run; CI105 is evidence for the prior commit, not automatically for new changes.
+- Required fresh manual checks: medicine search (including Persian letters), today's summary counts, visible CI build number, and installer auto-selection without a file dialog. Repeat old medication/backup tests only if a regression is observed.
+
 ## Product decision
 
 Ship a compact, **offline single-device beta** now. Postpone real encrypted-backup restoration. Keep encrypted export and read-only authentication/inspection. Do not enable a partial restore implementation or imply users can restore erased data.
@@ -11,8 +19,8 @@ Ship a compact, **offline single-device beta** now. Postpone real encrypted-back
 - [ ] Flutter 3.50 dependency resolution and Android API 37 `path_provider_android=2.2.23` guard
 - [ ] Drift code generation
 - [ ] `flutter analyze`
-- [ ] `flutter test`, including entry-route smoke: opens medication workspace, not M0
-- [ ] PowerShell installer `-SelfTest` (older previews only, keep unrelated/newer apps)
+- [ ] `flutter test`, including entry-route, startup retry, Persian medicine search and status summary smoke tests
+- [ ] PowerShell installer `-SelfTest` (older previews only, keep unrelated/newer apps, APK auto-discovery)
 - [ ] Debug APK built with `MVP_BETA=true`
 - [ ] Android SQLite authorizer exports
 - [ ] APK and installer uploaded together

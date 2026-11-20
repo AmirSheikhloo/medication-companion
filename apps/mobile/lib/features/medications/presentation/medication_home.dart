@@ -20,6 +20,13 @@ import '../../backup/presentation/secure_backup_screen.dart';
 
 const _teal = Color(0xFF40E0D0);
 const _deepTeal = Color(0xFF008F87);
+const _betaRunNumber = String.fromEnvironment('BETA_RUN_NUMBER', defaultValue: 'محلی');
+
+String _normalizeMedicineSearch(String value) => value
+    .trim()
+    .toLowerCase()
+    .replaceAll('ي', 'ی')
+    .replaceAll('ك', 'ک');
 
 class MedicationHome extends StatefulWidget {
   const MedicationHome({
@@ -49,6 +56,8 @@ class _MedicationHomeState extends State<MedicationHome>
   List<Medication> _medications = [];
   List<Medication> _archivedMedications = [];
   bool _showArchived = false;
+  bool _searchVisible = false;
+  final _medicineSearch = TextEditingController();
   List<DailyDose> _doses = [];
   Map<String, StockSummary> _stocks = {};
 
@@ -70,6 +79,7 @@ class _MedicationHomeState extends State<MedicationHome>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _medicineSearch.dispose();
     super.dispose();
   }
 
@@ -140,6 +150,10 @@ class _MedicationHomeState extends State<MedicationHome>
           await widget.reminderCoordinator?.isEnabled() ?? false;
       if (!mounted) return;
       setState(() {
+        if (_active?.id != profile?.id) {
+          _medicineSearch.clear();
+          _searchVisible = false;
+        }
         _active = profile;
         _profiles = profiles;
         _medications = meds;
@@ -475,7 +489,19 @@ class _MedicationHomeState extends State<MedicationHome>
     );
   }
 
-  Widget _todayTab() => ListView(
+  Widget _todayTab() {
+    final taken = _doses.where((dose) => dose.status == 'taken').length;
+    final pending = _doses.where((dose) => dose.status == 'pending').length;
+    final other = _doses.length - taken - pending;
+    final now = DateTime.now();
+    DailyDose? nextDose;
+    for (final dose in _doses) {
+      if (dose.status == 'pending' && dose.scheduledAt.isAfter(now)) {
+        nextDose = dose;
+        break;
+      }
+    }
+    return ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
         children: [
           _sectionTitle('نوبت‌های امروز'),
@@ -485,6 +511,30 @@ class _MedicationHomeState extends State<MedicationHome>
             style: TextStyle(color: Colors.blueGrey.shade700),
           ),
           const SizedBox(height: 12),
+          if (_doses.isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('خلاصه امروز',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, runSpacing: 6, children: [
+                      Chip(label: Text('مصرف‌شده: $taken')),
+                      Chip(label: Text('ثبت‌نشده: $pending')),
+                      Chip(label: Text('سایر وضعیت‌ها: $other')),
+                    ]),
+                    if (nextDose != null) ...[
+                      const SizedBox(height: 8),
+                      Text('نوبت بعدی: ${nextDose.medication.name} — '
+                          '${_clock(TimeOfDay.fromDateTime(nextDose.scheduledAt))}'),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           if (_doses.isEmpty)
             _emptyCard(
               'هنوز دارویی ثبت نکرده‌اید.',
@@ -505,6 +555,7 @@ class _MedicationHomeState extends State<MedicationHome>
           ),
         ],
       );
+  }
 
   Widget _doseCard(DailyDose dose) {
     final status = switch (dose.status) {
@@ -580,14 +631,43 @@ class _MedicationHomeState extends State<MedicationHome>
     );
   }
 
-  Widget _medicinesTab() => ListView(
+  Widget _medicinesTab() {
+    final query = _normalizeMedicineSearch(_medicineSearch.text);
+    final visible = _medications
+        .where((med) => _normalizeMedicineSearch(med.name).contains(query))
+        .toList();
+    return ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
-          _sectionTitle('داروهای ${_active!.displayName}'),
+          Row(children: [
+            Expanded(child: _sectionTitle('داروهای ${_active!.displayName}')),
+            if (_medications.isNotEmpty)
+              IconButton(
+                tooltip: _searchVisible ? 'بستن جست‌وجوی دارو' : 'جست‌وجوی دارو',
+                icon: Icon(_searchVisible ? Icons.close : Icons.search),
+                onPressed: () => setState(() {
+                  _searchVisible = !_searchVisible;
+                  if (!_searchVisible) _medicineSearch.clear();
+                }),
+              ),
+          ]),
           const SizedBox(height: 10),
           const Text(
             'برای ویرایش یا بایگانی، منوی سه‌نقطه هر دارو را باز کنید.',
           ),
+          if (_searchVisible) ...[
+            const SizedBox(height: 10),
+            TextField(
+              key: const ValueKey('medication-search-field'),
+              controller: _medicineSearch,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'جست‌وجوی نام دارو',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           if (_medications.isEmpty)
             _emptyCard(
@@ -595,8 +675,15 @@ class _MedicationHomeState extends State<MedicationHome>
               'نام دارو و ساعت‌های روزانه را طبق نسخه وارد کنید.',
               'افزودن دارو',
               _addMedication,
+            )
+          else if (visible.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('دارویی با این نام پیدا نشد.'),
+              ),
             ),
-          for (final med in _medications) _medicationCard(med),
+          for (final med in visible) _medicationCard(med),
           const SizedBox(height: 12),
           TextButton.icon(
             onPressed: () => setState(() => _showArchived = !_showArchived),
@@ -629,6 +716,7 @@ class _MedicationHomeState extends State<MedicationHome>
           ),
         ],
       );
+  }
 
   Widget _medicationCard(Medication med) {
     final slots = _doses
@@ -772,6 +860,13 @@ class _MedicationHomeState extends State<MedicationHome>
             'یادآورها ممکن است با محدودیت باتری یا تنظیمات گوشی به تأخیر بیفتند؛ جایگزین مراقبت پزشکی نیستند.',
           ),
           const SizedBox(height: 20),
+          _sectionTitle('درباره برنامه'),
+          const SizedBox(height: 8),
+          const Text('همراه دارو — بتا ۰.۲.۰'),
+          Text(_betaRunNumber == 'محلی'
+              ? 'ساخت محلی'
+              : 'شماره ساخت آزمایشی: CI$_betaRunNumber'),
+          const SizedBox(height: 12),
           const _InfoNote(
             'این نسخهٔ بتای خصوصی است؛ داده‌ها فقط روی همین دستگاه‌اند. حساب آنلاین، همگام‌سازی و بازیابی پشتیبان فعال نیستند. برای مصرف دارو به اعلان برنامه به‌تنهایی تکیه نکنید.',
           ),

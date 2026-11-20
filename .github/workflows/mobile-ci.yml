@@ -69,7 +69,7 @@ jobs:
         run: pwsh -NoProfile -File ../../.github/scripts/Install_Medication_Companion_CI_Preview.ps1 -SelfTest
 
       - name: Build Android beta preview APK
-        run: flutter build apk --debug --dart-define=MVP_BETA=true
+        run: flutter build apk --debug --dart-define=MVP_BETA=true --dart-define=BETA_RUN_NUMBER=${{ github.run_number }}
 
       - name: Assert Android SQLite authorizer exports
         run: python3 ../../.github/scripts/assert_android_sqlite_authorizer.py build/app/outputs/flutter-apk/app-debug.apk

@@ -24,6 +24,15 @@ function Get-ObsoletePreviewPackages {
     return @($obsolete | Sort-Object -Unique)
 }
 
+function Find-BundledPreviewApk {
+    param([Parameter(Mandatory = $true)][string]$Directory)
+    $candidate = Join-Path $Directory 'app-debug.apk'
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+        return $candidate
+    }
+    return $null
+}
+
 if ($SelfTest) {
     $fixtures = @(
         'package:ir.example.medication_companion.m4r89',
@@ -45,6 +54,19 @@ if ($SelfTest) {
         Get-ObsoletePreviewPackages -Installed $fixtures -Keep 'ir.example.medication_companion' | Out-Null
     } catch { $rejected = $true }
     if (!$rejected) { throw 'The base app must never be accepted as a CI target' }
+    $testDir = Join-Path ([IO.Path]::GetTempPath()) ('medication-installer-test-' + [guid]::NewGuid().ToString('N'))
+    New-Item -Path $testDir -ItemType Directory | Out-Null
+    try {
+        if (Find-BundledPreviewApk -Directory $testDir) { throw 'Missing APK must not be selected' }
+        $testApk = Join-Path $testDir 'app-debug.apk'
+        New-Item -Path $testApk -ItemType File | Out-Null
+        if ((Find-BundledPreviewApk -Directory $testDir) -ne $testApk) {
+            throw 'Bundled APK auto-discovery failed'
+        }
+    } finally {
+        Remove-Item -LiteralPath $testDir -Recurse -Force
+    }
+    Write-Host 'PASS: exact-name bundled APK auto-discovery' -ForegroundColor Green
     Write-Host 'PASS: old-only, exact-package, base-app-safe cleanup filter' -ForegroundColor Green
     return
 }
@@ -60,13 +82,18 @@ if ($SelfTest) {
         throw "Emulator is not ready. ADB output: $devices"
     }
 
-    Add-Type -AssemblyName System.Windows.Forms
-    $dialog = New-Object System.Windows.Forms.OpenFileDialog
-    $dialog.Title = 'Select Medication Companion CI preview APK or ZIP'
-    $dialog.InitialDirectory = Join-Path $env:USERPROFILE 'Downloads'
-    $dialog.Filter = 'APK or ZIP (*.apk;*.zip)|*.apk;*.zip'
-    if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { throw 'No APK/ZIP selected' }
-    $apk = $dialog.FileName
+    $apk = Find-BundledPreviewApk -Directory $PSScriptRoot
+    if ($apk) {
+        Write-Host 'Using bundled app-debug.apk next to installer (no file picker)' -ForegroundColor Cyan
+    } else {
+        Add-Type -AssemblyName System.Windows.Forms
+        $dialog = New-Object System.Windows.Forms.OpenFileDialog
+        $dialog.Title = 'Select Medication Companion CI preview APK or ZIP'
+        $dialog.InitialDirectory = Join-Path $env:USERPROFILE 'Downloads'
+        $dialog.Filter = 'APK or ZIP (*.apk;*.zip)|*.apk;*.zip'
+        if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { throw 'No APK/ZIP selected' }
+        $apk = $dialog.FileName
+    }
 
     if ([IO.Path]::GetExtension($apk).ToLowerInvariant() -eq '.zip') {
         $extract = Join-Path $env:TEMP ('medication-ci-' + [guid]::NewGuid().ToString('N'))
