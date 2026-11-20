@@ -11,6 +11,17 @@ Updated: 2026-11-20. Scope: `feature/mobile-mvp-beta` (based on the read-only ba
 - Required fresh manual checks: medicine search (including Persian letters), today's summary counts, visible CI build number, and installer auto-selection without a file dialog. Repeat old medication/backup tests only if a regression is observed.
 - Persian entry acceptance: a Persian name pasted into a medicine/profile field must remain unchanged. Input fields have no ASCII-only formatters. If physical typing yields English only, add Persian to the Android emulator Gboard language list; beta's More tab offers a one-tap shortcut to input-method language settings. On a hardware-keyboard AVD, enable the on-screen keyboard under Physical keyboard settings. Keyboard language is selected by Android, not forced by the Flutter app.
 
+## UI polish acceptance (beta 0.3.0)
+
+The previous CI108 passed automated checks, and the user confirmed all four new UI/manual checks passed. The next iteration must have its own CI proof.
+
+- Register bundled NotoSansArabic regular/bold as the default text font, with high-contrast dark teal action surfaces.
+- Responsive profile/welcome screens: short viewports and increased text sizes must scroll without RenderFlex overflow.
+- Medicine cards grow with schedule details, keep edit/stock/archive menu, and wrap long stock and medication text.
+- Today's summary includes an understandable completion indicator and an add-medicine shortcut.
+- CI widget tests explicitly cover 360×640 logical pixels and 1.3–1.4 text scaling.
+- Smoke manually on CI109: first-run welcome, long-name medicine card, Today's summary, and version display. Don't repeat CI105/CI108 historical tests without a regression signal.
+
 ## Product decision
 
 Ship a compact, **offline single-device beta** now. Postpone real encrypted-backup restoration. Keep encrypted export and read-only authentication/inspection. Do not enable a partial restore implementation or imply users can restore erased data.

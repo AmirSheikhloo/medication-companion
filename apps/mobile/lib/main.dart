@@ -26,14 +26,33 @@ class MedicationBetaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFF40E0D0);
+    const brand = Color(0xFF008F87);
     return MaterialApp(
       title: 'همراه دارو',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        fontFamily: 'NotoSansArabic',
         colorScheme: ColorScheme.fromSeed(seedColor: brand),
-        scaffoldBackgroundColor: const Color(0xFFF8FCFC),
+        scaffoldBackgroundColor: const Color(0xFFF7FBFA),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF7FBFA),
+          surfaceTintColor: Colors.transparent,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: Color(0xFFE2EEEC)),
+          ),
+        ),
       ),
       builder: (context, child) => Directionality(
         textDirection: TextDirection.rtl,

@@ -1,7 +1,7 @@
 name: medication_companion
 description: "Private offline Persian medication companion beta."
 publish_to: 'none'
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: ^3.14.0
@@ -38,6 +38,13 @@ flutter:
   assets:
     - assets/fonts/NotoSansArabic-Regular.ttf
     - assets/fonts/NotoSansArabic-Bold.ttf
+  fonts:
+    - family: NotoSansArabic
+      fonts:
+        - asset: assets/fonts/NotoSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansArabic-Bold.ttf
+          weight: 700
 
 # sqlite3's downloadable Android binary is built with SQLITE_OMIT_AUTHORIZATION
 # and cannot safely inspect untrusted restore candidates. For Android we build

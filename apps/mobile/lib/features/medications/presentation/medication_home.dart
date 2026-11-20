@@ -19,7 +19,7 @@ import '../../care/presentation/care_hub_screen.dart';
 import '../../care/data/care_reminder_coordinator.dart';
 import '../../backup/presentation/secure_backup_screen.dart';
 
-const _teal = Color(0xFF40E0D0);
+const _teal = Color(0xFF008F87);
 const _deepTeal = Color(0xFF008F87);
 const _betaRunNumber = String.fromEnvironment('BETA_RUN_NUMBER', defaultValue: 'محلی');
 const _keyboardSettings = MethodChannel('medication_companion/keyboard_settings');
@@ -461,6 +461,7 @@ class _MedicationHomeState extends State<MedicationHome>
           ? FloatingActionButton.extended(
               onPressed: _saving ? null : _addMedication,
               backgroundColor: _teal,
+              foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
               label: const Text('افزودن دارو'),
             )
@@ -491,7 +492,8 @@ class _MedicationHomeState extends State<MedicationHome>
                   for (final profile in _profiles)
                     DropdownMenuItem(
                       value: profile.id,
-                      child: Text('پروفایل: ${profile.displayName}'),
+                      child: Text('پروفایل: ${profile.displayName}',
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
                 ],
                 onChanged: _saving
@@ -540,7 +542,17 @@ class _MedicationHomeState extends State<MedicationHome>
                   children: [
                     Text('خلاصه امروز',
                         style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: taken / _doses.length,
+                        minHeight: 7,
+                        backgroundColor: const Color(0xFFE4F0EE),
+                        color: _deepTeal,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Wrap(spacing: 8, runSpacing: 6, children: [
                       Chip(label: Text('مصرف‌شده: $taken')),
                       Chip(label: Text('ثبت‌نشده: $pending')),
@@ -563,6 +575,12 @@ class _MedicationHomeState extends State<MedicationHome>
               () => setState(() => _tab = 1),
             ),
           for (final dose in _doses) _doseCard(dose),
+          if (_doses.isNotEmpty)
+            OutlinedButton.icon(
+              onPressed: _saving ? null : _addMedication,
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('افزودن داروی جدید'),
+            ),
           const SizedBox(height: 16),
           const _InfoNote(
             'یادآوری را از «بیشتر» فعال کنید. کسر موجودی فقط پس از تأیید مقدار واقعی انجام می‌شود.',
@@ -618,9 +636,19 @@ class _MedicationHomeState extends State<MedicationHome>
             Row(children: [
               Icon(status.$2, color: status.$3, size: 20),
               const SizedBox(width: 6),
-              Text(status.$1, style: TextStyle(color: status.$3)),
-              const Spacer(),
-              Text('برای ${_active!.displayName}'),
+              Expanded(
+                child: Text(status.$1,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: status.$3)),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text('برای ${_active!.displayName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end),
+              ),
             ]),
             const SizedBox(height: 12),
             if (dose.status == 'pending') ...[
@@ -750,40 +778,89 @@ class _MedicationHomeState extends State<MedicationHome>
           '${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}'
           '${selected.expired ? ' (منقضی)' : ''}'
           '${stock!.lowStock ? ' (هشدار کمبود)' : ''}';
+    final lowStock = stock?.lowStock == true;
     return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFE0F8F5),
-          child: Icon(Icons.medication, color: _deepTeal),
-        ),
-        title: Text(med.name),
-        subtitle: Text([
-          if (slots.isEmpty)
-            'برنامه روزانه ثبت‌شده'
-          else
-            for (final dose in slots)
-              '${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))} — '
-                  '${dose.plan.doseText}',
-          stockLine,
-        ].join('\n')),
-        isThreeLine: true,
-        trailing: PopupMenuButton<String>(
-          tooltip: 'گزینه‌های دارو',
-          enabled: !_saving,
-          onSelected: (value) {
-            if (value == 'stock') {
-              _openStock(med);
-            } else if (value == 'edit') {
-              _editMedication(med);
-            } else if (value == 'archive') {
-              _archiveMedication(med);
-            }
-          },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'stock', child: Text('موجودی و بسته‌ها')),
-            PopupMenuItem(value: 'edit', child: Text('ویرایش')),
-            PopupMenuItem(value: 'archive', child: Text('بایگانی')),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const CircleAvatar(
+                backgroundColor: Color(0xFFE0F8F5),
+                child: Icon(Icons.medication_outlined, color: _deepTeal),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  med.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'گزینه‌های دارو',
+                enabled: !_saving,
+                onSelected: (value) {
+                  if (value == 'stock') {
+                    _openStock(med);
+                  } else if (value == 'edit') {
+                    _editMedication(med);
+                  } else if (value == 'archive') {
+                    _archiveMedication(med);
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'stock', child: Text('موجودی و بسته‌ها')),
+                  PopupMenuItem(value: 'edit', child: Text('ویرایش')),
+                  PopupMenuItem(value: 'archive', child: Text('بایگانی')),
+                ],
+              ),
+            ]),
+            const Divider(height: 20),
+            if (slots.isEmpty)
+              const Text('برنامهٔ روزانه ثبت شده است.')
+            else
+              for (final dose in slots)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.schedule_outlined,
+                          size: 18, color: _deepTeal),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))} — '
+                          '${dose.plan.doseText}',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: lowStock
+                    ? const Color(0xFFFFF1E6)
+                    : const Color(0xFFEAF7F4),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(children: [
+                Icon(
+                  Icons.inventory_2_outlined,
+                  color: lowStock ? Colors.deepOrange : _deepTeal,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(stockLine)),
+              ]),
+            ),
           ],
         ),
       ),
@@ -896,7 +973,7 @@ class _MedicationHomeState extends State<MedicationHome>
           const SizedBox(height: 20),
           _sectionTitle('درباره برنامه'),
           const SizedBox(height: 8),
-          const Text('همراه دارو — بتا ۰.۲.۰'),
+          const Text('همراه دارو — بتا ۰.۳.۰'),
           Text(_betaRunNumber == 'محلی'
               ? 'ساخت محلی'
               : 'شماره ساخت آزمایشی: CI$_betaRunNumber'),
