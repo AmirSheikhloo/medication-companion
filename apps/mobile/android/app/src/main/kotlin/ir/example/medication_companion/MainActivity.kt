@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.net.Uri
+import android.provider.Settings
 import android.content.pm.ApplicationInfo
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -27,6 +28,24 @@ class MainActivity : FlutterActivity() {
         // In M4-01B no restore journal is ever written. Future M4-01D must run
         // RestoreRecoveryBootstrapper before this cleanup or any DB access.
         SecureBackupEngine(applicationContext).sweepAbandonedExportStaging()
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "medication_companion/keyboard_settings")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "openLanguageSettings") {
+                    result.notImplemented()
+                } else {
+                    try {
+                        startActivity(Intent(Settings.ACTION_INPUT_METHOD_SUBTYPE_SETTINGS))
+                        result.success(true)
+                    } catch (_: Exception) {
+                        try {
+                            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                            result.success(true)
+                        } catch (_: Exception) {
+                            result.error("KEYBOARD_SETTINGS", "تنظیمات کیبورد در این دستگاه باز نشد", null)
+                        }
+                    }
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "medication_companion/secure_backup")
             .setMethodCallHandler { call, result ->
                 when (call.method) {

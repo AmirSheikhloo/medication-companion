@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "ir.example.medication_companion"
-        manifestPlaceholders["appLabel"] = "همراه دارو (آزمایش)"
+        manifestPlaceholders["appLabel"] = "همراه دارو"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         multiDexEnabled = true
@@ -38,11 +38,11 @@ android {
                     ?: error("GITHUB_RUN_NUMBER is required for isolated CI preview")
                 applicationIdSuffix = ".m4r$runNumber"
                 versionNameSuffix = "-ci-preview"
-                manifestPlaceholders["appLabel"] = "همراه دارو (تست $runNumber)"
+                manifestPlaceholders["appLabel"] = "همراه دارو (بتا $runNumber)"
             }
         }
         release {
-            // Only an M0 debug experiment. Never publish with the debug signing key.
+            // Internal preview only. Do not distribute a release signed by the debug key.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

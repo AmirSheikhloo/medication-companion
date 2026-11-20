@@ -1,49 +1,70 @@
 # Medication Companion — همراه دارو
 
-An Android-first, offline-first medication companion built with Flutter.
+یک همراه دارویی فارسی، محلی و بدون نیاز به حساب آنلاین برای اندروید (Flutter).
 
-> **Current status:** M0 engineering spike. The Android notification, exact-alarm, full-screen intent, and PDF export paths are experiments, not a production medication-reminder system. Do not use this prototype for clinical decisions.
+> **وضعیت: بتای خصوصی عملیاتی، نه انتشار عمومی.** برنامه برای آزمایش واقعی جریان‌های روزمره آماده می‌شود؛ هرگز به اعلان آن به‌عنوان تنها راه یادآوری مصرف دارو تکیه نکنید. تصمیم یا تغییر درمان باید با متخصص انجام شود.
 
-## Repository layout
+## قابلیت‌های بتا
 
-| Path | Responsibility | Deployment |
-| --- | --- | --- |
-| `apps/mobile/` | Flutter Android application | Android APK / AAB |
-| `apps/admin/` (future) | Web administration UI | Independent web deployment |
-| `services/api/` (future) | Server API and business services | Independent server deployment |
-| `packages/contracts/` (future) | Versioned API schemas and generated clients | Not deployed as a service |
-| `docs/` | Architecture, decisions, acceptance criteria | Documentation |
+- ورود مستقیم به برنامه، ساخت پروفایل شخصی/افراد تحت مدیریت و جابه‌جایی بین آن‌ها
+- افزودن، ویرایش، بایگانی و جست‌وجوی دارو، نمایش برنامهٔ مصرف روزانه و خلاصهٔ وضعیت امروز
+- ثبت مصرف/عدم مصرف، مدیریت موجودی و بسته‌ها
+- نمایش نسخهٔ بتا و شمارهٔ CI در بخش «بیشتر» برای تشخیص آسان نسخهٔ نصب‌شده
+- رابط راست‌به‌چپ با فونت فارسی یکدست، رنگ‌های خواناتر، کارت‌های منعطف و صفحهٔ شروع قابل پیمایش در گوشی کوچک
+- راهنمای تایپ فارسی و میان‌بر تنظیمات زبان کیبورد دستگاه در بخش «بیشتر»
+- یادآوری دارو با اجازهٔ کاربر و محدودیت‌های معمول اندروید
+- ثبت اندازه‌گیری‌های سلامت، پیگیری‌ها، چک‌لیست ویزیت و کارهای مراقبتی
+- خروجی پشتیبان رمزگذاری‌شده و بررسی امن فایل موجود **فقط برای مشاهده**؛ **بازیابی واقعی و جایگزینی داده‌ها غیرفعال است**
 
-Only `apps/mobile/` exists today. Future directories are created when their first real feature needs them. There is no runtime dependency between deployable apps.
+تمام این داده‌ها روی دستگاه نگهداری می‌شوند. حساب، سرویس ابری و همگام‌سازی وجود ندارد.
 
-## Run the mobile prototype
+## نصب بتای آزمایشی CI
 
-From the repository root:
+بستهٔ GitHub Actions با نام `medication-companion-beta-android-debug` شامل دو فایل است:
+
+- `app-debug.apk` — APK امضاشدهٔ آزمایشی مخصوص همان اجرای CI
+- `Install_Medication_Companion_CI_Preview.ps1` — نصب، راه‌اندازی و پاکسازی محافظه‌کارانهٔ نسخه‌های قدیمی **فقط پس از نصب موفق**
+
+روی ویندوز با emulator/ADB فعال، هر دو فایل را در یک پوشه استخراج کنید، سپس در PowerShell دستور زیر را **بدون کپی‌کردن متن `PS C:\...>`** اجرا کنید. در نسخهٔ جدید، اگر `app-debug.apk` کنار اسکریپت باشد، خودکار انتخاب می‌شود و پنجرهٔ انتخاب فایل باز نخواهد شد:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\Install_Medication_Companion_CI_Preview.ps1"
+```
+
+امضای debug اجراهای مختلف CI یکسان نیست؛ بنابراین هر اجرا شناسهٔ مستقل `.m4r<number>` دارد. نصب‌کننده فقط شناسه‌های تأییدشدهٔ قدیمی‌تر این سری را حذف می‌کند و به نسخه‌های اصلی، سایر برنامه‌ها یا نسخه‌های جدیدتر دست نمی‌زند. **اطلاعات نسخه‌های حذف‌شده قابل برگشت نیستند؛ فقط از دادهٔ تست استفاده کنید.** پایداری شناسه و امضای نسخهٔ قابل ارتقا نیازمند پیکربندی کلید انتشار جداگانه است.
+
+## اجرای سورس در سیستم توسعه
 
 ```powershell
 cd apps/mobile
 flutter pub get
+dart run build_runner build --delete-conflicting-outputs
 flutter analyze
 flutter test
 flutter devices
-flutter run -d <ANDROID_DEVICE_ID>
+flutter run -d YOUR_ANDROID_DEVICE_ID --dart-define=MVP_BETA=true
 ```
 
-Use the actual device ID reported by `flutter devices`. This repository does not require Visual Studio for Android development.
+برای بیلد دستی APK:
 
-## Engineering workflow
+```powershell
+flutter build apk --debug --dart-define=MVP_BETA=true
+```
 
-1. Create a feature branch from `main`.
-2. Keep changes scoped to one feature or infrastructure concern.
-3. Run analyzer and tests locally; GitHub Actions also checks mobile changes.
-4. Open a pull request and review its checks before merging.
-5. Pull the merged `main` branch onto the development PC.
+مستند تست و محدوده: [MVP_BETA_GATE.md](docs/MVP_BETA_GATE.md).
 
-See [Architecture](docs/ARCHITECTURE.md) for ownership and deployment boundaries.
+## ساختار پروژه
 
-## Safety
+- `apps/mobile/` اپ اندروید
+- `docs/` معماری و گیت‌های پذیرش
+- `.github/workflows/mobile-ci.yml` تحلیل، تست و ساخت APK
+- `.github/scripts/Install_Medication_Companion_CI_Preview.ps1` نصب و پاکسازی امن پیش‌نمایش
 
-- Never commit credentials, signing keys, real patient records, or personal health data.
-- Keep test fixtures synthetic.
-- The current M0 PDF has a known Persian glyph-rendering issue; full report rendering will be addressed in the reporting module.
-- No backend, account system, cloud synchronization, medical advice, or production scheduling guarantee is implemented yet.
+## محدودیت‌ها و حفاظت از داده
+
+- در بتا **بازیابی پشتیبان، سرویس آنلاین، حساب، همگام‌سازی و پنل مدیریتی وجود ندارند**.
+- دادهٔ دستگاه به‌صورت کامل در دیتابیس رمزگذاری‌شده نیست؛ خروجی پشتیبان با رمز جداگانه رمزگذاری می‌شود.
+- حذف اپ یا نسخهٔ آزمایشی ممکن است اطلاعاتش را از بین ببرد؛ قابلیت بازیابی آن فعلاً موجود نیست.
+- اعلان‌ها تحت تأثیر مجوزها، تنظیمات باتری و سیاست‌های سیستم‌عامل‌اند و زمان قطعی پزشکی تضمین نمی‌شود.
+- هرگز کلید امضا، اطلاعات واقعی بیمار یا رمزها را در Git قرار ندهید.
+- نسخهٔ `release` فعلی در پیکربندی Gradle هنوز با کلید debug امضا می‌شود؛ برای عرضهٔ عمومی مناسب نیست.

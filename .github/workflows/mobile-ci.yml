@@ -6,10 +6,12 @@ on:
     paths:
       - 'apps/mobile/**'
       - '.github/workflows/mobile-ci.yml'
+      - '.github/scripts/Install_Medication_Companion_CI_Preview.ps1'
   pull_request:
     paths:
       - 'apps/mobile/**'
       - '.github/workflows/mobile-ci.yml'
+      - '.github/scripts/Install_Medication_Companion_CI_Preview.ps1'
 
 permissions:
   contents: read
@@ -21,7 +23,8 @@ concurrency:
 jobs:
   analyze-and-test:
     name: Flutter analyze and test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: apps/mobile
@@ -41,6 +44,18 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
+      - name: Verify Android startup plugin pin
+        run: |
+          flutter pub deps --json > /tmp/medication-beta-deps.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/medication-beta-deps.json', encoding='utf-8') as handle:
+              packages = json.load(handle)['packages']
+          version = next((p['version'] for p in packages if p['name'] == 'path_provider_android'), None)
+          assert version == '2.2.23', f'Android API 37 startup dependency mismatch: {version}'
+          print('Android startup plugin version pinned:', version)
+          PY
+
       - name: Generate Drift database code
         run: dart run build_runner build --delete-conflicting-outputs
 
@@ -50,17 +65,25 @@ jobs:
       - name: Widget and unit tests
         run: flutter test --reporter expanded
 
-      - name: Build Android debug APK
-        run: flutter build apk --debug
+      - name: Test preview installer safety rules
+        run: pwsh -NoProfile -File ../../.github/scripts/Install_Medication_Companion_CI_Preview.ps1 -SelfTest
+
+      - name: Build Android beta preview APK
+        run: flutter build apk --debug --dart-define=MVP_BETA=true --dart-define=BETA_RUN_NUMBER=${{ github.run_number }}
 
       - name: Assert Android SQLite authorizer exports
         run: python3 ../../.github/scripts/assert_android_sqlite_authorizer.py build/app/outputs/flutter-apk/app-debug.apk
 
-      - name: Upload Android emulator test APK
+      - name: Bundle self-cleaning beta installer
+        run: cp ../../.github/scripts/Install_Medication_Companion_CI_Preview.ps1 build/app/outputs/flutter-apk/Install_Medication_Companion_CI_Preview.ps1
+
+      - name: Upload Android beta preview
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: medication-companion-m4-preview-debug-apk
-          path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+          name: medication-companion-beta-android-debug
+          path: |
+            apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+            apps/mobile/build/app/outputs/flutter-apk/Install_Medication_Companion_CI_Preview.ps1
           retention-days: 7
           if-no-files-found: error
