@@ -69,6 +69,12 @@ void main() {
     expect(find.text('استامینوفن'), findsOneWidget);
     await tester.tap(find.text('بیشتر'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('بازکردن تنظیمات زبان کیبورد'),
+      350,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('بازکردن تنظیمات زبان کیبورد'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
