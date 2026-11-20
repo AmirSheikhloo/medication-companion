@@ -685,7 +685,7 @@ class _MedicationHomeState extends State<MedicationHome>
   Widget _moreTab() => ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _sectionTitle('پشتیبان و بازیابی'),
+          _sectionTitle('پشتیبان‌گیری'),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _saving
@@ -697,7 +697,7 @@ class _MedicationHomeState extends State<MedicationHome>
             icon: const Icon(Icons.enhanced_encryption_outlined),
             label: const Text('ساخت پشتیبان رمزگذاری‌شده'),
           ),
-          const Text('بازگردانی فایل پشتیبان پس از آزمون‌های ایمنی فعال می‌شود.'),
+          const Text('در نسخهٔ بتا ساخت پشتیبان و بررسی فایل امکان‌پذیر است؛ بازیابی اطلاعات هنوز فعال نیست.'),
           const SizedBox(height: 20),
           _sectionTitle('پیگیری‌ها و ویزیت‌ها'),
           const SizedBox(height: 8),
@@ -733,7 +733,7 @@ class _MedicationHomeState extends State<MedicationHome>
             label: const Text('افزودن پروفایل عزیزانم'),
           ),
           const SizedBox(height: 24),
-          _sectionTitle('یادآوری دارو — آزمایشی'),
+          _sectionTitle('یادآوری دارو'),
           const SizedBox(height: 8),
           Text(_remindersEnabled
               ? 'فعال: یادآورها برای همه پروفایل‌های محلی تنظیم می‌شوند.'
@@ -769,11 +769,11 @@ class _MedicationHomeState extends State<MedicationHome>
           const Text(
             'آلارم دقیق و مجوز اعلان لازم‌اند. اعلان‌ها معمولی و خصوصی‌اند؛ '
             'به‌صورت تمام‌صفحه باز نمی‌شوند. '
-            'این قابلیت برای تست است و جایگزین مراقبت پزشکی نیست.',
+            'یادآورها ممکن است با محدودیت باتری یا تنظیمات گوشی به تأخیر بیفتند؛ جایگزین مراقبت پزشکی نیستند.',
           ),
           const SizedBox(height: 20),
           const _InfoNote(
-            'حالت مهمان کاملاً محلی است. هنوز حساب آنلاین، همگام‌سازی، بازیابی پشتیبان و پنل مدیریتی فعال نیستند. برای داده پزشکی واقعی تا تکمیل امنیت و آزمون بازیابی از این نسخه آزمایشی استفاده نکنید.',
+            'این نسخهٔ بتای خصوصی است؛ داده‌ها فقط روی همین دستگاه‌اند. حساب آنلاین، همگام‌سازی و بازیابی پشتیبان فعال نیستند. برای مصرف دارو به اعلان برنامه به‌تنهایی تکیه نکنید.',
           ),
         ],
       );

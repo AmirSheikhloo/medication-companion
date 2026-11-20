@@ -10,6 +10,8 @@ import '../data/secure_backup_inspector.dart';
 import '../data/secure_backup_snapshot.dart';
 import '../domain/backup_password_policy.dart';
 
+const bool _isMvpBeta = bool.fromEnvironment('MVP_BETA');
+
 class SecureBackupScreen extends StatefulWidget {
   const SecureBackupScreen({super.key, required this.database});
 
@@ -285,7 +287,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
                   'مهم: اگر رمز را فراموش کنید، هیچ‌کس نمی‌تواند فایل را بازیابی کند. '
                   'فایل را در یک محل مطمئن نگه دارید. '
                   'این قابلیت هنوز دیتابیس داخل گوشی را رمزگذاری نمی‌کند و '
-                  'بازگردانی اطلاعات در مرحله بعد فعال خواهد شد.',
+                  'بازگردانی اطلاعات در این نسخهٔ بتا فعال نیست.',
                 ),
               ),
             ),
@@ -327,7 +329,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
             const SizedBox(height: 30),
             const Divider(),
             const SizedBox(height: 12),
-            Text('بررسی پشتیبان پیش از بازیابی',
+            Text('بررسی فایل پشتیبان (فقط خواندنی)',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             const Text('فایل را انتخاب کنید و رمز همان فایل را وارد کنید. '
@@ -351,7 +353,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
               icon: const Icon(Icons.fact_check_outlined),
               label: const Text('انتخاب فایل و نمایش پیش‌نمایش امن'),
             ),
-            if (kDebugMode) ...[
+            if (kDebugMode && !_isMvpBeta) ...[
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _busy ? null : _testCryptoEngine,
@@ -398,8 +400,8 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
               const SizedBox(height: 10),
               const Card(child: Padding(
                 padding: EdgeInsets.all(12),
-                child: Text('جایگزینی اطلاعات در مرحلهٔ M4-01D و تنها '
-                    'پس از آزمون بازیابی ضدکرش فعال خواهد شد.'),
+                child: Text('این پیش‌نمایش هیچ داده‌ای را جایگزین نمی‌کند. '
+                    'بازیابی در نسخهٔ بتا پشتیبانی نمی‌شود.'),
               )),
             ],
           ],

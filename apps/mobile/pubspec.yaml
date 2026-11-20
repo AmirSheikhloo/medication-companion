@@ -1,7 +1,7 @@
 name: medication_companion
-description: "M0 Android alarms and offline Persian PDF engineering spike."
+description: "Private offline Persian medication companion beta."
 publish_to: 'none'
-version: 0.0.1+1
+version: 0.1.0+1
 
 environment:
   sdk: ^3.14.0
@@ -16,9 +16,11 @@ dependencies:
   pdf: 3.13.1
   printing: 5.15.1
   share_plus: 13.3.1
-  # M1 offline persistence (the M0 UI remains unchanged in this PR).
+  # Local offline persistence for beta.
   drift: 2.35.4
   drift_flutter: 0.3.1
+  # Android API 37: avoid the deprecated registrar reference crash at startup.
+  path_provider_android: 2.2.23
   # M4-01C: pinned FFI SQLite engine for fail-closed, read-only backup inspection.
   sqlite3: 3.9.1
   ffi: 2.2.0
