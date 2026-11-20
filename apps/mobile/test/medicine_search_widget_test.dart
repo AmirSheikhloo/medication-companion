@@ -67,6 +67,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ایبوپروفن'), findsOneWidget);
     expect(find.text('استامینوفن'), findsOneWidget);
+    await tester.tap(find.text('بیشتر'));
+    await tester.pumpAndSettle();
+    expect(find.text('بازکردن تنظیمات زبان کیبورد'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

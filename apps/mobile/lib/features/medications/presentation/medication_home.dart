@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/storage/app_database.dart';
 import '../../profiles/data/profile_repository.dart';
@@ -21,6 +22,7 @@ import '../../backup/presentation/secure_backup_screen.dart';
 const _teal = Color(0xFF40E0D0);
 const _deepTeal = Color(0xFF008F87);
 const _betaRunNumber = String.fromEnvironment('BETA_RUN_NUMBER', defaultValue: 'محلی');
+const _keyboardSettings = MethodChannel('medication_companion/keyboard_settings');
 
 String _normalizeMedicineSearch(String value) => value
     .trim()
@@ -110,6 +112,24 @@ class _MedicationHomeState extends State<MedicationHome>
       if (mounted) setState(() => _careReminderError = null);
     } catch (error) {
       if (mounted) setState(() => _careReminderError = '$error');
+    }
+  }
+
+  Future<void> _openKeyboardSettings() async {
+    try {
+      await _keyboardSettings.invokeMethod<bool>('openLanguageSettings');
+    } on PlatformException catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('بازکردن تنظیمات کیبورد ممکن نشد؛ از تنظیمات اندروید وارد شوید.')),
+        );
+      }
+    } on MissingPluginException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تنظیمات کیبورد فقط در نسخهٔ اندروید در دسترس است.')),
+        );
+      }
     }
   }
 
@@ -858,6 +878,20 @@ class _MedicationHomeState extends State<MedicationHome>
             'آلارم دقیق و مجوز اعلان لازم‌اند. اعلان‌ها معمولی و خصوصی‌اند؛ '
             'به‌صورت تمام‌صفحه باز نمی‌شوند. '
             'یادآورها ممکن است با محدودیت باتری یا تنظیمات گوشی به تأخیر بیفتند؛ جایگزین مراقبت پزشکی نیستند.',
+          ),
+          const SizedBox(height: 20),
+          _sectionTitle('ورود متن فارسی'),
+          const SizedBox(height: 8),
+          const Text(
+            'فیلدهای برنامه حروف فارسی را می‌پذیرند. اگر فقط انگلیسی می‌بینید، '
+            'در کیبورد گوشی زبان فارسی را فعال کنید. '
+            'پس از افزودن فارسی در Gboard، با نگه‌داشتن کلید فاصله زبان را عوض کنید.',
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _openKeyboardSettings,
+            icon: const Icon(Icons.keyboard_outlined),
+            label: const Text('بازکردن تنظیمات زبان کیبورد'),
           ),
           const SizedBox(height: 20),
           _sectionTitle('درباره برنامه'),

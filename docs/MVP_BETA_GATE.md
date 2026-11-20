@@ -9,6 +9,7 @@ Updated: 2026-11-20. Scope: `feature/mobile-mvp-beta` (based on the read-only ba
 - Next increment: remove M0 engineering entry code, add medicine search and today's status summary, identify build number in More, and automatically find the APK beside the bundled installer.
 - The new increment must have a fresh green CI run; CI105 is evidence for the prior commit, not automatically for new changes.
 - Required fresh manual checks: medicine search (including Persian letters), today's summary counts, visible CI build number, and installer auto-selection without a file dialog. Repeat old medication/backup tests only if a regression is observed.
+- Persian entry acceptance: a Persian name pasted into a medicine/profile field must remain unchanged. Input fields have no ASCII-only formatters. If physical typing yields English only, add Persian to the Android emulator Gboard language list; beta's More tab offers a one-tap shortcut to input-method language settings. On a hardware-keyboard AVD, enable the on-screen keyboard under Physical keyboard settings. Keyboard language is selected by Android, not forced by the Flutter app.
 
 ## Product decision
 
