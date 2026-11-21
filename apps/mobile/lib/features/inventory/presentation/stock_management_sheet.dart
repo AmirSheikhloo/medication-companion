@@ -268,6 +268,37 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   const ListTile(title: Text('هنوز بسته‌ای ثبت نشده است.')),
                 for (final item in summary.packages) _packageCard(item, summary),
                 const SizedBox(height: 16),
+                Text('هشدار کمبود بسته انتخاب‌شده'
+                    '${summary.selected == null ? '' : ' (${summary.selected!.package.unit})'}',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _threshold,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'حد هشدار (خالی = خاموش)',
+                    helperText: 'بر حسب واحد بستهٔ انتخابی؛ بدون تبدیل واحد یا تخمین روز.',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                OutlinedButton(
+                  onPressed: _busy ? null : _saveThreshold,
+                  child: const Text('ذخیره حد هشدار'),
+                ),
+                if (summary.thresholdMilliunits != null && summary.selected != null)
+                  Text(
+                    'حد فعال: ${StockQuantity.format(summary.thresholdMilliunits!)} '
+                    '${summary.selected!.package.unit} — '
+                    '${summary.lowStock ? 'موجودی در محدودهٔ هشدار است.' : 'موجودی فعلی بالاتر از حد هشدار است.'}',
+                    style: TextStyle(
+                      color: summary.lowStock ? Colors.deepOrange : Colors.green,
+                    ),
+                  ),
+                if (_feedbackMessage == 'حد هشدار با موفقیت ذخیره شد.')
+                  const Text('حد هشدار با موفقیت ذخیره شد.',
+                      style: TextStyle(color: Colors.green)),
+                const Divider(height: 32),
                 Card(
                   color: const Color(0xFFE1F8F6),
                   child: Padding(
@@ -316,37 +347,6 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Text('هشدار کمبود بسته انتخاب‌شده'
-                    '${summary.selected == null ? '' : ' (${summary.selected!.package.unit})'}',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _threshold,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'حد هشدار (خالی = خاموش)',
-                    helperText: 'بر حسب واحد بستهٔ انتخابی؛ بدون تبدیل واحد یا تخمین روز.',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                OutlinedButton(
-                  onPressed: _busy ? null : _saveThreshold,
-                  child: const Text('ذخیره حد هشدار'),
-                ),
-                if (summary.thresholdMilliunits != null && summary.selected != null)
-                  Text(
-                    'حد فعال: ${StockQuantity.format(summary.thresholdMilliunits!)} '
-                    '${summary.selected!.package.unit} — '
-                    '${summary.lowStock ? 'موجودی در محدودهٔ هشدار است.' : 'موجودی فعلی بالاتر از حد هشدار است.'}',
-                    style: TextStyle(
-                      color: summary.lowStock ? Colors.deepOrange : Colors.green,
-                    ),
-                  ),
-                if (_feedbackMessage == 'حد هشدار با موفقیت ذخیره شد.')
-                  const Text('حد هشدار با موفقیت ذخیره شد.',
-                      style: TextStyle(color: Colors.green)),
-                const Divider(height: 32),
                 Text('افزودن بسته جدید',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 10),

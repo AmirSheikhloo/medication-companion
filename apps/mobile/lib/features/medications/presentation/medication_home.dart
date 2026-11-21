@@ -639,13 +639,13 @@ class _MedicationHomeState extends State<MedicationHome>
               'افزودن اولین دارو',
               () => setState(() => _tab = 1),
             ),
+          for (final dose in _doses) _doseCard(dose),
           if (_medications.isNotEmpty)
             OutlinedButton.icon(
               onPressed: _openWeekReport,
               icon: const Icon(Icons.bar_chart_outlined),
               label: const Text('گزارش ثبت مصرف در ۷ روز گذشته'),
             ),
-          for (final dose in _doses) _doseCard(dose),
           if (_doses.isNotEmpty)
             OutlinedButton.icon(
               onPressed: _saving ? null : _addMedication,
