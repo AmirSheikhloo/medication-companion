@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
+import '../../../core/input/persian_quantity_formatter.dart';
 import '../data/inventory_repository.dart';
 import '../domain/stock_quantity.dart';
 import '../domain/stock_unit_presets.dart';
@@ -40,6 +41,8 @@ class _StockManagementSheet extends StatefulWidget {
 
 class _StockManagementSheetState extends State<_StockManagementSheet> {
   final _threshold = TextEditingController();
+  final _initialQuantity = TextEditingController(text: '۱');
+  final _dailyUsage = TextEditingController();
   final _adjustQuantity = TextEditingController();
   final _adjustReason = TextEditingController();
 
@@ -56,15 +59,8 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   String? _adjustingPackageId;
   String _precision = 'day';
   String _selectedUnit = 'عدد';
-  int _initialAmount = 1000;
-  int _dailyUsageAmount = 0;
   DateTime? _expiry;
   String? _error;
-
-  List<int> get _dailyUsageOptions => <int>{
-        ...StockUnitPresets.amountsMilliunits,
-        if (_dailyUsageAmount > 0) _dailyUsageAmount,
-      }.toList()..sort();
 
   @override
   void initState() {
@@ -77,6 +73,8 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   @override
   void dispose() {
     _threshold.dispose();
+    _initialQuantity.dispose();
+    _dailyUsage.dispose();
     _adjustQuantity.dispose();
     _adjustReason.dispose();
     super.dispose();
@@ -99,8 +97,12 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
           _lastSelectedPackageId != current.selectedPackageId) {
         _threshold.text = current.thresholdMilliunits == null
             ? ''
-            : StockQuantity.format(current.thresholdMilliunits!);
-        _dailyUsageAmount = current.dailyUsageMilliunits ?? 0;
+            : PersianQuantityFormatter.display(
+                StockQuantity.format(current.thresholdMilliunits!));
+        _dailyUsage.text = current.dailyUsageMilliunits == null
+            ? ''
+            : PersianQuantityFormatter.display(
+                StockQuantity.format(current.dailyUsageMilliunits!));
         _initializedThreshold = true;
         _lastSelectedPackageId = current.selectedPackageId;
       }
@@ -180,11 +182,12 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
 
   Future<void> _add() async {
     await _run(() async {
+      final initial = _positiveQuantity(_initialQuantity.text);
       await widget.repository.addPackage(
         profileId: widget.profileId,
         medicationId: widget.medication.id,
         unit: _selectedUnit,
-        initialMilliunits: _initialAmount,
+        initialMilliunits: initial,
         selectForUse: _selectNew,
         expiryIso: _expiry == null
             ? null
@@ -202,7 +205,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
     await _run(() async {
       final threshold = _threshold.text.trim().isEmpty
           ? null
-          : StockQuantity.parseNonNegative(_threshold.text);
+          : _positiveQuantity(_threshold.text);
       await widget.repository.setLowStockThreshold(
         profileId: widget.profileId,
         medicationId: widget.medication.id,
@@ -213,17 +216,28 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   }
 
   Future<void> _saveDailyUsage() async {
-    await _run(() => widget.repository.setEstimatedDailyUse(
+    await _run(() async {
+      final usage = _dailyUsage.text.trim().isEmpty
+          ? null : _positiveQuantity(_dailyUsage.text);
+      await widget.repository.setEstimatedDailyUse(
           profileId: widget.profileId,
           medicationId: widget.medication.id,
-          dailyUsageMilliunits: _dailyUsageAmount == 0
-              ? null : _dailyUsageAmount,
-        ), successMessage: 'مبنای برآورد موجودی ذخیره شد.');
+          dailyUsageMilliunits: usage,
+        );
+    }, successMessage: 'مبنای برآورد موجودی ذخیره شد.');
+  }
+
+  int _positiveQuantity(String input) {
+    final quantity = StockQuantity.parsePositive(input);
+    if (quantity > PersianQuantityFormatter.maxMilliunits) {
+      throw ArgumentError('مقدار نباید بیشتر از ۹۹٬۹۹۹٫۹۹۹ باشد.');
+    }
+    return quantity;
   }
 
   Future<void> _adjust(String packageId) async {
     await _run(() async {
-      final amount = StockQuantity.parsePositive(_adjustQuantity.text);
+      final amount = _positiveQuantity(_adjustQuantity.text);
       final delta = _adjustIncrease ? amount : -amount;
       await widget.repository.adjustPackage(
         profileId: widget.profileId,
@@ -291,9 +305,10 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                 TextField(
                   controller: _threshold,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: const [PersianQuantityFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'حد هشدار (خالی = خاموش)',
-                    helperText: 'بر حسب واحد بستهٔ انتخابی؛ بدون تبدیل واحد یا تخمین روز.',
+                    helperText: 'بر حسب واحد بسته؛ عدد مثبت، خالی = خاموش.',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -304,7 +319,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                 ),
                 if (summary.thresholdMilliunits != null && summary.selected != null)
                   Text(
-                    'حد فعال: ${StockQuantity.format(summary.thresholdMilliunits!)} '
+                    'حد فعال: ${PersianQuantityFormatter.display(StockQuantity.format(summary.thresholdMilliunits!))} '
                     '${summary.selected!.package.unit} — '
                     '${summary.lowStock ? 'موجودی در محدودهٔ هشدار است.' : 'موجودی فعلی بالاتر از حد هشدار است.'}',
                     style: TextStyle(
@@ -334,35 +349,22 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                                     : summary.estimatedWholeDaysLeft == 0 &&
                                             summary.selected!.balanceMilliunits > 0
                                         ? 'کمتر از یک روز با الگوی واردشده'
-                                        : 'حدود ${summary.estimatedWholeDaysLeft} روز با الگوی واردشده'),
+                                        : 'حدود ${PersianQuantityFormatter.display(summary.estimatedWholeDaysLeft.toString())} روز با الگوی واردشده'),
                         const SizedBox(height: 8),
-                        DropdownButtonFormField<int>(
+                        TextField(
                           key: ValueKey('daily-use-${summary.selectedPackageId}'),
-                          initialValue: _dailyUsageAmount,
-                          isExpanded: true,
+                          controller: _dailyUsage,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          inputFormatters: const [PersianQuantityFormatter()],
+                          enabled: !_busy && summary.selected != null,
                           decoration: InputDecoration(
                             labelText: 'میانگین مصرف روزانه (اختیاری)',
                             helperText: summary.selected == null
                                 ? 'ابتدا بسته را انتخاب کنید.'
-                                : 'واحد: ${summary.selected!.package.unit} در روز؛ خاموش = حذف تخمین',
+                                : 'واحد: ${summary.selected!.package.unit} در روز؛ خالی = حذف تخمین',
                             border: const OutlineInputBorder(),
                           ),
-                          items: [
-                            const DropdownMenuItem(value: 0,
-                                child: Text('خاموش / بدون تخمین')),
-                            for (final amount in _dailyUsageOptions)
-                              DropdownMenuItem(
-                                value: amount,
-                                child: Text(StockUnitPresets.quantityLabel(
-                                    amount, summary.selected?.package.unit ?? '')),
-                              ),
-                          ],
-                          onChanged: _busy || summary.selected == null
-                              ? null : (value) {
-                                if (value != null) {
-                                  setState(() => _dailyUsageAmount = value);
-                                }
-                              },
                         ),
                         const SizedBox(height: 8),
                         OutlinedButton(
@@ -386,22 +388,17 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     '(بسته اول، بسته دوم و ...).'),
                 const SizedBox(height: 8),
                 Row(children: [
-                  Expanded(child: DropdownButtonFormField<int>(
-                    initialValue: _initialAmount,
-                    isExpanded: true,
+                  Expanded(child: TextField(
+                    key: const ValueKey('initial-stock-quantity-input'),
+                    controller: _initialQuantity,
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true),
+                    inputFormatters: const [PersianQuantityFormatter()],
+                    enabled: !_busy,
                     decoration: const InputDecoration(
                       labelText: 'موجودی واقعی اولیه',
                       border: OutlineInputBorder(),
                     ),
-                    items: [
-                      const DropdownMenuItem(value: 0, child: Text('۰')),
-                      for (final amount in StockUnitPresets.amountsMilliunits)
-                        DropdownMenuItem(value: amount,
-                          child: Text(StockQuantity.format(amount))),
-                    ],
-                    onChanged: _busy ? null : (value) {
-                      if (value != null) setState(() => _initialAmount = value);
-                    },
                   )),
                   const SizedBox(width: 8),
                   Expanded(child: DropdownButtonFormField<String>(
@@ -492,10 +489,10 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               ),
               if (selected) const Chip(label: Text('انتخاب‌شده')),
             ]),
-            Text('باقی‌مانده: ${StockQuantity.format(item.balanceMilliunits)} ${pack.unit}'),
+            Text('باقی‌مانده: ${PersianQuantityFormatter.display(StockQuantity.format(item.balanceMilliunits))} ${pack.unit}'),
             Text(pack.expiryIso == null
                 ? 'انقضا ثبت نشده'
-                : 'انقضا (میلادی): ${pack.expiryIso} '
+                : 'انقضا (میلادی): ${PersianQuantityFormatter.display(pack.expiryIso!)} '
                   '${pack.expiryPrecision == 'month' ? '(ماه/سال)' : '(روز)'}'),
             if (expired)
               const Text('هشدار: تاریخ انقضای ثبت‌شده گذشته است.',
@@ -557,12 +554,12 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(_movementName(entry)),
                     subtitle: Text(
-                      '${entry.createdAt.toLocal().toString().substring(0, 16)}'
+                      '${PersianQuantityFormatter.display(entry.createdAt.toLocal().toString().substring(0, 16))}'
                       '${entry.note == null ? '' : ' — ${entry.note}'}',
                     ),
                     trailing: Text(
                       '${entry.deltaMilliunits > 0 ? '+' : ''}'
-                      '${StockQuantity.format(entry.deltaMilliunits)} ${pack.unit}',
+                      '${PersianQuantityFormatter.display(StockQuantity.format(entry.deltaMilliunits))} ${pack.unit}',
                       style: TextStyle(color: entry.deltaMilliunits < 0
                           ? Colors.deepOrange : Colors.green),
                     ),
@@ -583,6 +580,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               TextField(
                 controller: _adjustQuantity,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: const [PersianQuantityFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'مقدار اصلاح',
                   border: OutlineInputBorder(),

@@ -8,7 +8,7 @@ import 'package:medication_companion/features/inventory/data/inventory_repositor
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
 
 void main() {
-  testWidgets('medicine can be created from preset amount without typing dose',
+  testWidgets('medicine amount uses numeric input without typing dose notes',
       (tester) async {
     tester.view.physicalSize = const Size(900, 1700);
     tester.view.devicePixelRatio = 1;
@@ -30,17 +30,25 @@ void main() {
     expect(find.text('واحد مصرف'), findsOneWidget);
     expect(find.text('مقدار کسر'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'داروی بدون تایپ دوز');
+    final quantityField = find.byKey(const ValueKey('medication-quantity-input'));
+    await tester.enterText(quantityField, '0');
+    await tester.ensureVisible(find.text('ذخیره دارو'));
+    await tester.tap(find.text('ذخیره دارو'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('مقدار مصرف باید عددی'), findsWidgets);
+    await tester.enterText(quantityField, '٢٠٫٥');
+    expect(tester.widget<TextField>(quantityField).controller?.text, '۲۰٫۵');
     await tester.ensureVisible(find.text('ذخیره دارو'));
     await tester.tap(find.text('ذخیره دارو'));
     await tester.pumpAndSettle();
     final active = await profiles.activeProfile();
     final medicine = (await medications.medicationsFor(active!.id)).single;
     final doses = await medications.dosesForDay(active.id, DateTime.now());
-    expect(doses.single.plan.doseText, '1 عدد');
+    expect(doses.single.plan.doseText, '۲۰٫۵ عدد');
     final preset = await InventoryRepository(db)
         .doseDebitPreset(active.id, medicine.id);
     expect(preset?.unit, 'عدد');
-    expect(preset?.quantityMilliunits, 1000);
+    expect(preset?.quantityMilliunits, 20500);
     expect(tester.takeException(), isNull);
   });
 
@@ -75,9 +83,9 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
-    expect(find.byType(TextField), findsNWidgets(2));
+    expect(find.byType(TextField), findsNWidgets(3));
     await tester.enterText(find.byType(TextField).at(0), 'داروی آزمایشی');
-    await tester.enterText(find.byType(TextField).at(1), 'فقط برای تست');
+    await tester.enterText(find.byType(TextField).at(2), 'فقط برای تست');
     await tester.ensureVisible(find.text('ذخیره دارو'));
     await tester.tap(find.text('ذخیره دارو'));
     await tester.pumpAndSettle();
@@ -160,11 +168,11 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'داروی تست چندنوبتی');
-    await tester.enterText(find.byType(TextField).at(1), 'صبح طبق نسخه');
+    await tester.enterText(find.byType(TextField).at(2), 'صبح طبق نسخه');
     await tester.tap(find.text('افزودن نوبت دیگر'));
     await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsNWidgets(3));
-    await tester.enterText(find.byType(TextField).at(2), 'عصر طبق نسخه');
+    expect(find.byType(TextField), findsNWidgets(4));
+    await tester.enterText(find.byType(TextField).at(3), 'عصر طبق نسخه');
     await tester.ensureVisible(find.text('ذخیره دارو'));
     await tester.tap(find.text('ذخیره دارو'));
     await tester.pumpAndSettle();

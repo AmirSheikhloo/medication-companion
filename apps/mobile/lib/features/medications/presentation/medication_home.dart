@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../../../core/input/persian_quantity_formatter.dart';
 import '../../profiles/data/profile_repository.dart';
 import '../../profiles/presentation/guest_welcome_screen.dart';
 import '../../profiles/presentation/profile_name_dialog.dart';
@@ -292,9 +293,11 @@ class _MedicationHomeState extends State<MedicationHome>
       initialSlots: [
         for (final dose in doses)
           MedicationSlotDraft(
-            dose: debit != null && dose.plan.doseText ==
-                    StockUnitPresets.quantityLabel(
-                        debit.quantityMilliunits, debit.unit)
+            dose: debit != null && (
+                    dose.plan.doseText == StockUnitPresets.quantityLabel(
+                        debit.quantityMilliunits, debit.unit) ||
+                    dose.plan.doseText ==
+                        '${StockQuantity.format(debit.quantityMilliunits)} ${debit.unit}')
                 ? ''
                 : dose.plan.doseText,
             time: TimeOfDay.fromDateTime(dose.scheduledAt),
@@ -940,7 +943,7 @@ class _MedicationHomeState extends State<MedicationHome>
     final stockLine = selected == null
         ? 'موجودی بسته انتخاب نشده'
         : 'بسته: ${selected.package.label} — '
-          '${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}'
+          '${PersianQuantityFormatter.display(StockQuantity.format(selected.balanceMilliunits))} ${selected.package.unit}'
           '${selected.expired ? ' (منقضی)' : ''}'
           '${stock!.lowStock ? ' (هشدار کمبود)' : ''}';
     final lowStock = stock?.lowStock == true;
@@ -951,7 +954,7 @@ class _MedicationHomeState extends State<MedicationHome>
             _clock(TimeOfDay.fromDateTime(dose.scheduledAt))).join('، ');
     final stockBrief = selected == null
         ? 'بدون بسته'
-        : '${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}';
+        : '${PersianQuantityFormatter.display(StockQuantity.format(selected.balanceMilliunits))} ${selected.package.unit}';
     final estimatedDays = stock?.estimatedWholeDaysLeft;
     return Column(children: [
       InkWell(
@@ -1016,7 +1019,7 @@ class _MedicationHomeState extends State<MedicationHome>
                       Text(
                         estimatedDays == 0 && selected!.balanceMilliunits > 0
                             ? 'کمتر از ۱ روز'
-                            : 'حدود $estimatedDays روز',
+                            : 'حدود ${PersianQuantityFormatter.display(estimatedDays.toString())} روز',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1090,7 +1093,7 @@ class _MedicationHomeState extends State<MedicationHome>
                       const SizedBox(height: 4),
                       Text(stockLine, softWrap: true),
                       if (estimatedDays != null)
-                        Text('موجودی تقریبی: حدود $estimatedDays روز '
+                        Text('موجودی تقریبی: حدود ${PersianQuantityFormatter.display(estimatedDays.toString())} روز '
                             'بر اساس میانگین واردشده توسط شما.'),
                       const SizedBox(height: 10),
                       Wrap(spacing: 8, runSpacing: 8, children: [
@@ -1279,4 +1282,7 @@ class _InfoNote extends StatelessWidget {
 }
 
 String _clock(TimeOfDay time) =>
-    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    PersianQuantityFormatter.display(
+      '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}',
+    );

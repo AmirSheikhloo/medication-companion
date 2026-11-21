@@ -1,5 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import '../../../core/calendar/persian_date.dart';
+import '../../../core/input/persian_quantity_formatter.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
 import '../../inventory/domain/stock_unit_presets.dart';
@@ -69,10 +69,10 @@ class _MedicationEntrySheet extends StatefulWidget {
 
 class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
   late final TextEditingController _name;
+  late final TextEditingController _debitQuantityController;
   late final List<_SlotEditor> _slots;
   final List<_SlotEditor> _retired = [];
   String _debitUnit = 'عدد';
-  int _debitQuantity = 1000;
   String? _formError;
 
   bool get _editing => widget.initialName != null;
@@ -82,11 +82,12 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
     super.initState();
     _name = TextEditingController(text: widget.initialName ?? '');
     final preset = widget.initialDebitPreset;
+    _debitQuantityController = TextEditingController(
+      text: PersianQuantityFormatter.display(
+          StockQuantity.format(preset?.quantityMilliunits ?? 1000)),
+    );
     if (preset != null) {
       _debitUnit = preset.unit;
-      if (StockUnitPresets.amountsMilliunits.contains(preset.quantityMilliunits)) {
-        _debitQuantity = preset.quantityMilliunits;
-      }
     }
     final initial = widget.initialSlots;
     _slots = (initial == null || initial.isEmpty)
@@ -102,6 +103,7 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
   @override
   void dispose() {
     _name.dispose();
+    _debitQuantityController.dispose();
     for (final slot in [..._slots, ..._retired]) {
       slot.doseController.dispose();
     }
@@ -155,6 +157,17 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
       _showError('نام دارو باید بین ۱ تا ۱۶۰ نویسه باشد.');
       return;
     }
+    late final int debitQuantity;
+    try {
+      debitQuantity = StockQuantity.parsePositive(_debitQuantityController.text);
+      if (debitQuantity > PersianQuantityFormatter.maxMilliunits) {
+        throw const FormatException('Quantity too large');
+      }
+    } catch (_) {
+      _showError('مقدار مصرف باید عددی، بزرگ‌تر از صفر و حداکثر '
+          '۵ رقم صحیح با ۳ رقم اعشار باشد.');
+      return;
+    }
     final used = <int>{};
     final values = <MedicationSlotDraft>[];
     for (final slot in _slots) {
@@ -169,14 +182,14 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
       }
       values.add(MedicationSlotDraft(
         dose: dose.isEmpty
-            ? StockUnitPresets.quantityLabel(_debitQuantity, _debitUnit)
+            ? StockUnitPresets.quantityLabel(debitQuantity, _debitUnit)
             : dose,
         time: slot.time,
       ));
     }
     Navigator.of(context).pop(MedicationDraft(
       name: name, slots: values,
-      debitUnit: _debitUnit, debitQuantityMilliunits: _debitQuantity,
+      debitUnit: _debitUnit, debitQuantityMilliunits: debitQuantity,
     ));
   }
 
@@ -239,27 +252,26 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: DropdownButtonFormField<int>(
-                      initialValue: _debitQuantity,
-                      isExpanded: true,
+                    child: TextField(
+                      key: const ValueKey('medication-quantity-input'),
+                      controller: _debitQuantityController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      inputFormatters: const [PersianQuantityFormatter()],
                       decoration: const InputDecoration(
-                        labelText: 'مقدار کسر', border: OutlineInputBorder()),
-                      items: [
-                        for (final amount in StockUnitPresets.amountsMilliunits)
-                          DropdownMenuItem(
-                            value: amount,
-                            child: Text(PersianDate.persianDigits(
-                                StockQuantity.format(amount))),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) setState(() => _debitQuantity = value);
+                        labelText: 'مقدار کسر',
+                        hintText: 'مثلاً ۱ یا ۲۰٫۵',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) {
+                        if (_formError != null) setState(() => _formError = null);
                       },
                     ),
                   ),
                 ]),
                 const SizedBox(height: 6),
-                const Text('انتخاب این مقدار فقط پیش‌فرض کسر موجودی است؛ '
+                const Text('مقدار باید بزرگ‌تر از صفر باشد؛ حروف و اعداد خیلی بزرگ پذیرفته نمی‌شوند. '
+                    'این مقدار فقط پیش‌فرض کسر موجودی است؛ '
                     'هنگام ثبت مصرف قابل بازبینی است و باید با واحد بسته یکسان باشد.',
                     style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
                 const SizedBox(height: 8),

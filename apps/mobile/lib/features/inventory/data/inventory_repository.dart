@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../../../core/calendar/persian_date.dart';
 import '../domain/stock_quantity.dart';
 import '../domain/stock_unit_presets.dart';
 
@@ -318,7 +319,7 @@ class InventoryRepository {
             1 => 'بسته اول',
             2 => 'بسته دوم',
             3 => 'بسته سوم',
-            _ => 'بسته $number',
+            _ => 'بسته ${PersianDate.persianDigits(number.toString())}',
           };
       while (existing.any((p) => p.label == autoLabel(ordinal))) {
         ordinal++;
