@@ -4,9 +4,46 @@ import 'package:material_ui/material_ui.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
 import 'package:medication_companion/features/medications/data/medication_repository.dart';
 import 'package:medication_companion/features/medications/presentation/medication_home.dart';
+import 'package:medication_companion/features/inventory/data/inventory_repository.dart';
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
 
 void main() {
+  testWidgets('medicine can be created from preset amount without typing dose',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 1700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final profiles = ProfileRepository(db);
+    final medications = MedicationRepository(db);
+    await profiles.createGuestProfile(forSelf: true);
+    await tester.pumpWidget(MaterialApp(
+      home: MedicationHome(repository: medications, profileRepository: profiles),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('داروها'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(find.text('واحد مصرف'), findsOneWidget);
+    expect(find.text('مقدار کسر'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'داروی بدون تایپ دوز');
+    await tester.ensureVisible(find.text('ذخیره دارو'));
+    await tester.tap(find.text('ذخیره دارو'));
+    await tester.pumpAndSettle();
+    final active = await profiles.activeProfile();
+    final medicine = (await medications.medicationsFor(active!.id)).single;
+    final doses = await medications.dosesForDay(active.id, DateTime.now());
+    expect(doses.single.plan.doseText, '1 عدد');
+    final preset = await InventoryRepository(db)
+        .doseDebitPreset(active.id, medicine.id);
+    expect(preset?.unit, 'عدد');
+    expect(preset?.quantityMilliunits, 1000);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('save a demo medication through the actual form', (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);

@@ -1,4 +1,8 @@
 import 'package:material_ui/material_ui.dart';
+import '../../../core/calendar/persian_date.dart';
+import '../../inventory/data/inventory_repository.dart';
+import '../../inventory/domain/stock_quantity.dart';
+import '../../inventory/domain/stock_unit_presets.dart';
 
 /// A user's own description for one daily occurrence.
 class MedicationSlotDraft {
@@ -8,10 +12,13 @@ class MedicationSlotDraft {
 }
 
 class MedicationDraft {
-  const MedicationDraft({required this.name, required this.slots});
+  const MedicationDraft({required this.name, required this.slots,
+    required this.debitUnit, required this.debitQuantityMilliunits});
 
   final String name;
   final List<MedicationSlotDraft> slots;
+  final String debitUnit;
+  final int debitQuantityMilliunits;
 }
 
 Future<MedicationDraft?> showMedicationEntrySheet(
@@ -19,6 +26,7 @@ Future<MedicationDraft?> showMedicationEntrySheet(
   required String profileName,
   String? initialName,
   List<MedicationSlotDraft>? initialSlots,
+  DoseDebitPreset? initialDebitPreset,
 }) =>
     showModalBottomSheet<MedicationDraft>(
       context: context,
@@ -28,6 +36,7 @@ Future<MedicationDraft?> showMedicationEntrySheet(
         profileName: profileName,
         initialName: initialName,
         initialSlots: initialSlots,
+        initialDebitPreset: initialDebitPreset,
       ),
     );
 
@@ -46,11 +55,13 @@ class _MedicationEntrySheet extends StatefulWidget {
     required this.profileName,
     this.initialName,
     this.initialSlots,
+    this.initialDebitPreset,
   });
 
   final String profileName;
   final String? initialName;
   final List<MedicationSlotDraft>? initialSlots;
+  final DoseDebitPreset? initialDebitPreset;
 
   @override
   State<_MedicationEntrySheet> createState() => _MedicationEntrySheetState();
@@ -60,6 +71,9 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
   late final TextEditingController _name;
   late final List<_SlotEditor> _slots;
   final List<_SlotEditor> _retired = [];
+  String _debitUnit = 'عدد';
+  int _debitQuantity = 1000;
+  String? _formError;
 
   bool get _editing => widget.initialName != null;
 
@@ -67,6 +81,13 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
   void initState() {
     super.initState();
     _name = TextEditingController(text: widget.initialName ?? '');
+    final preset = widget.initialDebitPreset;
+    if (preset != null) {
+      _debitUnit = preset.unit;
+      if (StockUnitPresets.amountsMilliunits.contains(preset.quantityMilliunits)) {
+        _debitQuantity = preset.quantityMilliunits;
+      }
+    }
     final initial = widget.initialSlots;
     _slots = (initial == null || initial.isEmpty)
         ? [
@@ -121,10 +142,12 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
     setState(() => _retired.add(_slots.removeAt(index)));
   }
 
-  void _showError(String message) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+  void _showError(String message) {
+    setState(() => _formError = message);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   void _submit() {
     final name = _name.text.trim();
@@ -136,17 +159,25 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
     final values = <MedicationSlotDraft>[];
     for (final slot in _slots) {
       final dose = slot.doseController.text.trim();
-      if (dose.isEmpty || dose.length > 120) {
-        _showError('شرح مصرف هر نوبت باید بین ۱ تا ۱۲۰ نویسه باشد.');
+      if (dose.length > 120) {
+        _showError('توضیح هر نوبت نباید بیشتر از ۱۲۰ نویسه باشد.');
         return;
       }
       if (!used.add(slot.time.hour * 60 + slot.time.minute)) {
         _showError('ساعت نوبت‌ها نباید تکراری باشد.');
         return;
       }
-      values.add(MedicationSlotDraft(dose: dose, time: slot.time));
+      values.add(MedicationSlotDraft(
+        dose: dose.isEmpty
+            ? StockUnitPresets.quantityLabel(_debitQuantity, _debitUnit)
+            : dose,
+        time: slot.time,
+      ));
     }
-    Navigator.of(context).pop(MedicationDraft(name: name, slots: values));
+    Navigator.of(context).pop(MedicationDraft(
+      name: name, slots: values,
+      debitUnit: _debitUnit, debitQuantityMilliunits: _debitQuantity,
+    ));
   }
 
   @override
@@ -186,6 +217,51 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                     hintText: 'نام روی نسخه یا جعبه',
                   ),
                 ),
+                const SizedBox(height: 6),
+                Text('مقدار پیش‌فرض در هر ثبت مصرف',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _debitUnit,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'واحد مصرف', border: OutlineInputBorder()),
+                      items: [
+                        for (final unit in StockUnitPresets.units)
+                          DropdownMenuItem(value: unit, child: Text(unit)),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() => _debitUnit = value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _debitQuantity,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'مقدار کسر', border: OutlineInputBorder()),
+                      items: [
+                        for (final amount in StockUnitPresets.amountsMilliunits)
+                          DropdownMenuItem(
+                            value: amount,
+                            child: Text(PersianDate.persianDigits(
+                                StockQuantity.format(amount))),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() => _debitQuantity = value);
+                      },
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                const Text('انتخاب این مقدار فقط پیش‌فرض کسر موجودی است؛ '
+                    'هنگام ثبت مصرف قابل بازبینی است و باید با واحد بسته یکسان باشد.',
+                    style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
                 const SizedBox(height: 8),
                 for (var i = 0; i < _slots.length; i++) ...[
                   Row(
@@ -206,8 +282,8 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                     controller: _slots[i].doseController,
                     maxLength: 120,
                     decoration: InputDecoration(
-                      labelText: 'شرح مصرف نوبت ${i + 1} طبق نسخه',
-                      hintText: 'مثلاً ۱ عدد؛ خودتان وارد کنید',
+                      labelText: 'توضیح اختیاری نوبت ${i + 1}',
+                      hintText: 'در صورت نیاز؛ مقدار مصرف بالا انتخاب شده است',
                     ),
                   ),
                   OutlinedButton.icon(
@@ -226,6 +302,15 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                   icon: const Icon(Icons.add_alarm),
                   label: const Text('افزودن نوبت دیگر'),
                 ),
+                if (_formError != null)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEBE8),
+                      borderRadius: BorderRadius.circular(10)),
+                    child: Text(_formError!,
+                        style: const TextStyle(color: Colors.redAccent)),
+                  ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   icon: const Icon(Icons.save_outlined),

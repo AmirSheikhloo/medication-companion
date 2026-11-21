@@ -120,6 +120,49 @@ void main() {
         isNull);
   });
 
+  test('automatic package names, expiry ordering and debit preset selection',
+      () async {
+    final (profileId, medId) = await setupMedication();
+    final later = await inventory.addPackage(
+      profileId: profileId, medicationId: medId,
+      unit: 'عدد', initialMilliunits: 10000,
+      expiryIso: '2030-12-31', expiryPrecision: 'day',
+      selectForUse: true,
+    );
+    final earlier = await inventory.addPackage(
+      profileId: profileId, medicationId: medId,
+      unit: 'عدد', initialMilliunits: 6000,
+      expiryIso: '2029-01-01', expiryPrecision: 'day',
+    );
+    final noExpiry = await inventory.addPackage(
+      profileId: profileId, medicationId: medId,
+      unit: 'عدد', initialMilliunits: 3000,
+    );
+    final summary = await inventory.summary(profileId, medId);
+    expect(summary.packages.map((p) => p.package.id),
+        [earlier, later, noExpiry]);
+    expect(summary.packages.map((p) => p.package.label),
+        ['بسته دوم', 'بسته اول', 'بسته سوم']);
+
+    await inventory.setDoseDebitPreset(
+      profileId: profileId, medicationId: medId,
+      unit: 'سی‌سی', quantityMilliunits: 20000,
+    );
+    expect((await inventory.summary(profileId, medId)).selectedDebitQuantity,
+        isNull); // Tablets cannot be silently converted into millilitres.
+    await inventory.setDoseDebitPreset(
+      profileId: profileId, medicationId: medId,
+      unit: 'عدد', quantityMilliunits: 2000,
+    );
+    expect((await inventory.summary(profileId, medId)).selectedDebitQuantity,
+        2000);
+    final outsider = await profiles.createGuestProfile(forSelf: false);
+    await expectLater(inventory.setDoseDebitPreset(
+      profileId: outsider.id, medicationId: medId,
+      unit: 'عدد', quantityMilliunits: 1000,
+    ), throwsStateError);
+  });
+
   test('debit/undo is atomic, exactly once and preserves append-only history',
       () async {
     final (profileId, medId) = await setupMedication();

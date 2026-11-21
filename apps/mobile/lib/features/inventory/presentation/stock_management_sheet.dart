@@ -5,6 +5,7 @@ import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
 import '../data/inventory_repository.dart';
 import '../domain/stock_quantity.dart';
+import '../domain/stock_unit_presets.dart';
 
 Future<void> showStockManagementSheet(
   BuildContext context, {
@@ -38,11 +39,7 @@ class _StockManagementSheet extends StatefulWidget {
 }
 
 class _StockManagementSheetState extends State<_StockManagementSheet> {
-  final _label = TextEditingController();
-  final _unit = TextEditingController();
-  final _initial = TextEditingController();
   final _threshold = TextEditingController();
-  final _dailyUsage = TextEditingController();
   final _adjustQuantity = TextEditingController();
   final _adjustReason = TextEditingController();
 
@@ -50,6 +47,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   final Set<String> _historyOpen = <String>{};
   Map<String, List<StockMovement>> _history = {};
   String? _feedbackMessage;
+  String? _operationError;
   bool _busy = false;
   bool _initializedThreshold = false;
   String? _lastSelectedPackageId;
@@ -57,23 +55,28 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   bool _adjustIncrease = true;
   String? _adjustingPackageId;
   String _precision = 'day';
+  String _selectedUnit = 'عدد';
+  int _initialAmount = 1000;
+  int _dailyUsageAmount = 0;
   DateTime? _expiry;
   String? _error;
+
+  List<int> get _dailyUsageOptions => <int>{
+        ...StockUnitPresets.amountsMilliunits,
+        if (_dailyUsageAmount > 0) _dailyUsageAmount,
+      }.toList()..sort();
 
   @override
   void initState() {
     super.initState();
-    _unit.text = widget.medication.unit;
+    final savedUnit = StockUnitPresets.canonical(widget.medication.unit);
+    if (StockUnitPresets.units.contains(savedUnit)) _selectedUnit = savedUnit;
     _load();
   }
 
   @override
   void dispose() {
-    _label.dispose();
-    _unit.dispose();
-    _initial.dispose();
     _threshold.dispose();
-    _dailyUsage.dispose();
     _adjustQuantity.dispose();
     _adjustReason.dispose();
     super.dispose();
@@ -97,9 +100,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         _threshold.text = current.thresholdMilliunits == null
             ? ''
             : StockQuantity.format(current.thresholdMilliunits!);
-        _dailyUsage.text = current.dailyUsageMilliunits == null
-            ? ''
-            : StockQuantity.format(current.dailyUsageMilliunits!);
+        _dailyUsageAmount = current.dailyUsageMilliunits ?? 0;
         _initializedThreshold = true;
         _lastSelectedPackageId = current.selectedPackageId;
       }
@@ -121,6 +122,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
     setState(() {
       _busy = true;
       _feedbackMessage = null;
+      _operationError = null;
     });
     try {
       await action();
@@ -135,6 +137,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
       }
     } catch (error) {
       if (mounted) {
+        setState(() => _operationError = 'انجام نشد: $error');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('ثبت نشد: $error')),
         );
@@ -172,13 +175,11 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
 
   Future<void> _add() async {
     await _run(() async {
-      final initial = StockQuantity.parseNonNegative(_initial.text);
       await widget.repository.addPackage(
         profileId: widget.profileId,
         medicationId: widget.medication.id,
-        label: _label.text,
-        unit: _unit.text,
-        initialMilliunits: initial,
+        unit: _selectedUnit,
+        initialMilliunits: _initialAmount,
         selectForUse: _selectNew,
         expiryIso: _expiry == null
             ? null
@@ -187,8 +188,6 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         expiryPrecision: _expiry == null ? 'none' : _precision,
       );
       if (mounted) {
-        _label.clear();
-        _initial.clear();
         setState(() => _expiry = null);
       }
     });
@@ -212,9 +211,8 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
     await _run(() => widget.repository.setEstimatedDailyUse(
           profileId: widget.profileId,
           medicationId: widget.medication.id,
-          dailyUsageMilliunits: _dailyUsage.text.trim().isEmpty
-              ? null
-              : StockQuantity.parsePositive(_dailyUsage.text),
+          dailyUsageMilliunits: _dailyUsageAmount == 0
+              ? null : _dailyUsageAmount,
         ), successMessage: 'مبنای برآورد موجودی ذخیره شد.');
   }
 
@@ -260,12 +258,25 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               if (_feedbackMessage != null)
                 Text(_feedbackMessage!,
                     style: const TextStyle(color: Colors.green)),
+              if (_operationError != null)
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEBE8),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: Text(_operationError!,
+                      style: const TextStyle(color: Colors.redAccent)),
+                ),
               const SizedBox(height: 12),
               if (summary == null)
                 const Center(child: CircularProgressIndicator())
               else ...[
                 if (summary.packages.isEmpty)
                   const ListTile(title: Text('هنوز بسته‌ای ثبت نشده است.')),
+                if (summary.packages.isNotEmpty)
+                  const Text('بسته‌ها براساس تاریخ انقضا مرتب شده‌اند؛ '
+                      'بسته‌های بدون تاریخ در انتهای فهرست هستند.',
+                      style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
                 for (final item in summary.packages) _packageCard(item, summary),
                 const SizedBox(height: 16),
                 Text('هشدار کمبود بسته انتخاب‌شده'
@@ -320,17 +331,33 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                                         ? 'کمتر از یک روز با الگوی واردشده'
                                         : 'حدود ${summary.estimatedWholeDaysLeft} روز با الگوی واردشده'),
                         const SizedBox(height: 8),
-                        TextField(
-                          controller: _dailyUsage,
-                          enabled: !_busy && summary.selected != null,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        DropdownButtonFormField<int>(
+                          key: ValueKey('daily-use-${summary.selectedPackageId}'),
+                          initialValue: _dailyUsageAmount,
+                          isExpanded: true,
                           decoration: InputDecoration(
                             labelText: 'میانگین مصرف روزانه (اختیاری)',
                             helperText: summary.selected == null
                                 ? 'ابتدا بسته را انتخاب کنید.'
-                                : 'واحد: ${summary.selected!.package.unit} در روز؛ خالی = حذف تخمین',
+                                : 'واحد: ${summary.selected!.package.unit} در روز؛ خاموش = حذف تخمین',
                             border: const OutlineInputBorder(),
                           ),
+                          items: [
+                            const DropdownMenuItem(value: 0,
+                                child: Text('خاموش / بدون تخمین')),
+                            for (final amount in _dailyUsageOptions)
+                              DropdownMenuItem(
+                                value: amount,
+                                child: Text(StockUnitPresets.quantityLabel(
+                                    amount, summary.selected?.package.unit ?? '')),
+                              ),
+                          ],
+                          onChanged: _busy || summary.selected == null
+                              ? null : (value) {
+                                if (value != null) {
+                                  setState(() => _dailyUsageAmount = value);
+                                }
+                              },
                         ),
                         const SizedBox(height: 8),
                         OutlinedButton(
@@ -350,31 +377,40 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                 Text('افزودن بسته جدید',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: _label,
-                  maxLength: 80,
-                  decoration: const InputDecoration(
-                    labelText: 'نام/مشخصه بسته (مثلاً جعبه دوم)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
+                const Text('نام بسته به‌صورت خودکار ساخته می‌شود '
+                    '(بسته اول، بسته دوم و ...).'),
                 const SizedBox(height: 8),
                 Row(children: [
-                  Expanded(child: TextField(
-                    controller: _initial,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  Expanded(child: DropdownButtonFormField<int>(
+                    initialValue: _initialAmount,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'موجودی واقعی اولیه',
                       border: OutlineInputBorder(),
                     ),
+                    items: [
+                      const DropdownMenuItem(value: 0, child: Text('۰')),
+                      for (final amount in StockUnitPresets.amountsMilliunits)
+                        DropdownMenuItem(value: amount,
+                          child: Text(StockQuantity.format(amount))),
+                    ],
+                    onChanged: _busy ? null : (value) {
+                      if (value != null) setState(() => _initialAmount = value);
+                    },
                   )),
                   const SizedBox(width: 8),
-                  Expanded(child: TextField(
-                    controller: _unit,
+                  Expanded(child: DropdownButtonFormField<String>(
+                    initialValue: _selectedUnit,
+                    isExpanded: true,
                     decoration: const InputDecoration(
-                      labelText: 'واحد (مثلاً عدد یا ml)',
+                      labelText: 'واحد بسته',
                       border: OutlineInputBorder(),
                     ),
+                    items: [for (final unit in StockUnitPresets.units)
+                      DropdownMenuItem(value: unit, child: Text(unit))],
+                    onChanged: _busy ? null : (value) {
+                      if (value != null) setState(() => _selectedUnit = value);
+                    },
                   )),
                 ]),
                 const SizedBox(height: 10),

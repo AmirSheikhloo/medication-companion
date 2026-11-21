@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf_text_shaper/pdf_text_shaper.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/calendar/persian_date.dart';
@@ -48,28 +49,26 @@ class MedicationListExport {
       throw StateError('اطلاعات گزارش فقط باید متعلق به همین پروفایل باشد.');
     }
 
-    final regular = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'),
-    );
-    final bold = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/NotoSansArabic-Bold.ttf'),
-    );
+    final regular = ShapedFont.fromBytes((await rootBundle.load(
+      'assets/fonts/NotoSansArabic-Regular.ttf')).buffer.asUint8List());
+    final bold = ShapedFont.fromBytes((await rootBundle.load(
+      'assets/fonts/NotoSansArabic-Bold.ttf')).buffer.asUint8List());
     const teal = PdfColor(0.03, 0.37, 0.38);
-    const ink = PdfColor(0.12, 0.20, 0.22);
     final doc = pw.Document();
-    pw.Text label(String value, {bool strong = false, double size = 10}) =>
-        pw.Text(
-          value,
-          textDirection: pw.TextDirection.rtl,
-          style: pw.TextStyle(
+    pw.Widget label(String value, {bool strong = false, double size = 13}) =>
+        ShapedText(
+          PersianDate.persianDigits(value),
+          style: ShapedTextStyle(
             font: strong ? bold : regular,
             fontSize: size,
-            color: ink,
+            direction: AnyPdfTextDirection.rightToLeft,
+            align: AnyPdfTextAlign.end,
           ),
         );
     final sortedMeds = [...medications]
       ..sort((a, b) => a.name.compareTo(b.name));
-    doc.addPage(pw.MultiPage(
+    try {
+      doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(30),
       maxPages: 100,
@@ -78,14 +77,15 @@ class MedicationListExport {
         decoration: const pw.BoxDecoration(
           border: pw.Border(bottom: pw.BorderSide(color: teal, width: 1)),
         ),
-        child: label('همراه دارو — فهرست داروها برای پزشک', strong: true),
+        child: label('همراه دارو — فهرست داروها برای پزشک',
+            strong: true, size: 13),
       ),
       footer: (context) => pw.Column(
         mainAxisSize: pw.MainAxisSize.min,
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Divider(color: teal),
-          label('اطلاعات واردشده توسط کاربر است و تأیید پزشکی نشده.', size: 9),
+          label('اطلاعات واردشده توسط کاربر است و تأیید پزشکی نشده.', size: 11),
         ],
       ),
       build: (context) => [
@@ -94,7 +94,7 @@ class MedicationListExport {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              label('فهرست داروهای فعال', strong: true, size: 19),
+              label('فهرست داروهای فعال', strong: true, size: 22),
               pw.SizedBox(height: 8),
               label('پروفایل: ${profile.displayName}', strong: true),
               label('برنامهٔ روز: ${persianDateLabel(forDay)} (شمسی)'),
@@ -120,7 +120,7 @@ class MedicationListExport {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    label(medicine.name, strong: true, size: 12),
+                    label(medicine.name, strong: true, size: 17),
                     pw.SizedBox(height: 5),
                     if (!doses.any((d) => d.medication.id == medicine.id))
                       label('برای این تاریخ نوبتی ثبت نشده است.')
@@ -138,7 +138,11 @@ class MedicationListExport {
         label('این فهرست فقط برنامهٔ ثبت‌شده برای تاریخ فوق است؛ '
             'برنامهٔ ویرایش‌شده ممکن است از فردا اعمال شود.'),
       ],
-    ));
-    return doc.save();
+      ));
+      return await doc.save();
+    } finally {
+      regular.dispose();
+      bold.dispose();
+    }
   }
 }

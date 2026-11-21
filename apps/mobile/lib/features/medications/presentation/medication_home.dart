@@ -232,6 +232,11 @@ class _MedicationHomeState extends State<MedicationHome>
         }
       }
       await _reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تغییر با موفقیت ذخیره شد.')),
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -250,17 +255,24 @@ class _MedicationHomeState extends State<MedicationHome>
       profileName: profile.displayName,
     );
     if (!mounted || draft == null) return;
-    await _perform(() => widget.repository.addMedicationSchedule(
-          profileId: profile.id,
-          name: draft.name,
-          slots: [
-            for (final slot in draft.slots)
-              DoseSlotInput(
-                doseText: slot.dose,
-                time: TimeOfDayValue(slot.time.hour, slot.time.minute),
-              ),
-          ],
-        ));
+    await _perform(() async {
+      final medicationId = await widget.repository.addMedicationSchedule(
+        profileId: profile.id,
+        name: draft.name,
+        slots: [
+          for (final slot in draft.slots)
+            DoseSlotInput(
+              doseText: slot.dose,
+              time: TimeOfDayValue(slot.time.hour, slot.time.minute),
+            ),
+        ],
+      );
+      await _inventory.setDoseDebitPreset(
+        profileId: profile.id, medicationId: medicationId,
+        unit: draft.debitUnit,
+        quantityMilliunits: draft.debitQuantityMilliunits,
+      );
+    });
   }
 
   Future<void> _editMedication(Medication medication) async {
@@ -269,11 +281,13 @@ class _MedicationHomeState extends State<MedicationHome>
     final tomorrow = DateTime.now().add(const Duration(days: 1));
     final doses = await widget.repository
         .dosesForMedicationOnDay(profile.id, medication.id, tomorrow);
+    final debit = await _inventory.doseDebitPreset(profile.id, medication.id);
     if (!mounted) return;
     final draft = await showMedicationEntrySheet(
       context,
       profileName: profile.displayName,
       initialName: medication.name,
+      initialDebitPreset: debit,
       initialSlots: [
         for (final dose in doses)
           MedicationSlotDraft(
@@ -283,7 +297,8 @@ class _MedicationHomeState extends State<MedicationHome>
       ],
     );
     if (!mounted || draft == null) return;
-    await _perform(() => widget.repository.updateMedicationSchedule(
+    await _perform(() async {
+      await widget.repository.updateMedicationSchedule(
           profileId: profile.id,
           medicationId: medication.id,
           name: draft.name,
@@ -294,7 +309,14 @@ class _MedicationHomeState extends State<MedicationHome>
                 time: TimeOfDayValue(slot.time.hour, slot.time.minute),
               ),
           ],
-        ));
+        );
+      await _inventory.setDoseDebitPreset(
+        profileId: profile.id,
+        medicationId: medication.id,
+        unit: draft.debitUnit,
+        quantityMilliunits: draft.debitQuantityMilliunits,
+      );
+    });
   }
 
   Future<void> _archiveMedication(Medication medication) async {

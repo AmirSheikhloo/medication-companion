@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../data/inventory_repository.dart';
 import '../domain/stock_quantity.dart';
+import '../domain/stock_unit_presets.dart';
 
 class DoseStockChoice {
   const DoseStockChoice.withoutDebit()
@@ -39,13 +40,19 @@ class _DoseStockDialog extends StatefulWidget {
 }
 
 class _DoseStockDialogState extends State<_DoseStockDialog> {
-  final _quantity = TextEditingController();
+  int? _quantity;
   String? _error;
 
   @override
-  void dispose() {
-    _quantity.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    final balance = widget.stock.selected?.balanceMilliunits ?? 0;
+    final available = StockUnitPresets.amountsMilliunits
+        .where((value) => value <= balance).toList();
+    final initial = widget.stock.selectedDebitQuantity;
+    _quantity = available.contains(initial)
+        ? initial
+        : available.isEmpty ? null : available.first;
   }
 
   @override
@@ -76,15 +83,33 @@ class _DoseStockDialogState extends State<_DoseStockDialog> {
             ],
             if (usable) ...[
               const SizedBox(height: 10),
-              TextField(
-                controller: _quantity,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'مقدار واقعی مصرف‌شده (${selected.package.unit})',
-                  border: const OutlineInputBorder(),
+              if (_quantity == null)
+                const Text('موجودی برای مقادیر انتخابی کافی نیست؛ '
+                    'می‌توانید مصرف را بدون کسر ثبت کنید.',
+                    style: TextStyle(color: Colors.deepOrange))
+              else
+                DropdownButtonFormField<int>(
+                  initialValue: _quantity,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'مقدار کسر از بسته (${selected.package.unit})',
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (final amount in StockUnitPresets.amountsMilliunits)
+                      if (amount <= selected.balanceMilliunits)
+                        DropdownMenuItem(
+                          value: amount,
+                          child: Text(StockUnitPresets.quantityLabel(
+                              amount, selected.package.unit)),
+                        ),
+                  ],
+                  onChanged: (value) => setState(() => _quantity = value),
                 ),
-              ),
+              if (widget.stock.debitPreset != null &&
+                  widget.stock.selectedDebitQuantity == null)
+                const Text('واحد پیش‌فرض دارو با واحد این بسته متفاوت است؛ '
+                    'مقدار کسر را از گزینه‌های همین بسته انتخاب کنید.'),
             ],
             if (_error != null)
               Padding(
@@ -108,11 +133,11 @@ class _DoseStockDialogState extends State<_DoseStockDialog> {
               .pop(const DoseStockChoice.withoutDebit()),
           child: const Text('ثبت بدون کسر'),
         ),
-        if (usable)
+        if (usable && _quantity != null)
           FilledButton(
             onPressed: () {
               try {
-                final amount = StockQuantity.parsePositive(_quantity.text);
+                final amount = _quantity!;
                 if (amount > selected.balanceMilliunits) {
                   throw StateError('موجودی این بسته کافی نیست.');
                 }
