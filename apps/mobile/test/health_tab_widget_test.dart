@@ -26,7 +26,7 @@ void main() {
     await tester.tap(find.text('ذخیره اندازه‌گیری'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.textContaining('۱۲۵/۸۱'), 160);
-    expect(find.textContaining('۱۲۵/۸۱'), findsOneWidget);
+    expect(find.textContaining('۱۲۵/۸۱'), findsWidgets);
     expect(find.text('اندازه‌گیری ذخیره شد.'), findsOneWidget);
     expect((await health.measurementsFor(profileId: profile.id)), hasLength(1));
   });

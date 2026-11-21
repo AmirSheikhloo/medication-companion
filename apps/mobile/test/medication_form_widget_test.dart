@@ -33,7 +33,7 @@ void main() {
 
     await tester.tap(find.text('داروها'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(FloatingActionButton));
+    await tester.tap(find.text('افزودن دارو'));
     await tester.pumpAndSettle();
 
     expect(find.byType(TextField), findsNWidgets(2));
@@ -55,19 +55,22 @@ void main() {
     expect(find.text('داروی آزمایشی'), findsWidgets);
     // The approved Today layout has a greeting and grouped appointments;
     // the dose action can sit below the fold on a short test viewport.
-    await tester.ensureVisible(find.text('مصرف کردم'));
+    await tester.ensureVisible(find.text('داروی آزمایشی').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('داروی آزمایشی').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('مصرف کردم'));
     await tester.pumpAndSettle();
     expect(find.text('ثبت مصرف و موجودی'), findsOneWidget);
     await tester.tap(find.text('ثبت بدون کسر'));
     await tester.pumpAndSettle();
-    expect(find.text('مصرف ثبت شد'), findsOneWidget);
-    expect(find.text('مصرف بدون کسر موجودی ثبت شده است.'), findsOneWidget);
+    expect(find.text('مصرف شد'), findsOneWidget);
 
+    await tester.tap(find.text('داروی آزمایشی').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('بازگرداندن ثبت'));
     await tester.pumpAndSettle();
-    expect(find.text('ثبت نشده'), findsOneWidget);
+    expect(find.text('ثبت مصرف'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('managed profile dialog safely persists its entered name', (
@@ -126,7 +129,7 @@ void main() {
 
     await tester.tap(find.text('داروها'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(FloatingActionButton));
+    await tester.tap(find.text('افزودن دارو'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'داروی تست چندنوبتی');
     await tester.enterText(find.byType(TextField).at(1), 'صبح طبق نسخه');
@@ -158,10 +161,6 @@ void main() {
     );
     expect(find.text('برنامه جدید — از فردا'), findsOneWidget);
     expect(find.textContaining('دوز تازه ۲ عدد'), findsOneWidget);
-    expect(
-      find.text('نوبت‌های امروز طبق برنامه قبلی ثبت می‌شوند.'),
-      findsOneWidget,
-    );
     final today = DateTime.now();
     final tomorrow = DateTime(today.year, today.month, today.day + 1);
     expect(
@@ -202,6 +201,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(await medications.medicationsFor(profile.id), isEmpty);
     await tester.tap(find.text('نمایش بایگانی (۱)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('بازیابی'));
     await tester.pumpAndSettle();

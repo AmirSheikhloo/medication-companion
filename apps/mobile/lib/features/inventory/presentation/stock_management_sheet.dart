@@ -12,16 +12,13 @@ Future<void> showStockManagementSheet(
   required InventoryRepository repository,
   required Medication medication,
   required String profileId,
-}) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
+}) => Navigator.of(context).push<void>(MaterialPageRoute(
   builder: (_) => _StockManagementSheet(
     repository: repository,
     medication: medication,
     profileId: profileId,
   ),
-);
+));
 
 class _StockManagementSheet extends StatefulWidget {
   const _StockManagementSheet({
@@ -228,15 +225,12 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   @override
   Widget build(BuildContext context) {
     final summary = _summary;
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.87,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 32),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('موجودی دارو'),
+        backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+      body: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
               AppSectionHeading(
                 'موجودی: ${widget.medication.name}',
@@ -451,8 +445,6 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               ],
             ],
           ),
-        ),
-      ),
     );
   }
 

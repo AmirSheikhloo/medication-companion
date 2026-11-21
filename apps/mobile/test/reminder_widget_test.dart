@@ -67,10 +67,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('بیشتر'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('یادآوری‌ها'));
+    await tester.pumpAndSettle();
 
     expect(await reminder.isEnabled(), isFalse);
-    await tester.ensureVisible(find.text('فعال‌سازی یادآوری دارو'));
-    await tester.tap(find.text('فعال‌سازی یادآوری دارو'));
+    await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
     expect(await reminder.isEnabled(), isTrue);
     expect(find.text('تست اعلان — ۵ ثانیه دیگر'), findsOneWidget);
@@ -83,7 +84,7 @@ void main() {
     await tester.tap(find.text('خاموش کردن یادآورها'));
     await tester.pumpAndSettle();
     expect(await reminder.isEnabled(), isFalse);
-    expect(find.text('فعال‌سازی یادآوری دارو'), findsOneWidget);
+    expect(find.text('مجوز اعلان‌ها: غیرفعال'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

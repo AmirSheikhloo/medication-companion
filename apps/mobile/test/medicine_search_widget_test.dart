@@ -39,7 +39,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('خلاصه امروز'), findsOneWidget);
-    expect(find.text('ثبت‌نشده: ۲'), findsOneWidget);
+    expect(find.textContaining('ثبت‌نشده: ۲'), findsOneWidget);
 
     await tester.tap(find.text('داروها'));
     await tester.pumpAndSettle();
@@ -69,11 +69,9 @@ void main() {
     expect(find.text('استامینوفن'), findsOneWidget);
     await tester.tap(find.text('بیشتر'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('بازکردن تنظیمات زبان کیبورد'),
-      350,
-      scrollable: find.byType(Scrollable).last,
-    );
+    await tester.scrollUntilVisible(find.text('تنظیمات زبان و صفحه‌کلید'), 160,
+      scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text('تنظیمات زبان و صفحه‌کلید'));
     await tester.pumpAndSettle();
     expect(find.text('بازکردن تنظیمات زبان کیبورد'), findsOneWidget);
     expect(tester.takeException(), isNull);

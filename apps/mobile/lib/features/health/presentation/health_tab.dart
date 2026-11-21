@@ -4,16 +4,19 @@ import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
 import '../../../core/ui/app_design.dart';
+import '../../../core/ui/redesign_widgets.dart';
 import '../data/health_repository.dart';
 import '../domain/health_metric.dart';
 import 'health_chart.dart';
 import 'health_report_screen.dart';
 
 class HealthTab extends StatefulWidget {
-  const HealthTab({super.key, required this.profile, required this.repository});
+  const HealthTab({super.key, required this.profile, required this.repository,
+    this.onOpenCareHub});
 
   final Profile profile;
   final HealthRepository repository;
+  final VoidCallback? onOpenCareHub;
 
   @override
   State<HealthTab> createState() => _HealthTabState();
@@ -26,6 +29,8 @@ class _HealthTabState extends State<HealthTab> {
   bool _busy = false;
   String? _error;
   List<HealthMeasurement> _records = [];
+  HealthMeasurement? _lastPressure;
+  HealthMeasurement? _lastWeight;
   int _ticket = 0;
 
   @override
@@ -52,9 +57,15 @@ class _HealthTabState extends State<HealthTab> {
         metric: _metric,
         days: _days,
       );
+      final pressure = await widget.repository.measurementsFor(
+        profileId: widget.profile.id, metric: HealthMetric.pressure, days: 3650);
+      final weight = await widget.repository.measurementsFor(
+        profileId: widget.profile.id, metric: HealthMetric.weight, days: 3650);
       if (!mounted || ticket != _ticket) return;
       setState(() {
         _records = entries;
+        _lastPressure = pressure.isEmpty ? null : pressure.first;
+        _lastWeight = weight.isEmpty ? null : weight.first;
         _error = null;
         _loading = false;
       });
@@ -70,21 +81,13 @@ class _HealthTabState extends State<HealthTab> {
   Future<void> _edit([HealthMeasurement? original]) async {
     if (_busy) return;
     final profileId = widget.profile.id;
-    final draft = await showModalBottomSheet<HealthMeasurementDraft>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: _HealthEntryForm(
+    final draft = await Navigator.of(context).push<HealthMeasurementDraft>(
+      MaterialPageRoute(builder: (_) => _HealthEntryForm(
           initialMetric: original == null
               ? _metric
               : HealthMetric.fromCode(original.metric),
           original: original,
-        ),
-      ),
+        )),
     );
     if (!mounted || draft == null) return;
     setState(() => _busy = true);
@@ -217,7 +220,164 @@ class _HealthTabState extends State<HealthTab> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _healthDashboard(context);
+
+  Widget _healthDashboard(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(15, 17, 15, 28),
+    children: [
+      Text('سلامت', style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+        color: AppColors.primaryDark, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 13),
+      const AppSoftHeader(title: 'سلامت من',
+        icon: Icons.favorite_rounded,
+        subtitle: 'اندازه‌گیری‌ها، سوابق و پیگیری‌های مراقبتی'),
+      const SizedBox(height: 14),
+      Row(children: [
+        Expanded(child: AppPanel(color: AppColors.mint,
+          padding: const EdgeInsets.all(13),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [Icon(Icons.favorite_outline,
+              color: AppColors.primary, size: 19), SizedBox(width: 5),
+              Expanded(child: Text('فشار خون', style: TextStyle(
+                fontWeight: FontWeight.w800, fontSize: 12)))]),
+            const SizedBox(height: 6),
+            Text(_lastPressure == null ? '—' :
+              PersianDate.persianDigits('${HealthNumber.format(_lastPressure!.primaryMilliunits)}/'
+                '${HealthNumber.format(_lastPressure!.secondaryMilliunits!)}'),
+              maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w900,
+                fontSize: 22, color: AppColors.primaryDark)),
+            const Text('میلی‌متر جیوه', style: TextStyle(color: AppColors.muted,
+              fontSize: 10)),
+          ]))),
+        const SizedBox(width: 9),
+        Expanded(child: AppPanel(color: AppColors.mint,
+          padding: const EdgeInsets.all(13),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [Icon(Icons.monitor_weight_outlined,
+              color: AppColors.primary, size: 19), SizedBox(width: 5),
+              Expanded(child: Text('وزن', style: TextStyle(
+                fontWeight: FontWeight.w800, fontSize: 12)))]),
+            const SizedBox(height: 6),
+            Text(_lastWeight == null ? '—' :
+              PersianDate.persianDigits(HealthNumber.format(_lastWeight!.primaryMilliunits)),
+              maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w900,
+                fontSize: 22, color: AppColors.primaryDark)),
+            const Text('کیلوگرم', style: TextStyle(color: AppColors.muted,
+              fontSize: 10)),
+          ]))),
+      ]),
+      const SizedBox(height: 17),
+      const AppSectionHeading('اندازه‌گیری‌های اخیر', icon: Icons.show_chart),
+      const SizedBox(height: 9),
+      AppPanel(padding: const EdgeInsets.all(10), child: Column(children: [
+        if (!_loading && _records.isNotEmpty) ...[
+          HealthChart(metric: _metric, records: _records),
+          const Divider(height: 13, color: AppColors.outline),
+        ],
+        if (_loading) const Center(child: CircularProgressIndicator()),
+        if (_error != null) ListTile(title: Text(_error!),
+          trailing: IconButton(icon: const Icon(Icons.refresh), onPressed: _reload)),
+        if (!_loading && _error == null && _records.isEmpty)
+          Padding(padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(children: [
+              const Icon(Icons.monitor_heart_outlined, color: AppColors.primary,
+                size: 39),
+              const SizedBox(height: 8),
+              Text(PersianDate.persianDigits(
+                'در $_days روز گذشته برای ${_metric.label} داده‌ای ثبت نشده است.'),
+                textAlign: TextAlign.center),
+            ])),
+        if (_records.isNotEmpty) ...[
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            decoration: BoxDecoration(color: AppColors.mint,
+              borderRadius: BorderRadius.circular(9)),
+            child: const Row(children: [
+              Expanded(child: Text('تاریخ و ساعت', style: TextStyle(
+                fontWeight: FontWeight.w700, fontSize: 11))),
+              Expanded(child: Text('اندازه‌گیری', style: TextStyle(
+                fontWeight: FontWeight.w700, fontSize: 11))),
+              SizedBox(width: 36),
+            ])),
+          for (var i = 0; i < _records.length && i < 5; i++) ...[
+            if (i != 0) const Divider(height: 1, color: AppColors.outline),
+            Row(children: [
+              Expanded(child: Text(healthDateTimeLabel(_records[i].observedAt),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10))),
+              Expanded(child: Text(_reading(_records[i].metric,
+                _records[i].primaryMilliunits, _records[i].secondaryMilliunits),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
+              PopupMenuButton<String>(
+                tooltip: 'گزینه‌های اندازه‌گیری',
+                enabled: !_busy,
+                onSelected: (action) {
+                  if (action == 'edit') _edit(_records[i]);
+                  if (action == 'history') _history(_records[i]);
+                  if (action == 'archive') _archive(_records[i]);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('اصلاح ثبت')),
+                  PopupMenuItem(value: 'history', child: Text('تاریخچه اصلاحات')),
+                  PopupMenuItem(value: 'archive', child: Text('بایگانی')),
+                ],
+              ),
+            ]),
+          ],
+        ],
+      ])),
+      const SizedBox(height: 11),
+      Wrap(spacing: 6, runSpacing: 4, children: [
+        for (final metric in HealthMetric.values)
+          ChoiceChip(label: Text(metric.label, style: const TextStyle(fontSize: 11)),
+            selected: _metric == metric,
+            onSelected: _busy ? null : (_) {
+              setState(() => _metric = metric);
+              _reload();
+            }),
+      ]),
+      const SizedBox(height: 7),
+      Wrap(spacing: 6, children: [
+        for (final days in [7, 30, 90])
+          ChoiceChip(label: Text(PersianDate.persianDigits('$days روز')),
+            selected: _days == days,
+            onSelected: _busy ? null : (_) {
+              setState(() => _days = days);
+              _reload();
+            }),
+      ]),
+      const SizedBox(height: 11),
+      AppGradientButton(label: 'ثبت ${_metric.label}', icon: Icons.add,
+        onPressed: _busy ? null : () => _edit(), light: true),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(onPressed: _busy ? null : () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => HealthReportScreen(
+          profile: widget.profile, metric: _metric, repository: widget.repository,
+          initialDays: _days))),
+        icon: const Icon(Icons.monitor_heart_outlined),
+        label: const Text('نمودار و نمایش به پزشک')),
+      const SizedBox(height: 17),
+      const AppSectionHeading('پیگیری‌های مراقبتی', icon: Icons.event_available_outlined),
+      const SizedBox(height: 8),
+      AppPanel(padding: EdgeInsets.zero, child: Column(children: [
+        ListTile(leading: const AppIconTile(Icons.calendar_month_outlined),
+          title: const Text('ویزیت‌ها و نوبت‌های پزشک'),
+          trailing: const Icon(Icons.chevron_left),
+          onTap: widget.onOpenCareHub),
+        const Divider(height: 1, color: AppColors.outline),
+        ListTile(leading: const AppIconTile(Icons.fact_check_outlined),
+          title: const Text('کارها و چک‌لیست ویزیت'),
+          trailing: const Icon(Icons.chevron_left),
+          onTap: widget.onOpenCareHub),
+      ])),
+      const SizedBox(height: 12),
+      const Text('اندازه‌گیری‌ها توسط شما ثبت شده‌اند؛ این برنامه تشخیص پزشکی نمی‌دهد.',
+        style: TextStyle(fontSize: 11, color: AppColors.muted),
+        textAlign: TextAlign.center),
+    ],
+  );
+
+  Widget _legacyHealthTab(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
       children: [
@@ -562,7 +722,11 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: Text(widget.original == null ? 'ثبت اندازه‌گیری' : 'اصلاح اندازه‌گیری'),
+        backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+      body: SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -693,6 +857,7 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
             ],
           ),
         ],
+      ),
       ),
     );
   }

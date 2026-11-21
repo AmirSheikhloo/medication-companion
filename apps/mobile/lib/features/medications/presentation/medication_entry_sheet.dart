@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/ui/app_design.dart';
+import '../../../core/ui/redesign_widgets.dart';
 
 /// A user's own description for one daily occurrence.
 class MedicationSlotDraft {
@@ -22,17 +23,13 @@ Future<MedicationDraft?> showMedicationEntrySheet(
   required String profileName,
   String? initialName,
   List<MedicationSlotDraft>? initialSlots,
-}) => showModalBottomSheet<MedicationDraft>(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  showDragHandle: true,
+}) => Navigator.of(context).push<MedicationDraft>(MaterialPageRoute(
   builder: (_) => _MedicationEntrySheet(
     profileName: profileName,
     initialName: initialName,
     initialSlots: initialSlots,
   ),
-);
+));
 
 class _SlotEditor {
   _SlotEditor({required this.time, String dose = ''})
@@ -154,49 +151,34 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      20,
-      4,
-      20,
-      MediaQuery.viewInsetsOf(context).bottom + 24,
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppColors.background,
+    appBar: AppBar(
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
+      title: Text(_editing ? 'ویرایش دارو' : 'افزودن دارو'),
+      actions: [TextButton(onPressed: () => Navigator.pop(context),
+        child: const Text('لغو', style: TextStyle(color: Colors.white)))],
     ),
-    child: ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.83,
-      ),
-      child: SingleChildScrollView(
+    bottomNavigationBar: SafeArea(top: false, child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 9, 16, 12),
+      child: AppGradientButton(label: _editing ? 'ذخیره تغییرات' : 'ذخیره دارو',
+        icon: Icons.check, onPressed: _submit, light: true),
+    )),
+    body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Center(child: AppIconTile(Icons.medication_outlined)),
-            const SizedBox(height: 10),
-            Text(
-              _editing
-                  ? 'ویرایش داروی ${widget.profileName}'
-                  : 'افزودن دارو برای ${widget.profileName}',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.mint,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                _editing
-                    ? 'ویرایش ساعت‌ها و شرح نوبت‌ها از فردا اعمال می‌شود. سوابق امروز حفظ می‌شوند.'
-                    : 'ساعت و شرح هر نوبت را فقط طبق نسخه ثبت کنید؛ برنامه مقدار مصرف پیشنهاد نمی‌کند.',
-                style: const TextStyle(color: AppColors.primaryDark, fontSize: 12),
-              ),
-            ),
+            AppSoftHeader(title: _editing ? 'ویرایش برنامه دارو' : 'افزودن داروی جدید',
+              subtitle: _editing
+                ? 'تغییر ساعت‌ها و مقدار نوبت‌ها از فردا اعمال می‌شود.'
+                : 'اطلاعات دارو را فقط طبق نسخه وارد کنید.',
+              icon: Icons.medication_outlined),
             const SizedBox(height: 16),
+            const Text('نام دارو *', style: TextStyle(fontWeight: FontWeight.w800,
+              color: AppColors.primaryDark)),
+            const SizedBox(height: 7),
             TextField(
               controller: _name,
               maxLength: 160,
@@ -206,9 +188,11 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                 hintText: 'نام روی نسخه یا جعبه',
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
+            const AppSectionHeading('زمان‌ها و شرح مصرف', icon: Icons.schedule_outlined),
+            const SizedBox(height: 7),
             for (var i = 0; i < _slots.length; i++) ...[
-              const Divider(height: 18, color: AppColors.outline),
+              const Divider(height: 20, color: AppColors.outline),
               Row(
                 children: [
                   Expanded(
@@ -235,7 +219,7 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                   hintText: 'مثلاً ۱ عدد؛ خودتان وارد کنید',
                 ),
               ),
-              OutlinedButton.icon(
+              SizedBox(width: double.infinity, child: OutlinedButton.icon(
                 icon: const Icon(Icons.access_time),
                 label: Text(
                   PersianDate.persianDigits(
@@ -245,7 +229,7 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                   ),
                 ),
                 onPressed: () => _pickTime(i),
-              ),
+              )),
               const SizedBox(height: 12),
             ],
             TextButton.icon(
@@ -253,15 +237,12 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
               icon: const Icon(Icons.add_alarm),
               label: const Text('افزودن نوبت دیگر'),
             ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              icon: const Icon(Icons.save_outlined),
-              label: Text(_editing ? 'ذخیره تغییرات' : 'ذخیره دارو'),
-              onPressed: _submit,
-            ),
+            const SizedBox(height: 14),
+            const AppSoftHeader(title: 'یادآوری دارو',
+              subtitle: 'زمان‌های ثبت‌شده برای یادآوری استفاده می‌شوند.',
+              icon: Icons.notifications_none_outlined),
           ],
         ),
       ),
-    ),
   );
 }
