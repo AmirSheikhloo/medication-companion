@@ -53,6 +53,10 @@ void main() {
     await tester.tap(find.text('امروز'));
     await tester.pumpAndSettle();
     expect(find.text('داروی آزمایشی'), findsWidgets);
+    // The approved Today layout has a greeting and grouped appointments;
+    // the dose action can sit below the fold on a short test viewport.
+    await tester.ensureVisible(find.text('مصرف کردم'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('مصرف کردم'));
     await tester.pumpAndSettle();
     expect(find.text('ثبت مصرف و موجودی'), findsOneWidget);

@@ -469,7 +469,13 @@ class _MedicationHomeState extends State<MedicationHome>
           children: [
             AppIconTile(Icons.medication_rounded),
             SizedBox(width: 10),
-            Text('همراه دارو'),
+            Flexible(
+              child: Text(
+                'همراه دارو',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -642,9 +648,14 @@ class _MedicationHomeState extends State<MedicationHome>
               const SizedBox(width: 9),
               const Text('امروز', style: TextStyle(fontWeight: FontWeight.bold)),
               const Spacer(),
-              Text(
-                persianDateLabel(now),
-                style: const TextStyle(color: AppColors.primaryDark),
+              Flexible(
+                child: Text(
+                  persianDateLabel(now),
+                  maxLines: 2,
+                  textAlign: TextAlign.end,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.primaryDark),
+                ),
               ),
             ],
           ),

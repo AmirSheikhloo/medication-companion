@@ -60,6 +60,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('برنامهٔ مصرف امروز'), findsOneWidget);
     expect(find.text('صبح'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('عصر و شب'), 180);
+    await tester.pumpAndSettle();
     expect(find.text('عصر و شب'), findsOneWidget);
 
     await tester.tap(find.text('داروها'));
