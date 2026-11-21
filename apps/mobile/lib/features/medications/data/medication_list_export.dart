@@ -61,8 +61,6 @@ class MedicationListExport {
           style: ShapedTextStyle(
             font: strong ? bold : regular,
             fontSize: size,
-            direction: AnyPdfTextDirection.rightToLeft,
-            align: AnyPdfTextAlign.end,
           ),
         );
     final sortedMeds = [...medications]

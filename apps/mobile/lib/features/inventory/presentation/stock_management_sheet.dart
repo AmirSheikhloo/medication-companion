@@ -105,6 +105,11 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         _lastSelectedPackageId = current.selectedPackageId;
       }
       setState(() {
+        if (_summary == null && current.packages.isEmpty &&
+            current.debitPreset != null &&
+            StockUnitPresets.units.contains(current.debitPreset!.unit)) {
+          _selectedUnit = current.debitPreset!.unit;
+        }
         _summary = current;
         _history = histories;
         _error = null;

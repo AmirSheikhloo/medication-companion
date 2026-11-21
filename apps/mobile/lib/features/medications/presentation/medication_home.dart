@@ -12,6 +12,7 @@ import 'medication_week_report_screen.dart';
 import '../../reminders/data/reminder_coordinator.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
+import '../../inventory/domain/stock_unit_presets.dart';
 import '../../inventory/presentation/stock_management_sheet.dart';
 import '../../inventory/presentation/dose_stock_dialog.dart';
 import '../../health/data/health_repository.dart';
@@ -291,7 +292,11 @@ class _MedicationHomeState extends State<MedicationHome>
       initialSlots: [
         for (final dose in doses)
           MedicationSlotDraft(
-            dose: dose.plan.doseText,
+            dose: debit != null && dose.plan.doseText ==
+                    StockUnitPresets.quantityLabel(
+                        debit.quantityMilliunits, debit.unit)
+                ? ''
+                : dose.plan.doseText,
             time: TimeOfDay.fromDateTime(dose.scheduledAt),
           ),
       ],
