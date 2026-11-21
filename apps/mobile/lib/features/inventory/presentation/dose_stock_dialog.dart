@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/input/persian_quantity_formatter.dart';
 import '../data/inventory_repository.dart';
 import '../domain/stock_quantity.dart';
 
@@ -39,8 +40,19 @@ class _DoseStockDialog extends StatefulWidget {
 }
 
 class _DoseStockDialogState extends State<_DoseStockDialog> {
-  final _quantity = TextEditingController();
+  late final TextEditingController _quantity;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final balance = widget.stock.selected?.balanceMilliunits ?? 0;
+    final initial = widget.stock.selectedDebitQuantity;
+    final suggested = initial != null && initial <= balance
+        ? initial : balance >= 1000 ? 1000 : balance;
+    _quantity = TextEditingController(text: suggested == 0 ? '' :
+        PersianQuantityFormatter.display(StockQuantity.format(suggested)));
+  }
 
   @override
   void dispose() {
@@ -68,7 +80,7 @@ class _DoseStockDialogState extends State<_DoseStockDialog> {
               const Text('هیچ بسته‌ای برای کسر انتخاب نشده است.')
             else ...[
               Text('بسته: ${selected.package.label}'),
-              Text('باقی‌مانده: ${StockQuantity.format(selected.balanceMilliunits)} '
+              Text('باقی‌مانده: ${PersianQuantityFormatter.display(StockQuantity.format(selected.balanceMilliunits))} '
                   '${selected.package.unit}'),
               if (selected.expired)
                 const Text('این بسته طبق تاریخ واردشده منقضی است؛ کسر موجودی مجاز نیست.',
@@ -77,14 +89,24 @@ class _DoseStockDialogState extends State<_DoseStockDialog> {
             if (usable) ...[
               const SizedBox(height: 10),
               TextField(
-                controller: _quantity,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'مقدار واقعی مصرف‌شده (${selected.package.unit})',
-                  border: const OutlineInputBorder(),
-                ),
+                  key: const ValueKey('dose-debit-quantity-input'),
+                  controller: _quantity,
+                  keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true),
+                  inputFormatters: const [PersianQuantityFormatter()],
+                  decoration: InputDecoration(
+                    labelText: 'مقدار کسر از بسته (${selected.package.unit})',
+                    border: const OutlineInputBorder(),
+                    helperText: 'عدد مثبت وارد کنید؛ حداکثر موجودی همین بسته.',
+                  ),
+                  onChanged: (_) {
+                    if (_error != null) setState(() => _error = null);
+                  },
               ),
+              if (widget.stock.debitPreset != null &&
+                  widget.stock.selectedDebitQuantity == null)
+                const Text('واحد پیش‌فرض دارو با واحد این بسته متفاوت است؛ '
+                    'مقدار کسر را از گزینه‌های همین بسته انتخاب کنید.'),
             ],
             if (_error != null)
               Padding(
@@ -113,6 +135,9 @@ class _DoseStockDialogState extends State<_DoseStockDialog> {
             onPressed: () {
               try {
                 final amount = StockQuantity.parsePositive(_quantity.text);
+                if (amount > PersianQuantityFormatter.maxMilliunits) {
+                  throw ArgumentError('مقدار بسیار بزرگ است.');
+                }
                 if (amount > selected.balanceMilliunits) {
                   throw StateError('موجودی این بسته کافی نیست.');
                 }
