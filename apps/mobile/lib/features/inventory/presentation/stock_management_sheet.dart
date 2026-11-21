@@ -42,6 +42,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   final _unit = TextEditingController();
   final _initial = TextEditingController();
   final _threshold = TextEditingController();
+  final _dailyUsage = TextEditingController();
   final _adjustQuantity = TextEditingController();
   final _adjustReason = TextEditingController();
 
@@ -72,6 +73,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
     _unit.dispose();
     _initial.dispose();
     _threshold.dispose();
+    _dailyUsage.dispose();
     _adjustQuantity.dispose();
     _adjustReason.dispose();
     super.dispose();
@@ -95,6 +97,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         _threshold.text = current.thresholdMilliunits == null
             ? ''
             : StockQuantity.format(current.thresholdMilliunits!);
+        _dailyUsage.text = current.dailyUsageMilliunits == null
+            ? ''
+            : StockQuantity.format(current.dailyUsageMilliunits!);
         _initializedThreshold = true;
         _lastSelectedPackageId = current.selectedPackageId;
       }
@@ -203,6 +208,16 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
 
   }
 
+  Future<void> _saveDailyUsage() async {
+    await _run(() => widget.repository.setEstimatedDailyUse(
+          profileId: widget.profileId,
+          medicationId: widget.medication.id,
+          dailyUsageMilliunits: _dailyUsage.text.trim().isEmpty
+              ? null
+              : StockQuantity.parsePositive(_dailyUsage.text),
+        ), successMessage: 'مبنای برآورد موجودی ذخیره شد.');
+  }
+
   Future<void> _adjust(String packageId) async {
     await _run(() async {
       final amount = StockQuantity.parsePositive(_adjustQuantity.text);
@@ -253,6 +268,54 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   const ListTile(title: Text('هنوز بسته‌ای ثبت نشده است.')),
                 for (final item in summary.packages) _packageCard(item, summary),
                 const SizedBox(height: 16),
+                Card(
+                  color: const Color(0xFFE1F8F6),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('روزهای تقریبی باقی‌مانده',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 6),
+                        Text(summary.selected == null
+                            ? 'برای تخمین، ابتدا یک بسته را انتخاب کنید.'
+                            : summary.selected!.expired
+                                ? 'بستهٔ انتخابی منقضی است؛ برآورد نمایش داده نمی‌شود.'
+                                : summary.estimatedWholeDaysLeft == null
+                                    ? 'میانگین مصرف روزانه را وارد کنید تا تخمین نمایش داده شود.'
+                                    : summary.estimatedWholeDaysLeft == 0 &&
+                                            summary.selected!.balanceMilliunits > 0
+                                        ? 'کمتر از یک روز با الگوی واردشده'
+                                        : 'حدود ${summary.estimatedWholeDaysLeft} روز با الگوی واردشده'),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _dailyUsage,
+                          enabled: !_busy && summary.selected != null,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            labelText: 'میانگین مصرف روزانه (اختیاری)',
+                            helperText: summary.selected == null
+                                ? 'ابتدا بسته را انتخاب کنید.'
+                                : 'واحد: ${summary.selected!.package.unit} در روز؛ خالی = حذف تخمین',
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed: _busy || summary.selected == null
+                              ? null : _saveDailyUsage,
+                          child: const Text('ذخیره مبنای تخمین'),
+                        ),
+                        const Text(
+                          'فقط موجودی بستهٔ انتخابی محاسبه می‌شود؛ مصرف واقعی، تغییر برنامه و بسته‌های دیگر ممکن است نتیجه را تغییر دهند. این عدد توصیهٔ دوز نیست.',
+                          style: TextStyle(fontSize: 12, color: Colors.blueGrey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
                 Text('هشدار کمبود بسته انتخاب‌شده'
                     '${summary.selected == null ? '' : ' (${summary.selected!.package.unit})'}',
                     style: Theme.of(context).textTheme.titleMedium),

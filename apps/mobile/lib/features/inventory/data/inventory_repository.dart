@@ -19,11 +19,15 @@ class StockSummary {
     required this.packages,
     required this.selectedPackageId,
     required this.thresholdMilliunits,
+    this.dailyUsageMilliunits,
   });
 
   final List<PackageBalance> packages;
   final String? selectedPackageId;
   final int? thresholdMilliunits;
+  /// Explicitly entered by the user for the selected package's unit.
+  /// A free-text prescription is never parsed to infer consumption.
+  final int? dailyUsageMilliunits;
 
   PackageBalance? get selected {
     for (final pack in packages) {
@@ -38,6 +42,19 @@ class StockSummary {
     return chosen != null && threshold != null &&
         chosen.balanceMilliunits <= threshold;
   }
+
+  /// Number of *complete* days covered by the selected, non-expired package.
+  /// Other packages/units are deliberately excluded from the projection.
+  int? get estimatedWholeDaysLeft {
+    final chosen = selected;
+    final usage = dailyUsageMilliunits;
+    if (chosen == null || chosen.expired || usage == null || usage <= 0) {
+      return null;
+    }
+    return chosen.balanceMilliunits <= 0
+        ? 0
+        : chosen.balanceMilliunits ~/ usage;
+  }
 }
 
 /// All writes are scoped to a profile and medication and run in SQLite
@@ -47,6 +64,9 @@ class InventoryRepository {
 
   final AppDatabase db;
   final Uuid _uuid = Uuid();
+
+  String _usageKey(String profileId, String medicationId, String unit) =>
+      'stock_daily_use_v1:$profileId:$medicationId:${Uri.encodeComponent(unit)}';
 
   Future<Medication> _ownedMedication(String profileId, String medicationId) async {
     final med = await (db.select(db.medications)
@@ -106,6 +126,13 @@ class InventoryRepository {
       for (final pack in packs)
         if (pack.id == selected?.packageId) pack,
     ];
+    final usageRow = selectedPack.isEmpty
+        ? null
+        : await (db.select(db.appSettings)
+              ..where((t) => t.key.equals(_usageKey(
+                  profileId, medicationId, selectedPack.single.unit))))
+            .getSingleOrNull();
+    final usage = usageRow == null ? null : int.tryParse(usageRow.value);
     return StockSummary(
       packages: [for (final pack in packs)
         PackageBalance(pack, balances[pack.id] ?? 0)],
@@ -115,7 +142,46 @@ class InventoryRepository {
               selectedPack.isNotEmpty && selectedPack.single.unit == rule.unit
           ? rule.thresholdMilliunits
           : null,
+      dailyUsageMilliunits: usage != null &&
+              usage > 0 && usage <= StockQuantity.maxMilliunits
+          ? usage
+          : null,
     );
+  }
+
+  /// Optional estimate input, scoped by profile, medication and package unit.
+  /// Clearing it removes the estimate without altering medication schedules.
+  Future<void> setEstimatedDailyUse({
+    required String profileId,
+    required String medicationId,
+    required int? dailyUsageMilliunits,
+  }) async {
+    if (dailyUsageMilliunits != null) {
+      _validateQuantity(dailyUsageMilliunits, allowZero: false);
+    }
+    await db.transaction(() async {
+      await _ownedMedication(profileId, medicationId);
+      final selection = await (db.select(db.stockSelections)
+            ..where((t) => t.profileId.equals(profileId) &
+                t.medicationId.equals(medicationId)))
+          .getSingleOrNull();
+      if (selection == null) {
+        throw StateError('ابتدا بسته‌ای را برای مصرف انتخاب کنید.');
+      }
+      final pack = await _ownedPackage(
+          profileId, medicationId, selection.packageId);
+      final key = _usageKey(profileId, medicationId, pack.unit);
+      if (dailyUsageMilliunits == null) {
+        await (db.delete(db.appSettings)..where((t) => t.key.equals(key))).go();
+      } else {
+        await db.into(db.appSettings).insertOnConflictUpdate(
+              AppSettingsCompanion.insert(
+                key: key,
+                value: dailyUsageMilliunits.toString(),
+              ),
+            );
+      }
+    });
   }
 
   /// Read-only history, scoped to the owning profile and medication.

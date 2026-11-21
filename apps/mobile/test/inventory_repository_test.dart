@@ -68,6 +68,58 @@ void main() {
     expect((await inventory.summary(profileId, medId)).selected, isNull);
   });
 
+  test('days-left estimate uses user-entered daily quantity and one unit only',
+      () async {
+    final (profileId, medId) = await setupMedication();
+    final tablets = await inventory.addPackage(
+      profileId: profileId, medicationId: medId,
+      label: 'قرص‌ها', unit: 'عدد',
+      initialMilliunits: 10000, selectForUse: true,
+    );
+    expect((await inventory.summary(profileId, medId)).estimatedWholeDaysLeft,
+        isNull);
+    await expectLater(inventory.setEstimatedDailyUse(
+      profileId: profileId, medicationId: medId,
+      dailyUsageMilliunits: 0,
+    ), throwsArgumentError);
+    await inventory.setEstimatedDailyUse(
+      profileId: profileId, medicationId: medId,
+      dailyUsageMilliunits: 3000,
+    );
+    expect((await inventory.summary(profileId, medId)).estimatedWholeDaysLeft,
+        3);
+    await inventory.adjustPackage(
+      profileId: profileId, medicationId: medId, packageId: tablets,
+      deltaMilliunits: -8000, reason: 'اصلاح دستی تستی',
+    );
+    expect((await inventory.summary(profileId, medId)).estimatedWholeDaysLeft,
+        0); // Positive stock, but less than one complete day.
+
+    final syrup = await inventory.addPackage(
+      profileId: profileId, medicationId: medId,
+      label: 'شربت', unit: 'ml', initialMilliunits: 50000,
+    );
+    await inventory.selectPackage(
+      profileId: profileId, medicationId: medId, packageId: syrup);
+    expect((await inventory.summary(profileId, medId)).estimatedWholeDaysLeft,
+        isNull); // No conversion between tablets and ml.
+    await inventory.selectPackage(
+      profileId: profileId, medicationId: medId, packageId: tablets);
+    expect((await inventory.summary(profileId, medId)).dailyUsageMilliunits,
+        3000);
+    final other = await profiles.createGuestProfile(forSelf: false);
+    await expectLater(inventory.setEstimatedDailyUse(
+      profileId: other.id, medicationId: medId,
+      dailyUsageMilliunits: 1000,
+    ), throwsStateError);
+    await inventory.setEstimatedDailyUse(
+      profileId: profileId, medicationId: medId,
+      dailyUsageMilliunits: null,
+    );
+    expect((await inventory.summary(profileId, medId)).estimatedWholeDaysLeft,
+        isNull);
+  });
+
   test('debit/undo is atomic, exactly once and preserves append-only history',
       () async {
     final (profileId, medId) = await setupMedication();

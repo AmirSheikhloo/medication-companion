@@ -7,6 +7,8 @@ import '../../profiles/presentation/guest_welcome_screen.dart';
 import '../../profiles/presentation/profile_name_dialog.dart';
 import 'medication_entry_sheet.dart';
 import '../data/medication_repository.dart';
+import '../data/medication_list_export.dart';
+import 'medication_week_report_screen.dart';
 import '../../reminders/data/reminder_coordinator.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
@@ -55,6 +57,7 @@ class _MedicationHomeState extends State<MedicationHome>
     with WidgetsBindingObserver {
   bool _loading = true;
   bool _saving = false;
+  bool _sharingMedicationList = false;
   int _tab = 0;
   Profile? _active;
   List<Profile> _profiles = [];
@@ -372,6 +375,62 @@ class _MedicationHomeState extends State<MedicationHome>
     if (mounted) await _reload();
   }
 
+  Future<void> _openWeekReport() async {
+    final profile = _active;
+    if (profile == null) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => MedicationWeekReportScreen(
+        profile: profile,
+        repository: widget.repository,
+      ),
+    ));
+  }
+
+  Future<void> _shareMedicationPdf() async {
+    final profile = _active;
+    if (profile == null || _sharingMedicationList || _saving) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('فهرست داروها برای پزشک'),
+        content: Text('فایل PDF شامل نام پروفایل «${profile.displayName}»، '
+            'نام داروهای فعال و نوبت‌های روز جاری است. '
+            'پس از ساخت فایل، خودتان گیرنده را انتخاب می‌کنید.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('ساخت و اشتراک PDF'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    setState(() => _sharingMedicationList = true);
+    try {
+      final day = DateTime.now();
+      final meds = await widget.repository.medicationsFor(profile.id);
+      final doses = await widget.repository.dosesForDay(profile.id, day);
+      await const MedicationListExport().sharePdf(
+        profile: profile,
+        medications: meds,
+        doses: doses,
+        forDay: day,
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ساخت یا اشتراک PDF انجام نشد: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sharingMedicationList = false);
+    }
+  }
+
   Future<void> _mark(DailyDose dose, String action) async {
     final profile = _active;
     if (profile == null || _saving) return;
@@ -579,6 +638,12 @@ class _MedicationHomeState extends State<MedicationHome>
               'برای شروع، دارو و زمان آن را طبق نسخه وارد کنید.',
               'افزودن اولین دارو',
               () => setState(() => _tab = 1),
+            ),
+          if (_medications.isNotEmpty)
+            OutlinedButton.icon(
+              onPressed: _openWeekReport,
+              icon: const Icon(Icons.bar_chart_outlined),
+              label: const Text('گزارش ثبت مصرف در ۷ روز گذشته'),
             ),
           for (final dose in _doses) _doseCard(dose),
           if (_doses.isNotEmpty)
@@ -805,6 +870,16 @@ class _MedicationHomeState extends State<MedicationHome>
                 ],
               ),
             ),
+          if (_medications.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _sharingMedicationList ? null : _shareMedicationPdf,
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: Text(_sharingMedicationList
+                  ? 'در حال آماده‌سازی PDF...'
+                  : 'فهرست داروها برای پزشک (PDF)'),
+            ),
+          ],
           const SizedBox(height: 12),
           TextButton.icon(
             onPressed: () => setState(() {
@@ -850,6 +925,7 @@ class _MedicationHomeState extends State<MedicationHome>
     final stockBrief = selected == null
         ? 'بدون بسته'
         : '${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}';
+    final estimatedDays = stock?.estimatedWholeDaysLeft;
     return Column(children: [
       InkWell(
         key: ValueKey('medication-row-${med.id}'),
@@ -909,6 +985,16 @@ class _MedicationHomeState extends State<MedicationHome>
                             : Colors.blueGrey.shade700,
                       ),
                     ),
+                    if (estimatedDays != null)
+                      Text(
+                        estimatedDays == 0 && selected!.balanceMilliunits > 0
+                            ? 'کمتر از ۱ روز'
+                            : 'حدود $estimatedDays روز',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 11, color: _deepTeal),
+                      ),
                   ],
                 ),
               ),
@@ -976,6 +1062,9 @@ class _MedicationHomeState extends State<MedicationHome>
                     if (!archived) ...[
                       const SizedBox(height: 4),
                       Text(stockLine, softWrap: true),
+                      if (estimatedDays != null)
+                        Text('موجودی تقریبی: حدود $estimatedDays روز '
+                            'بر اساس میانگین واردشده توسط شما.'),
                       const SizedBox(height: 10),
                       Wrap(spacing: 8, runSpacing: 8, children: [
                         FilledButton.tonalIcon(
@@ -1103,7 +1192,7 @@ class _MedicationHomeState extends State<MedicationHome>
           const SizedBox(height: 20),
           _sectionTitle('درباره برنامه'),
           const SizedBox(height: 8),
-          const Text('همراه دارو — بتا ۰.۳.۰'),
+          const Text('همراه دارو — بتا ۰.۴.۰'),
           Text(_betaRunNumber == 'محلی'
               ? 'ساخت محلی'
               : 'شماره ساخت آزمایشی: CI$_betaRunNumber'),
