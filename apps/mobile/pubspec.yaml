@@ -39,6 +39,7 @@ flutter:
   assets:
     - assets/fonts/NotoSansArabic-Regular.ttf
     - assets/fonts/NotoSansArabic-Bold.ttf
+    - assets/fonts/NotoSansFallback-Latin.ttf
   fonts:
     - family: NotoSansArabic
       fonts:

@@ -45,6 +45,10 @@ void main() {
   });
 
   testWidgets('save a demo medication through the actual form', (tester) async {
+    tester.view.physicalSize = const Size(900, 1700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
@@ -77,6 +81,8 @@ void main() {
     await tester.ensureVisible(find.text('ذخیره دارو'));
     await tester.tap(find.text('ذخیره دارو'));
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect((await medications.medicationsFor(active!.id)).map((m) => m.name),
@@ -86,6 +92,7 @@ void main() {
     await tester.tap(find.text('امروز'));
     await tester.pumpAndSettle();
     expect(find.text('داروی آزمایشی'), findsWidgets);
+    await tester.ensureVisible(find.text('مصرف کردم'));
     await tester.tap(find.text('مصرف کردم'));
     await tester.pumpAndSettle();
     expect(find.text('ثبت مصرف و موجودی'), findsOneWidget);

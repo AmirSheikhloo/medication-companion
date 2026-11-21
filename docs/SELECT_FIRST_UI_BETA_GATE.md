@@ -22,7 +22,9 @@ profile and medication via AppSettings. No data migration is needed.
 - Visible inline red errors and green success messages in the stock sheet;
   medication form validation is also visible in the sheet.
 - Doctor-list PDF uses OpenType shaping for Persian/Arabic rather than relying
-  on unshaped glyph text. Larger type improves readability on a phone.
+  on unshaped glyph text. A small Latin/punctuation fallback covers mixed
+  medicine names, and unsupported symbols are shown as «نماد» instead of
+  breaking the whole export. Larger type improves readability on a phone.
 
 ## Targeted emulator smoke
 

@@ -53,14 +53,34 @@ class MedicationListExport {
       'assets/fonts/NotoSansArabic-Regular.ttf')).buffer.asUint8List());
     final bold = ShapedFont.fromBytes((await rootBundle.load(
       'assets/fonts/NotoSansArabic-Bold.ttf')).buffer.asUint8List());
+    final fallback = ShapedFont.fromBytes((await rootBundle.load(
+      'assets/fonts/NotoSansFallback-Latin.ttf')).buffer.asUint8List());
     const teal = PdfColor(0.03, 0.37, 0.38);
     final doc = pw.Document();
+    String printable(String value) {
+      final normalized = PersianDate.persianDigits(value);
+      final result = StringBuffer();
+      for (final rune in normalized.runes) {
+        if (rune == 0x0A || rune == 0x0D || rune == 0x09 ||
+            regular.supportsRune(rune) || bold.supportsRune(rune) ||
+            fallback.supportsRune(rune)) {
+          result.writeCharCode(rune);
+        } else {
+          // Unsupported symbols must never abort a patient's whole export.
+          result.write(' [نماد] ');
+        }
+      }
+      return result.toString();
+    }
     pw.Widget label(String value, {bool strong = false, double size = 13}) =>
         ShapedText(
-          PersianDate.persianDigits(value),
+          printable(value),
           style: ShapedTextStyle(
             font: strong ? bold : regular,
+            fallbackFonts: [fallback],
             fontSize: size,
+            direction: ShapedTextDirection.rightToLeft,
+            align: ShapedTextAlign.end,
           ),
         );
     final sortedMeds = [...medications]
@@ -141,6 +161,7 @@ class MedicationListExport {
     } finally {
       regular.dispose();
       bold.dispose();
+      fallback.dispose();
     }
   }
 }

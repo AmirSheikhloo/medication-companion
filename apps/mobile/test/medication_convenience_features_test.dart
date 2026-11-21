@@ -76,7 +76,7 @@ void main() {
     final today = DateTime.now();
     await medications.addDailyMedication(
       profileId: profile.id,
-      name: 'متفورمین', doseText: 'یک عدد با غذا',
+      name: 'Omega-3 — متفورمین 💊', doseText: 'یک عدد با غذا (20cc)',
       time: const TimeOfDayValue(9, 15),
     );
     final meds = await medications.medicationsFor(profile.id);
