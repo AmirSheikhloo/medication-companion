@@ -14,11 +14,13 @@ void main() {
     ));
 
     expect(find.text('همراه دارو'), findsOneWidget);
+    await tester.ensureVisible(find.text('شروع'));
     await tester.tap(find.text('شروع'));
     await tester.pump();
     expect(forSelf, 1);
     expect(forLovedOne, 0);
 
+    await tester.ensureVisible(find.text('برای یکی از عزیزانم'));
     await tester.tap(find.text('برای یکی از عزیزانم'));
     await tester.pump();
     expect(forLovedOne, 1);

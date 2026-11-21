@@ -60,15 +60,15 @@ class AppPanel extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: padding,
-    decoration: BoxDecoration(
-      color: color,
+  Widget build(BuildContext context) => Material(
+    color: color,
+    clipBehavior: Clip.antiAlias,
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: AppColors.outline),
+      side: const BorderSide(color: AppColors.outline),
     ),
-    child: child,
+    child: SizedBox(width: double.infinity,
+      child: Padding(padding: padding, child: child)),
   );
 }
 

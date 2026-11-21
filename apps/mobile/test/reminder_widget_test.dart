@@ -63,6 +63,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('شروع'));
     await tester.tap(find.text('شروع'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('بیشتر'));

@@ -26,6 +26,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('شروع'));
     await tester.tap(find.text('شروع'));
     await tester.pumpAndSettle();
     final active = await profiles.activeProfile();
@@ -33,7 +34,7 @@ void main() {
 
     await tester.tap(find.text('داروها'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('افزودن دارو'));
+    await tester.tap(find.text('افزودن دارو').first);
     await tester.pumpAndSettle();
 
     expect(find.byType(TextField), findsNWidgets(2));
@@ -89,6 +90,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('برای یکی از عزیزانم'));
     await tester.tap(find.text('برای یکی از عزیزانم'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'مادر آزمایشی');
@@ -123,13 +125,14 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('شروع'));
     await tester.tap(find.text('شروع'));
     await tester.pumpAndSettle();
     final profile = (await profiles.activeProfile())!;
 
     await tester.tap(find.text('داروها'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('افزودن دارو'));
+    await tester.tap(find.text('افزودن دارو').first);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'داروی تست چندنوبتی');
     await tester.enterText(find.byType(TextField).at(1), 'صبح طبق نسخه');
