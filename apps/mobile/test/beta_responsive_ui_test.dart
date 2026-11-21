@@ -15,6 +15,8 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     await (FontLoader('NotoSansArabic')
       ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'))).load();
+    await (FontLoader('Vazirmatn')
+      ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'))).load();
   });
 
   void narrowScreen(WidgetTester tester) {
@@ -28,7 +30,8 @@ void main() {
       (tester) async {
     narrowScreen(tester);
     await tester.pumpWidget(MaterialApp(
-      theme: ThemeData(fontFamily: 'NotoSansArabic'),
+      theme: ThemeData(fontFamily: 'NotoSansArabic',
+        fontFamilyFallback: const ['Vazirmatn']),
       home: MediaQuery(
         data: const MediaQueryData(
           size: Size(360, 640),
@@ -64,7 +67,8 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(
-      theme: ThemeData(fontFamily: 'NotoSansArabic'),
+      theme: ThemeData(fontFamily: 'NotoSansArabic',
+        fontFamilyFallback: const ['Vazirmatn']),
       home: MediaQuery(
         data: const MediaQueryData(
           size: Size(360, 640),

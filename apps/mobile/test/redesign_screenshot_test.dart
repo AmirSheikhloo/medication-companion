@@ -23,6 +23,9 @@ void main() {
     final persianFont = FontLoader('NotoSansArabic')
       ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'));
     await persianFont.load();
+    final fallbackFont = FontLoader('Vazirmatn')
+      ..addFont(rootBundle.load('assets/fonts/Vazirmatn-Regular.ttf'));
+    await fallbackFont.load();
     // Flutter bundles MaterialIcons when uses-material-design is enabled.
     final iconFont = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
@@ -68,6 +71,7 @@ void main() {
     await tester.tap(find.text('داروها'));
     await save('02-medicines');
     await tester.tap(find.text('افزودن دارو'));
+    await tester.pumpAndSettle();
     expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
       Colors.white, reason: 'A teal app bar needs an explicitly white title');
     await save('06-medication-form');
@@ -80,6 +84,7 @@ void main() {
     await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('موجودی و بسته‌ها'));
+    await tester.pumpAndSettle();
     expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
       Colors.white);
     await save('07-stock');
@@ -89,6 +94,7 @@ void main() {
     await save('04-health');
     await tester.scrollUntilVisible(find.text('ثبت فشار خون'), 240);
     await tester.tap(find.text('ثبت فشار خون'));
+    await tester.pumpAndSettle();
     expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
       Colors.white);
     await save('08-health-entry');
@@ -105,12 +111,14 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text('پشتیبان‌گیری'));
+    await tester.pumpAndSettle();
     expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
       Colors.white);
     await save('11-backup');
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text('پیگیری‌ها و ویزیت‌ها'));
+    await tester.pumpAndSettle();
     expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
       Colors.white);
     await save('12-care');

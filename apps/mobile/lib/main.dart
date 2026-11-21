@@ -34,6 +34,9 @@ class MedicationBetaApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'NotoSansArabic',
+        // Noto Sans Arabic is Arabic-only in our bundled subset; Vazirmatn
+        // supplies Latin letters, punctuation and symbols in mixed labels.
+        fontFamilyFallback: const ['Vazirmatn'],
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primary,
           primary: AppColors.primary,
