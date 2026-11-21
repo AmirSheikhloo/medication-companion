@@ -294,7 +294,8 @@ class _CareHubScreenState extends State<CareHubScreen>
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(title: const Text('پیگیری‌ها و ویزیت‌ها'),
-          backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+          backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+          titleTextStyle: AppTypography.onPrimaryAppBar),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null

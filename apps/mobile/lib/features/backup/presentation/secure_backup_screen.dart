@@ -267,7 +267,8 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(title: const Text('پشتیبان‌گیری'),
-          backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+          backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+          titleTextStyle: AppTypography.onPrimaryAppBar),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
           children: [

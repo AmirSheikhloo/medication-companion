@@ -9,6 +9,14 @@ import 'package:medication_companion/features/profiles/data/profile_repository.d
 import 'package:medication_companion/features/profiles/presentation/guest_welcome_screen.dart';
 
 void main() {
+  setUpAll(() async {
+    // Load once, before widget tests begin. Loading a font inside each test
+    // queues a delayed system-font relayout after that test has torn down.
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await (FontLoader('NotoSansArabic')
+      ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'))).load();
+  });
+
   void narrowScreen(WidgetTester tester) {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
@@ -18,8 +26,6 @@ void main() {
 
   testWidgets('Persian welcome stays scrollable on narrow enlarged screens',
       (tester) async {
-    await (FontLoader('NotoSansArabic')
-      ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'))).load();
     narrowScreen(tester);
     await tester.pumpWidget(MaterialApp(
       theme: ThemeData(fontFamily: 'NotoSansArabic'),
@@ -41,8 +47,6 @@ void main() {
 
   testWidgets('long Persian medication name and instructions do not overflow',
       (tester) async {
-    await (FontLoader('NotoSansArabic')
-      ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'))).load();
     narrowScreen(tester);
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);

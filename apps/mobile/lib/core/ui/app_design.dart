@@ -17,6 +17,17 @@ abstract final class AppColors {
   static const success = Color(0xFF16995E);
 }
 
+/// Dark teal headers need an explicit title style: ThemeData.appBarTheme's
+/// dark text color otherwise overrides AppBar.foregroundColor.
+abstract final class AppTypography {
+  static const onPrimaryAppBar = TextStyle(
+    fontFamily: 'NotoSansArabic',
+    color: Colors.white,
+    fontSize: 20,
+    fontWeight: FontWeight.w800,
+  );
+}
+
 class AppSectionHeading extends StatelessWidget {
   const AppSectionHeading(this.title, {super.key, this.icon, this.action});
 

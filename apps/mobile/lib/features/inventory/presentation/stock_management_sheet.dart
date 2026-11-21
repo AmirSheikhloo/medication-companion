@@ -228,7 +228,8 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('موجودی دارو'),
-        backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+        backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+        titleTextStyle: AppTypography.onPrimaryAppBar),
       body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [

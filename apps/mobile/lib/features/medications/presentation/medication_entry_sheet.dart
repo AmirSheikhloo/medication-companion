@@ -156,6 +156,7 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
     appBar: AppBar(
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
+      titleTextStyle: AppTypography.onPrimaryAppBar,
       title: Text(_editing ? 'ویرایش دارو' : 'افزودن دارو'),
       actions: [TextButton(onPressed: () => Navigator.pop(context),
         child: const Text('لغو', style: TextStyle(color: Colors.white)))],

@@ -68,6 +68,8 @@ void main() {
     await tester.tap(find.text('داروها'));
     await save('02-medicines');
     await tester.tap(find.text('افزودن دارو'));
+    expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
+      Colors.white, reason: 'A teal app bar needs an explicitly white title');
     await save('06-medication-form');
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -78,6 +80,8 @@ void main() {
     await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('موجودی و بسته‌ها'));
+    expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
+      Colors.white);
     await save('07-stock');
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -85,6 +89,8 @@ void main() {
     await save('04-health');
     await tester.scrollUntilVisible(find.text('ثبت فشار خون'), 240);
     await tester.tap(find.text('ثبت فشار خون'));
+    expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
+      Colors.white);
     await save('08-health-entry');
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -99,10 +105,14 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text('پشتیبان‌گیری'));
+    expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
+      Colors.white);
     await save('11-backup');
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text('پیگیری‌ها و ویزیت‌ها'));
+    expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
+      Colors.white);
     await save('12-care');
   });
 }

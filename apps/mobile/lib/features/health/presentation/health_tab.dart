@@ -504,7 +504,8 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: Text(widget.original == null ? 'ثبت اندازه‌گیری' : 'اصلاح اندازه‌گیری'),
-        backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+        backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+        titleTextStyle: AppTypography.onPrimaryAppBar),
       body: SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
