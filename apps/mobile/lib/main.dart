@@ -3,6 +3,7 @@ import 'dart:async' show unawaited;
 import 'package:material_ui/material_ui.dart';
 
 import 'core/storage/app_database.dart';
+import 'core/ui/app_design.dart';
 import 'features/medications/data/medication_repository.dart';
 import 'features/medications/presentation/medication_home.dart';
 import 'features/profiles/data/profile_repository.dart';
@@ -27,29 +28,113 @@ class MedicationBetaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFF008F87);
     return MaterialApp(
       title: 'همراه دارو',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Vazirmatn',
-        colorScheme: ColorScheme.fromSeed(seedColor: brand),
-        scaffoldBackgroundColor: const Color(0xFFF7FBFA),
+        fontFamily: 'NotoSansArabic',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          primary: AppColors.primary,
+          onPrimary: Colors.white,
+          secondary: AppColors.accent,
+          surface: Colors.white,
+          onSurface: AppColors.ink,
+        ),
+        scaffoldBackgroundColor: AppColors.background,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF7FBFA),
+          backgroundColor: AppColors.background,
           surfaceTintColor: Colors.transparent,
+          foregroundColor: AppColors.primaryDark,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            fontFamily: 'NotoSansArabic',
+            color: AppColors.primaryDark,
+            fontSize: 21,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.outline),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.outline),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          ),
         ),
         cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(color: Color(0xFFE2EEEC)),
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: AppColors.outline),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(0, 46),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(13),
+            ),
+            textStyle: const TextStyle(
+              fontFamily: 'NotoSansArabic',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            minimumSize: const Size(0, 44),
+            side: const BorderSide(color: AppColors.primary),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(13),
+            ),
+          ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: Colors.white,
+          indicatorColor: AppColors.mint,
+          elevation: 0,
+          height: 70,
+          labelTextStyle: WidgetStateProperty.all(
+            const TextStyle(
+              fontFamily: 'NotoSansArabic',
+              fontSize: 11,
+              color: AppColors.primaryDark,
+            ),
+          ),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: AppColors.background,
+          surfaceTintColor: Colors.transparent,
+          showDragHandle: true,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          ),
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: AppColors.lightMint,
+          selectedColor: AppColors.mint,
+          side: const BorderSide(color: AppColors.outline),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),

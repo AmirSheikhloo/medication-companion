@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
+import '../../../core/ui/app_design.dart';
 import '../data/health_repository.dart';
 import '../domain/health_metric.dart';
 import 'health_chart.dart';
@@ -218,15 +219,75 @@ class _HealthTabState extends State<HealthTab> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
       children: [
-        Text(
+        AppSectionHeading(
           'دفترچه سلامت ${widget.profile.displayName}',
-          style: Theme.of(context).textTheme.titleLarge,
+          icon: Icons.favorite_border_rounded,
         ),
         const SizedBox(height: 8),
-        const Text('فقط اطلاعات ثبت‌شده توسط شما؛ بدون تشخیص یا تفسیر پزشکی.'),
+        const Text(
+          'اندازه‌گیری‌های ثبت‌شده توسط شما، بدون تشخیص یا تفسیر پزشکی.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12),
+        ),
         const SizedBox(height: 14),
+        if (!_loading && _error == null && _records.isNotEmpty) ...[
+          Row(
+            children: [
+              Expanded(
+                child: AppPanel(
+                  color: AppColors.mint,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'آخرین ${_metric.label}',
+                        style: const TextStyle(
+                          color: AppColors.primaryDark,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        healthDateTimeLabel(_records.first.observedAt),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: AppPanel(
+                  color: AppColors.mint,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ثبت‌های این بازه',
+                        style: TextStyle(color: AppColors.primaryDark, fontSize: 12),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        PersianDate.persianDigits('${_records.length} مورد'),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+        const AppSectionHeading('نوع اندازه‌گیری'),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 4,
@@ -300,21 +361,28 @@ class _HealthTabState extends State<HealthTab> {
             ),
           )
         else if (_records.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Text(
-                PersianDate.persianDigits(
-                  'در $_days روز گذشته برای ${_metric.label} داده‌ای ثبت نشده است.',
+          AppPanel(
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.monitor_heart_outlined,
+                  color: AppColors.primary,
+                  size: 36,
                 ),
-              ),
+                const SizedBox(height: 10),
+                Text(
+                  PersianDate.persianDigits(
+                    'در $_days روز گذشته برای ${_metric.label} داده‌ای ثبت نشده است.',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           )
         else ...[
-          Text(
-            PersianDate.persianDigits(
-              '${_records.length} ثبت در $_days روز گذشته',
-            ),
+          AppSectionHeading(
+            PersianDate.persianDigits('روند ${_metric.label} در $_days روز'),
+            icon: Icons.show_chart_rounded,
           ),
           const SizedBox(height: 8),
           Card(
@@ -324,6 +392,8 @@ class _HealthTabState extends State<HealthTab> {
             ),
           ),
           const SizedBox(height: 6),
+          const AppSectionHeading('آخرین سوابق', icon: Icons.receipt_long_outlined),
+          const SizedBox(height: 8),
           for (final record in _records)
             Card(
               child: ListTile(
@@ -364,9 +434,9 @@ class _HealthTabState extends State<HealthTab> {
         ],
         const SizedBox(height: 12),
         const Text(
-          'این نسخه آزمایشی هنوز رمزگذاری و پشتیبان‌گیری امن ندارد؛ '
-          'فقط داده‌های ساختگی وارد کنید. برای گزارش کامل و خروجی آفلاین، «نمایش به پزشک» را باز کنید.',
-          style: TextStyle(color: Colors.blueGrey),
+          'این نسخهٔ آزمایشی گزارش و پشتیبان رمزگذاری‌شده تولید می‌کند، اما بازیابی فایل پشتیبان هنوز فعال نیست. '
+          'برای گزارش کامل و خروجی آفلاین، «نمایش به پزشک» را باز کنید.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12),
         ),
       ],
     );
@@ -498,15 +568,27 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          AppSectionHeading(
             widget.original == null ? 'ثبت اندازه‌گیری' : 'اصلاح اندازه‌گیری',
-            style: Theme.of(context).textTheme.titleLarge,
+            icon: Icons.monitor_heart_outlined,
           ),
           const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.mint,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text(
+              'نتیجه‌های اندازه‌گیری خودتان را ثبت کنید. این اطلاعات به معنای تأیید پزشکی نیست.',
+              style: TextStyle(color: AppColors.primaryDark, fontSize: 12),
+            ),
+          ),
+          const SizedBox(height: 12),
           if (widget.original == null)
-            DropdownButton<HealthMetric>(
-              value: _metric,
-              isExpanded: true,
+            DropdownButtonFormField<HealthMetric>(
+              initialValue: _metric,
+              decoration: const InputDecoration(labelText: 'نوع اندازه‌گیری'),
               items: [
                 for (final metric in HealthMetric.values)
                   DropdownMenuItem(value: metric, child: Text(metric.label)),
@@ -590,7 +672,10 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
           if (_validationError != null)
             Text(_validationError!, style: const TextStyle(color: Colors.red)),
           const SizedBox(height: 8),
-          const Text('اطلاعات ثبت‌شده توسط کاربر؛ تأیید پزشکی نشده.'),
+          const Text(
+            'اطلاعات ثبت‌شده توسط کاربر؛ تأیید پزشکی نشده.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
           const SizedBox(height: 14),
           Row(
             children: [

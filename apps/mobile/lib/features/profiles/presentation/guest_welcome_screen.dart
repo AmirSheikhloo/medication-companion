@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
+import '../../../core/ui/app_design.dart';
 
-const _deepTeal = Color(0xFF008F87);
+const _deepTeal = AppColors.primary;
 
 class GuestWelcomeScreen extends StatelessWidget {
   const GuestWelcomeScreen({
@@ -24,25 +25,44 @@ class GuestWelcomeScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.favorite_outline,
-                        size: 64, color: _deepTeal),
+                    Center(
+                      child: Container(
+                        width: 108,
+                        height: 108,
+                        decoration: BoxDecoration(
+                          color: AppColors.mint,
+                          borderRadius: BorderRadius.circular(34),
+                        ),
+                        child: const Icon(Icons.medication_rounded,
+                            size: 64, color: _deepTeal),
+                      ),
+                    ),
                     const SizedBox(height: 18),
                     Text(
                       'همراه دارو',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: const Color(0xFF124B49),
+                            color: AppColors.primaryDark,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
                     const SizedBox(height: 8),
+                    Text(
+                      'به همراه دارو خوش آمدید',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     const Text(
                       'برنامهٔ دارو، ثبت مصرف و پیگیری سلامت برای شما و عزیزانتان.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
                     const Card(
-                      color: Color(0xFFEAF7F4),
+                      color: AppColors.mint,
                       child: Padding(
                         padding: EdgeInsets.all(14),
                         child: Row(

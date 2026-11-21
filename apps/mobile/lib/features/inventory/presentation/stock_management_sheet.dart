@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
+import '../../../core/ui/app_design.dart';
 import '../data/inventory_repository.dart';
 import '../domain/stock_quantity.dart';
 
@@ -233,18 +234,19 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.82,
+          height: MediaQuery.of(context).size.height * 0.87,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 4, 18, 32),
             children: [
-              Text(
+              AppSectionHeading(
                 'موجودی: ${widget.medication.name}',
-                style: Theme.of(context).textTheme.titleLarge,
+                icon: Icons.inventory_2_outlined,
               ),
               const SizedBox(height: 8),
               const Text(
                 'موجودی هر بسته جداست؛ مقدار مصرف را خودتان اعلام می‌کنید. '
                 'این بخش توصیه دارویی یا کنترل اصالت تاریخ انقضا نیست.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
               ),
               if (_error != null)
                 Text(_error!, style: const TextStyle(color: Colors.deepOrange)),
@@ -257,15 +259,54 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               if (summary == null)
                 const Center(child: CircularProgressIndicator())
               else ...[
+                AppPanel(
+                  color: AppColors.mint,
+                  child: Row(
+                    children: [
+                      const AppIconTile(Icons.inventory_2_outlined),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'موجودی بستهٔ منتخب',
+                              style: TextStyle(color: AppColors.primaryDark),
+                            ),
+                            Text(
+                              summary.selected == null
+                                  ? 'بسته‌ای انتخاب نشده است'
+                                  : PersianDate.persianDigits(
+                                      '${StockQuantity.format(summary.selected!.balanceMilliunits)} '
+                                      '${summary.selected!.package.unit}',
+                                    ),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryDark,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (summary.lowStock)
+                        const Icon(Icons.warning_amber_rounded,
+                            color: Colors.deepOrange),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const AppSectionHeading('بسته‌های دارو', icon: Icons.widgets_outlined),
+                const SizedBox(height: 7),
                 if (summary.packages.isEmpty)
                   const ListTile(title: Text('هنوز بسته‌ای ثبت نشده است.')),
                 for (final item in summary.packages)
                   _packageCard(item, summary),
                 const SizedBox(height: 16),
-                Text(
+                AppSectionHeading(
                   'هشدار کمبود بسته انتخاب‌شده'
                   '${summary.selected == null ? '' : ' (${summary.selected!.package.unit})'}',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  icon: Icons.notification_important_outlined,
                 ),
                 const SizedBox(height: 6),
                 TextField(
@@ -304,9 +345,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     style: TextStyle(color: Colors.green),
                   ),
                 const Divider(height: 32),
-                Text(
+                const AppSectionHeading(
                   'افزودن بسته جدید',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  icon: Icons.add_box_outlined,
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -427,10 +468,14 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
           children: [
             Row(
               children: [
+                const AppIconTile(Icons.inventory_2_outlined),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Text(
                     pack.label,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 if (selected) const Chip(label: Text('انتخاب‌شده')),

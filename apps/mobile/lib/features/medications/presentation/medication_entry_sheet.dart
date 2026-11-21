@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/calendar/persian_date.dart';
+import '../../../core/ui/app_design.dart';
 
 /// A user's own description for one daily occurrence.
 class MedicationSlotDraft {
@@ -24,6 +25,7 @@ Future<MedicationDraft?> showMedicationEntrySheet(
 }) => showModalBottomSheet<MedicationDraft>(
   context: context,
   isScrollControlled: true,
+  useSafeArea: true,
   showDragHandle: true,
   builder: (_) => _MedicationEntrySheet(
     profileName: profileName,
@@ -161,24 +163,38 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
     ),
     child: ConstrainedBox(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.83,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const Center(child: AppIconTile(Icons.medication_outlined)),
+            const SizedBox(height: 10),
             Text(
               _editing
                   ? 'ویرایش داروی ${widget.profileName}'
                   : 'افزودن دارو برای ${widget.profileName}',
-              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.primaryDark,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
-            Text(
-              _editing
-                  ? 'ویرایش ساعت‌ها و شرح نوبت‌ها از فردا اعمال می‌شود. سوابق امروز حفظ می‌شوند.'
-                  : 'ساعت و شرح هر نوبت را فقط طبق نسخه ثبت کنید؛ برنامه مقدار مصرف پیشنهاد نمی‌کند.',
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.mint,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                _editing
+                    ? 'ویرایش ساعت‌ها و شرح نوبت‌ها از فردا اعمال می‌شود. سوابق امروز حفظ می‌شوند.'
+                    : 'ساعت و شرح هر نوبت را فقط طبق نسخه ثبت کنید؛ برنامه مقدار مصرف پیشنهاد نمی‌کند.',
+                style: const TextStyle(color: AppColors.primaryDark, fontSize: 12),
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -192,6 +208,7 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
             ),
             const SizedBox(height: 8),
             for (var i = 0; i < _slots.length; i++) ...[
+              const Divider(height: 18, color: AppColors.outline),
               Row(
                 children: [
                   Expanded(

@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
+import '../../../core/ui/app_design.dart';
 import '../data/care_repository.dart';
 import '../data/care_reminder_coordinator.dart';
 
@@ -298,9 +299,27 @@ class _CareHubScreenState extends State<CareHubScreen>
                 : Column(
                     children: [
                       const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Text('این فهرست برای ثبت برنامه‌های شخصی است؛ '
-                            'تغییری در نسخه یا مصرف دارو ایجاد نمی‌کند.'),
+                        padding: EdgeInsets.fromLTRB(12, 10, 12, 12),
+                        child: AppPanel(
+                          color: AppColors.mint,
+                          child: Row(
+                            children: [
+                              Icon(Icons.event_available_outlined,
+                                  color: AppColors.primary),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'برنامهٔ پیگیری و ویزیت شخصی؛ '
+                                  'تغییری در نسخه یا مصرف دارو ایجاد نمی‌کند.',
+                                  style: TextStyle(
+                                    color: AppColors.primaryDark,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       if (widget.reminderCoordinator != null) _reminderCard(),
                       if (_tab == 1)
@@ -376,9 +395,12 @@ class _CareHubScreenState extends State<CareHubScreen>
         final task = tasks[i];
         final visit = _visits.where((v) => v.id == task.visitId).firstOrNull;
         return Card(child: ListTile(
-          leading: Icon(task.status == 'done'
-              ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: task.status == 'done' ? Colors.green : null),
+          leading: AppIconTile(
+            task.status == 'done'
+                ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: task.status == 'done'
+                ? AppColors.success : AppColors.primary,
+          ),
           title: Text(task.title),
           subtitle: Text('${_dateLabel(task.dueAt)} · ${_taskStatus(task.status)}'
               '${visit == null ? '' : ' · ${visit.title}'}'
@@ -421,7 +443,7 @@ class _CareHubScreenState extends State<CareHubScreen>
       itemBuilder: (context, i) {
         final visit = _visits[i];
         return Card(child: ListTile(
-          leading: const Icon(Icons.event_note_outlined),
+          leading: const AppIconTile(Icons.event_note_outlined),
           title: Text(visit.title),
           subtitle: Text('${_dateLabel(visit.scheduledAt)} · ${_visitStatus(visit.status)}'
               '${visit.doctor == null ? '' : ' · ${visit.doctor}'}'
