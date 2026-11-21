@@ -4,6 +4,7 @@ import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
 import '../../../core/ui/app_design.dart';
+import '../../../core/ui/redesign_widgets.dart';
 import '../data/care_repository.dart';
 import '../data/care_reminder_coordinator.dart';
 
@@ -291,36 +292,41 @@ class _CareHubScreenState extends State<CareHubScreen>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text('پیگیری‌های ${widget.profile.displayName}')),
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('پیگیری‌ها و ویزیت‌ها'),
+          backgroundColor: AppColors.primary, foregroundColor: Colors.white),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
                 ? Center(child: Text('خطا: $_error'))
                 : Column(
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(12, 10, 12, 12),
-                        child: AppPanel(
-                          color: AppColors.mint,
-                          child: Row(
-                            children: [
-                              Icon(Icons.event_available_outlined,
-                                  color: AppColors.primary),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'برنامهٔ پیگیری و ویزیت شخصی؛ '
-                                  'تغییری در نسخه یا مصرف دارو ایجاد نمی‌کند.',
-                                  style: TextStyle(
-                                    color: AppColors.primaryDark,
-                                    fontSize: 12,
-                                  ),
+                      const Padding(padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
+                        child: AppSoftHeader(title: 'پیگیری‌های مراقبتی',
+                          subtitle: 'کارهای پزشکی، ویزیت‌ها و سؤال‌های پزشک',
+                          icon: Icons.fact_check_outlined)),
+                      Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Container(
+                          decoration: BoxDecoration(color: AppColors.mint,
+                            borderRadius: BorderRadius.circular(13)),
+                          child: Row(children: [
+                            for (var i = 0; i < 3; i++)
+                              Expanded(child: InkWell(
+                                onTap: () => setState(() => _tab = i),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  margin: const EdgeInsets.all(4),
+                                  padding: const EdgeInsets.symmetric(vertical: 9),
+                                  decoration: BoxDecoration(
+                                    color: _tab == i ? AppColors.accent : null,
+                                    borderRadius: BorderRadius.circular(10)),
+                                  child: Text(['کارها', 'ویزیت‌ها', 'سؤال‌ها'][i],
+                                    style: const TextStyle(fontWeight: FontWeight.bold,
+                                      fontSize: 12, color: AppColors.primaryDark)),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                              )),
+                          ]))),
+                      const SizedBox(height: 10),
                       if (widget.reminderCoordinator != null) _reminderCard(),
                       if (_tab == 1)
                         Padding(
@@ -331,27 +337,14 @@ class _CareHubScreenState extends State<CareHubScreen>
                             label: const Text('پیگیری سه ماه پس از تاریخ انتخابی'),
                           ),
                         ),
+                      Padding(padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                        child: AppGradientButton(label: ['کار جدید', 'ویزیت جدید', 'سؤال جدید'][_tab],
+                          icon: Icons.add, onPressed: _add, light: true)),
                       Expanded(child: IndexedStack(index: _tab, children: [
                         _taskList(), _visitList(), _questionList(),
                       ])),
                     ],
                   ),
-        floatingActionButton: _loading || _error != null
-            ? null
-            : FloatingActionButton.extended(
-                onPressed: _add,
-                icon: const Icon(Icons.add),
-                label: Text(['کار جدید', 'ویزیت جدید', 'سؤال جدید'][_tab]),
-              ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _tab,
-          onDestinationSelected: (index) => setState(() => _tab = index),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.task_alt), label: 'کارها'),
-            NavigationDestination(icon: Icon(Icons.event), label: 'ویزیت‌ها'),
-            NavigationDestination(icon: Icon(Icons.question_answer_outlined), label: 'سؤال‌ها'),
-          ],
-        ),
       );
 
   Widget _reminderCard() => Card(
