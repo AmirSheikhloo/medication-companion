@@ -231,7 +231,7 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text('مقدار پیش‌فرض در هر ثبت مصرف',
+                Text('مقداری که با هر «مصرف کردم» از موجودی کم می‌شود',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 Row(children: [
@@ -259,7 +259,7 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                           decimal: true),
                       inputFormatters: const [PersianQuantityFormatter()],
                       decoration: const InputDecoration(
-                        labelText: 'مقدار کسر',
+                        labelText: 'مقدار هر بار مصرف',
                         hintText: 'مثلاً ۱ یا ۲۰٫۵',
                         border: OutlineInputBorder(),
                       ),
@@ -270,9 +270,9 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
                   ),
                 ]),
                 const SizedBox(height: 6),
-                const Text('مقدار باید بزرگ‌تر از صفر باشد؛ حروف و اعداد خیلی بزرگ پذیرفته نمی‌شوند. '
-                    'این مقدار فقط پیش‌فرض کسر موجودی است؛ '
-                    'هنگام ثبت مصرف قابل بازبینی است و باید با واحد بسته یکسان باشد.',
+                const Text('این مقدار با یک لمس «مصرف کردم» به‌طور خودکار از بسته فعال '
+                    'کم می‌شود. واحد مصرف و بسته باید یکسان باشند. '
+                    'عدد باید بزرگ‌تر از صفر باشد؛ حروف پذیرفته نمی‌شوند.',
                     style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
                 const SizedBox(height: 8),
                 for (var i = 0; i < _slots.length; i++) ...[

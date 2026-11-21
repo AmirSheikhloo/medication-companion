@@ -28,7 +28,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     expect(find.text('واحد مصرف'), findsOneWidget);
-    expect(find.text('مقدار کسر'), findsOneWidget);
+    expect(find.text('مقدار هر بار مصرف'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'داروی بدون تایپ دوز');
     final quantityField = find.byKey(const ValueKey('medication-quantity-input'));
     await tester.enterText(quantityField, '0');
@@ -103,11 +103,9 @@ void main() {
     await tester.ensureVisible(find.text('مصرف کردم'));
     await tester.tap(find.text('مصرف کردم'));
     await tester.pumpAndSettle();
-    expect(find.text('ثبت مصرف و موجودی'), findsOneWidget);
-    await tester.tap(find.text('ثبت بدون کسر'));
-    await tester.pumpAndSettle();
+    expect(find.text('ثبت مصرف و موجودی'), findsNothing);
     expect(find.text('مصرف ثبت شد'), findsOneWidget);
-    expect(find.text('مصرف بدون کسر موجودی ثبت شده است.'), findsOneWidget);
+    expect(find.text('مصرف ثبت شد؛ موجودی تغییر نکرد.'), findsOneWidget);
 
     await tester.tap(find.text('بازگرداندن ثبت'));
     await tester.pumpAndSettle();

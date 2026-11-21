@@ -14,8 +14,8 @@ import '../../reminders/data/reminder_coordinator.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
 import '../../inventory/domain/stock_unit_presets.dart';
+import '../../inventory/domain/dose_recording_policy.dart';
 import '../../inventory/presentation/stock_management_sheet.dart';
-import '../../inventory/presentation/dose_stock_dialog.dart';
 import '../../health/data/health_repository.dart';
 import '../../health/presentation/health_tab.dart';
 import '../../care/data/care_repository.dart';
@@ -217,7 +217,9 @@ class _MedicationHomeState extends State<MedicationHome>
         ));
   }
 
-  Future<void> _perform(Future<dynamic> Function() action) async {
+  Future<void> _perform(Future<dynamic> Function() action, {
+    String successMessage = 'تغییر با موفقیت ذخیره شد.',
+  }) async {
     if (_saving) return;
     setState(() => _saving = true);
     try {
@@ -236,7 +238,7 @@ class _MedicationHomeState extends State<MedicationHome>
       await _reload();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تغییر با موفقیت ذخیره شد.')),
+          SnackBar(content: Text(successMessage)),
         );
       }
     } catch (error) {
@@ -461,24 +463,76 @@ class _MedicationHomeState extends State<MedicationHome>
     }
   }
 
-  Future<void> _mark(DailyDose dose, String action) async {
+  Future<void> _mark(DailyDose dose, String action, {
+    bool withoutStockDebit = false,
+  }) async {
     final profile = _active;
     if (profile == null || _saving) return;
-    DoseStockChoice? choice;
-    if (action == 'taken') {
-      final stock = await _inventory.summary(profile.id, dose.medication.id);
+    AutomaticDoseDecision decision = const AutomaticDoseDecision.recordOnly();
+    if (action == 'taken' && !withoutStockDebit) {
+      try {
+        // Read again rather than trust cached card data (another screen may
+        // have changed the selected package or preset in the meantime).
+        final stock = await _inventory.summary(profile.id, dose.medication.id);
+        decision = decideAutomaticDose(stock);
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('بررسی موجودی انجام نشد: $error')),
+        );
+        return;
+      }
       if (!mounted) return;
-      choice = await askDoseStockChoice(
-        context, medicationName: dose.medication.name, stock: stock);
-      if (!mounted || choice == null) return;
-    }
-    await _perform(() => widget.repository.recordDose(
-          dose: dose,
-          profileId: profile.id,
-          action: action,
-          stockPackageId: choice?.packageId,
-          stockQuantityMilliunits: choice?.quantityMilliunits,
+      if (!decision.canRecord) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 7),
+          content: Text(decision.problem!),
+          action: SnackBarAction(
+            label: 'موجودی',
+            onPressed: () => _openStock(dose.medication),
+          ),
         ));
+        return;
+      }
+    }
+    await _perform(() async {
+      final recorded = await widget.repository.recordDose(
+        dose: dose,
+        profileId: profile.id,
+        action: action,
+        stockPackageId: decision.packageId,
+        stockQuantityMilliunits: decision.quantityMilliunits,
+      );
+      if (!recorded) {
+        throw StateError('وضعیت این نوبت قبلاً تغییر کرده است. صفحه را تازه کنید.');
+      }
+    }, successMessage: switch (action) {
+      'taken' when decision.deductsStock => 'مصرف ثبت شد و موجودی بسته کم شد.',
+      'taken' => withoutStockDebit
+          ? 'مصرف بدون کسر موجودی ثبت شد.'
+          : 'مصرف ثبت شد؛ هنوز موجودی برای این دارو تعریف نشده است.',
+      'skipped' => 'مصرف‌نکردن این نوبت ثبت شد.',
+      'unknown' => 'وضعیت این نوبت نامشخص ثبت شد.',
+      _ => 'ثبت نوبت بازگردانده شد.',
+    });
+  }
+
+  void _doseMoreAction(DailyDose dose, String choice) {
+    switch (choice) {
+      case 'skipped':
+      case 'unknown':
+        _mark(dose, choice);
+        return;
+      case 'no_debit':
+        _mark(dose, 'taken', withoutStockDebit: true);
+        return;
+      case 'stock':
+        _openStock(dose.medication);
+        return;
+      case 'edit':
+        _editMedication(dose.medication);
+        return;
+    }
   }
 
   @override
@@ -684,7 +738,7 @@ class _MedicationHomeState extends State<MedicationHome>
             ),
           const SizedBox(height: 16),
           const _InfoNote(
-            'یادآوری را از «بیشتر» فعال کنید. کسر موجودی فقط پس از تأیید مقدار واقعی انجام می‌شود.',
+            'با «مصرف کردم»، مقدار تعیین‌شده هنگام افزودن دارو خودکار از بسته فعال کم می‌شود. گزینه‌های دیگر در منوی سه‌نقطه هستند.',
           ),
           const SizedBox(height: 12),
           FilledButton.tonalIcon(
@@ -697,6 +751,12 @@ class _MedicationHomeState extends State<MedicationHome>
   }
 
   Widget _doseCard(DailyDose dose) {
+    final stock = _stocks[dose.medication.id];
+    final automatic = stock == null
+        ? const AutomaticDoseDecision.recordOnly()
+        : decideAutomaticDose(stock);
+    final preset = stock?.debitPreset;
+    final selected = stock?.selected;
     final status = switch (dose.status) {
       'taken' => ('مصرف ثبت شد', Icons.check_circle_outline, Colors.green),
       'skipped' => ('مصرف نکردم', Icons.remove_circle_outline, Colors.orange),
@@ -723,11 +783,21 @@ class _MedicationHomeState extends State<MedicationHome>
             ),
             const SizedBox(height: 8),
             Text('طبق ثبت شما: ${dose.plan.doseText}'),
+            if (dose.status == 'pending' && automatic.deductsStock &&
+                preset != null && selected != null)
+              Text(
+                'کسر خودکار: ${StockUnitPresets.quantityLabel(preset.quantityMilliunits, preset.unit)} '
+                'از ${selected.package.label}',
+                style: TextStyle(color: Colors.blueGrey.shade700),
+              ),
+            if (dose.status == 'pending' && automatic.problem != null)
+              Text('نیاز به تنظیم موجودی: ${automatic.problem}',
+                  style: const TextStyle(color: Colors.deepOrange)),
             if (dose.status == 'taken')
               Text(
                 dose.stockDebited
                     ? 'از موجودی بسته انتخاب‌شده کسر شد.'
-                    : 'مصرف بدون کسر موجودی ثبت شده است.',
+                    : 'مصرف ثبت شد؛ موجودی تغییر نکرد.',
                 style: TextStyle(color: Colors.blueGrey.shade700),
               ),
             if (_stocks[dose.medication.id]?.lowStock == true)
@@ -753,19 +823,38 @@ class _MedicationHomeState extends State<MedicationHome>
             ]),
             const SizedBox(height: 12),
             if (dose.status == 'pending') ...[
-              FilledButton.icon(
-                onPressed: _saving ? null : () => _mark(dose, 'taken'),
-                icon: const Icon(Icons.check),
-                label: const Text('مصرف کردم'),
-              ),
-              Wrap(spacing: 8, children: [
-                TextButton(
-                  onPressed: _saving ? null : () => _mark(dose, 'skipped'),
-                  child: const Text('مصرف نکردم'),
-                ),
-                TextButton(
-                  onPressed: _saving ? null : () => _mark(dose, 'unknown'),
-                  child: const Text('مطمئن نیستم'),
+              Row(children: [
+                Expanded(child: FilledButton.icon(
+                  onPressed: _saving ? null : () => _mark(dose, 'taken'),
+                  icon: const Icon(Icons.check),
+                  label: const Text('مصرف کردم'),
+                )),
+                const SizedBox(width: 8),
+                PopupMenuButton<String>(
+                  key: ValueKey('dose-more-${dose.occurrenceKey}'),
+                  tooltip: 'گزینه‌های بیشتر این نوبت',
+                  enabled: !_saving,
+                  onSelected: (value) => _doseMoreAction(dose, value),
+                  icon: const Icon(Icons.more_vert),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'skipped', child: Text('مصرف نکردم'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'unknown', child: Text('مطمئن نیستم'),
+                    ),
+                    if (stock?.packages.isNotEmpty == true)
+                      const PopupMenuItem(
+                        value: 'no_debit',
+                        child: Text('ثبت مصرف بدون کسر موجودی'),
+                      ),
+                    const PopupMenuItem(
+                      value: 'stock', child: Text('مدیریت موجودی'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'edit', child: Text('ویرایش مقدار هر مصرف'),
+                    ),
+                  ],
                 ),
               ]),
             ] else
