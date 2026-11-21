@@ -1,7 +1,7 @@
 name: medication_companion
 description: "Private offline Persian medication companion beta."
 publish_to: 'none'
-version: 0.3.0+3
+version: 0.4.0+4
 
 environment:
   sdk: ^3.14.0
@@ -14,6 +14,7 @@ dependencies:
   flutter_timezone: 5.1.1
   timezone: 0.11.2
   pdf: 3.13.1
+  pdf_text_shaper: 1.1.1
   printing: 5.15.1
   share_plus: 13.3.1
   # Local offline persistence for beta.
@@ -38,6 +39,7 @@ flutter:
   assets:
     - assets/fonts/NotoSansArabic-Regular.ttf
     - assets/fonts/NotoSansArabic-Bold.ttf
+    - assets/fonts/NotoSansFallback-Latin.ttf
   fonts:
     - family: NotoSansArabic
       fonts:

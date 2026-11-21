@@ -68,7 +68,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('تاریخچه تغییرات این بسته'), findsOneWidget);
     expect(find.text('موجودی اولیه'), findsOneWidget);
-    expect(find.text('+4 عدد'), findsOneWidget);
+    expect(find.text('+۴ عدد'), findsOneWidget);
     final history = await inventory.movementsForPackage(
       profileId: profile.id,
       medicationId: medId,
@@ -76,6 +76,16 @@ void main() {
     );
     expect(history, hasLength(1));
     expect(history.single.kind, 'initial');
+    final initialField = find.byKey(const ValueKey('initial-stock-quantity-input'));
+    await tester.ensureVisible(initialField);
+    await tester.enterText(initialField, '۱۲٫۵');
+    expect(tester.widget<TextField>(initialField).controller?.text, '۱۲٫۵');
+    await tester.ensureVisible(find.text('ثبت بسته و موجودی اولیه'));
+    await tester.tap(find.text('ثبت بسته و موجودی اولیه'));
+    await tester.pumpAndSettle();
+    final afterAdd = await inventory.summary(profile.id, medId);
+    expect(afterAdd.packages.map((p) => p.package.label), contains('بسته دوم'));
+    expect(afterAdd.packages.map((p) => p.balanceMilliunits), contains(12500));
     expect(tester.takeException(), isNull);
   });
 }

@@ -2,7 +2,15 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../../../core/calendar/persian_date.dart';
 import '../domain/stock_quantity.dart';
+import '../domain/stock_unit_presets.dart';
+
+class DoseDebitPreset {
+  const DoseDebitPreset(this.unit, this.quantityMilliunits);
+  final String unit;
+  final int quantityMilliunits;
+}
 
 class PackageBalance {
   const PackageBalance(this.package, this.balanceMilliunits);
@@ -19,11 +27,17 @@ class StockSummary {
     required this.packages,
     required this.selectedPackageId,
     required this.thresholdMilliunits,
+    this.dailyUsageMilliunits,
+    this.debitPreset,
   });
 
   final List<PackageBalance> packages;
   final String? selectedPackageId;
   final int? thresholdMilliunits;
+  /// Explicitly entered by the user for the selected package's unit.
+  /// A free-text prescription is never parsed to infer consumption.
+  final int? dailyUsageMilliunits;
+  final DoseDebitPreset? debitPreset;
 
   PackageBalance? get selected {
     for (final pack in packages) {
@@ -38,6 +52,28 @@ class StockSummary {
     return chosen != null && threshold != null &&
         chosen.balanceMilliunits <= threshold;
   }
+
+  /// Number of *complete* days covered by the selected, non-expired package.
+  /// Other packages/units are deliberately excluded from the projection.
+  int? get estimatedWholeDaysLeft {
+    final chosen = selected;
+    final usage = dailyUsageMilliunits;
+    if (chosen == null || chosen.expired || usage == null || usage <= 0) {
+      return null;
+    }
+    return chosen.balanceMilliunits <= 0
+        ? 0
+        : chosen.balanceMilliunits ~/ usage;
+  }
+
+  int? get selectedDebitQuantity {
+    final chosen = selected;
+    final preset = debitPreset;
+    return chosen != null && !chosen.expired && preset != null &&
+            StockUnitPresets.matches(chosen.package.unit, preset.unit)
+        ? preset.quantityMilliunits
+        : null;
+  }
 }
 
 /// All writes are scoped to a profile and medication and run in SQLite
@@ -47,6 +83,51 @@ class InventoryRepository {
 
   final AppDatabase db;
   final Uuid _uuid = Uuid();
+
+  String _usageKey(String profileId, String medicationId, String unit) =>
+      'stock_daily_use_v1:$profileId:$medicationId:${Uri.encodeComponent(unit)}';
+
+  String _debitKey(String profileId, String medicationId) =>
+      'stock_debit_preset_v1:$profileId:$medicationId';
+
+  Future<DoseDebitPreset?> doseDebitPreset(
+      String profileId, String medicationId) async {
+    await _ownedMedication(profileId, medicationId);
+    final row = await (db.select(db.appSettings)
+          ..where((t) => t.key.equals(_debitKey(profileId, medicationId))))
+        .getSingleOrNull();
+    if (row == null) return null;
+    final parts = row.value.split('|');
+    if (parts.length != 2 || !StockUnitPresets.units.contains(parts[0])) {
+      return null;
+    }
+    final amount = int.tryParse(parts[1]);
+    return amount != null && amount > 0 &&
+            amount <= StockQuantity.maxMilliunits
+        ? DoseDebitPreset(parts[0], amount)
+        : null;
+  }
+
+  Future<void> setDoseDebitPreset({
+    required String profileId,
+    required String medicationId,
+    required String unit,
+    required int quantityMilliunits,
+  }) async {
+    if (!StockUnitPresets.units.contains(unit)) {
+      throw ArgumentError('واحد انتخاب‌شده معتبر نیست.');
+    }
+    _validateQuantity(quantityMilliunits, allowZero: false);
+    await db.transaction(() async {
+      await _ownedMedication(profileId, medicationId);
+      await db.into(db.appSettings).insertOnConflictUpdate(
+        AppSettingsCompanion.insert(
+          key: _debitKey(profileId, medicationId),
+          value: '$unit|$quantityMilliunits',
+        ),
+      );
+    });
+  }
 
   Future<Medication> _ownedMedication(String profileId, String medicationId) async {
     final med = await (db.select(db.medications)
@@ -106,16 +187,83 @@ class InventoryRepository {
       for (final pack in packs)
         if (pack.id == selected?.packageId) pack,
     ];
+    final usageRow = selectedPack.isEmpty
+        ? null
+        : await (db.select(db.appSettings)
+              ..where((t) => t.key.equals(_usageKey(
+                  profileId, medicationId, selectedPack.single.unit))))
+            .getSingleOrNull();
+    final usage = usageRow == null ? null : int.tryParse(usageRow.value);
+    final debit = await doseDebitPreset(profileId, medicationId);
+    final balancesWithPackages = [
+      for (final pack in packs)
+        PackageBalance(pack, balances[pack.id] ?? 0),
+    ]..sort((a, b) {
+        final first = a.package.expiryIso;
+        final second = b.package.expiryIso;
+        if (first == null && second != null) return 1;
+        if (first != null && second == null) return -1;
+      DateTime expiryDate(StockPackage pack) {
+        final date = StockQuantity.parseIso(pack.expiryIso!);
+        return pack.expiryPrecision == 'month'
+            ? DateTime(date.year, date.month + 1, 0)
+            : date;
+      }
+      final byExpiry = first == null ? 0 :
+          expiryDate(a.package).compareTo(expiryDate(b.package));
+        return byExpiry != 0
+            ? byExpiry
+            : a.package.createdAt.compareTo(b.package.createdAt);
+      });
     return StockSummary(
-      packages: [for (final pack in packs)
-        PackageBalance(pack, balances[pack.id] ?? 0)],
+      packages: balancesWithPackages,
       selectedPackageId: selected?.packageId,
       // Never re-interpret a threshold for tablets as millilitres or vice versa.
       thresholdMilliunits: rule != null &&
               selectedPack.isNotEmpty && selectedPack.single.unit == rule.unit
           ? rule.thresholdMilliunits
           : null,
+      dailyUsageMilliunits: usage != null &&
+              usage > 0 && usage <= StockQuantity.maxMilliunits
+          ? usage
+          : null,
+      debitPreset: debit,
     );
+  }
+
+  /// Optional estimate input, scoped by profile, medication and package unit.
+  /// Clearing it removes the estimate without altering medication schedules.
+  Future<void> setEstimatedDailyUse({
+    required String profileId,
+    required String medicationId,
+    required int? dailyUsageMilliunits,
+  }) async {
+    if (dailyUsageMilliunits != null) {
+      _validateQuantity(dailyUsageMilliunits, allowZero: false);
+    }
+    await db.transaction(() async {
+      await _ownedMedication(profileId, medicationId);
+      final selection = await (db.select(db.stockSelections)
+            ..where((t) => t.profileId.equals(profileId) &
+                t.medicationId.equals(medicationId)))
+          .getSingleOrNull();
+      if (selection == null) {
+        throw StateError('ابتدا بسته‌ای را برای مصرف انتخاب کنید.');
+      }
+      final pack = await _ownedPackage(
+          profileId, medicationId, selection.packageId);
+      final key = _usageKey(profileId, medicationId, pack.unit);
+      if (dailyUsageMilliunits == null) {
+        await (db.delete(db.appSettings)..where((t) => t.key.equals(key))).go();
+      } else {
+        await db.into(db.appSettings).insertOnConflictUpdate(
+              AppSettingsCompanion.insert(
+                key: key,
+                value: dailyUsageMilliunits.toString(),
+              ),
+            );
+      }
+    });
   }
 
   /// Read-only history, scoped to the owning profile and medication.
@@ -137,17 +285,16 @@ class InventoryRepository {
   Future<String> addPackage({
     required String profileId,
     required String medicationId,
-    required String label,
+    String? label,
     required String unit,
     required int initialMilliunits,
     bool selectForUse = false,
     String? expiryIso,
     String expiryPrecision = 'none',
   }) async {
-    final cleanLabel = label.trim();
+    final cleanLabel = label?.trim() ?? '';
     final cleanUnit = unit.trim();
-    if (cleanLabel.isEmpty || cleanLabel.length > 80 ||
-        cleanUnit.isEmpty || cleanUnit.length > 30) {
+    if (cleanLabel.length > 80 || cleanUnit.isEmpty || cleanUnit.length > 30) {
       throw ArgumentError('نام بسته یا واحد معتبر نیست.');
     }
     _validateQuantity(initialMilliunits, allowZero: true);
@@ -163,11 +310,25 @@ class InventoryRepository {
     final id = _uuid.v4();
     await db.transaction(() async {
       await _ownedMedication(profileId, medicationId);
+      final existing = await (db.select(db.stockPackages)
+            ..where((t) => t.profileId.equals(profileId) &
+                t.medicationId.equals(medicationId)))
+          .get();
+      var ordinal = existing.length + 1;
+      String autoLabel(int number) => switch (number) {
+            1 => 'بسته اول',
+            2 => 'بسته دوم',
+            3 => 'بسته سوم',
+            _ => 'بسته ${PersianDate.persianDigits(number.toString())}',
+          };
+      while (existing.any((p) => p.label == autoLabel(ordinal))) {
+        ordinal++;
+      }
       await db.into(db.stockPackages).insert(StockPackagesCompanion.insert(
             id: id,
             profileId: profileId,
             medicationId: medicationId,
-            label: cleanLabel,
+            label: cleanLabel.isEmpty ? autoLabel(ordinal) : cleanLabel,
             unit: cleanUnit,
             expiryIso: Value(expiryIso),
             expiryPrecision: Value(expiryPrecision),

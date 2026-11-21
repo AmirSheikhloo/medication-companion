@@ -26,18 +26,33 @@ class MedicationBetaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFF008F87);
+    const brand = Color(0xFF075F60);
+    const accent = Color(0xFF40E0D0);
     return MaterialApp(
       title: 'همراه دارو',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'NotoSansArabic',
-        colorScheme: ColorScheme.fromSeed(seedColor: brand),
-        scaffoldBackgroundColor: const Color(0xFFF7FBFA),
+        colorScheme: ColorScheme.fromSeed(seedColor: accent).copyWith(
+          primary: brand,
+          onPrimary: Colors.white,
+          secondary: accent,
+          surface: Colors.white,
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF8FAFA),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF7FBFA),
+          backgroundColor: Color(0xFFF8FAFA),
           surfaceTintColor: Colors.transparent,
+          foregroundColor: brand,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: const Color(0xFFF8FAFA),
+          indicatorColor: const Color(0xFFCEF5F1),
+          surfaceTintColor: Colors.transparent,
+          labelTextStyle: WidgetStateProperty.all(
+            const TextStyle(fontFamily: 'NotoSansArabic', fontSize: 12),
+          ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           border: OutlineInputBorder(
@@ -50,7 +65,7 @@ class MedicationBetaApp extends StatelessWidget {
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(color: Color(0xFFE2EEEC)),
+            side: const BorderSide(color: Color(0xFFE1ECEB)),
           ),
         ),
       ),
