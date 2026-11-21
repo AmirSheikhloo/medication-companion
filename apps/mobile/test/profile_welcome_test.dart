@@ -14,7 +14,7 @@ void main() {
     ));
 
     expect(find.text('همراه دارو'), findsOneWidget);
-    await tester.tap(find.text('برای خودم'));
+    await tester.tap(find.text('شروع'));
     await tester.pump();
     expect(forSelf, 1);
     expect(forLovedOne, 0);

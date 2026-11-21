@@ -24,7 +24,6 @@ import '../../care/presentation/care_hub_screen.dart';
 import '../../care/data/care_reminder_coordinator.dart';
 import '../../backup/presentation/secure_backup_screen.dart';
 
-const _teal = AppColors.primary;
 const _deepTeal = AppColors.primary;
 const _betaRunNumber = String.fromEnvironment(
   'BETA_RUN_NUMBER',
@@ -221,9 +220,9 @@ class _MedicationHomeState extends State<MedicationHome>
     }
   }
 
-  Future<void> _startGuest(bool forSelf) async {
+  Future<void> _startGuest(bool forSelf, {String? selfName}) async {
     if (_saving) return;
-    String? name;
+    String? name = selfName;
     if (!forSelf) {
       name = await askProfileNameDialog(context);
       if (!mounted || name == null) return;
@@ -462,6 +461,7 @@ class _MedicationHomeState extends State<MedicationHome>
     if (_active == null) {
       return GuestWelcomeScreen(
         onSelf: _saving ? null : () => _startGuest(true),
+        onSelfNamed: _saving ? null : (name) => _startGuest(true, selfName: name),
         onLovedOne: _saving ? null : () => _startGuest(false),
       );
     }
@@ -1033,188 +1033,9 @@ class _MedicationHomeState extends State<MedicationHome>
         title: 'درباره برنامه', subtitle: 'نسخه و اطلاعات حریم خصوصی',
         onTap: () => Navigator.push(context, MaterialPageRoute<void>(
           builder: (_) => const AboutScreen(buildNumber: _betaRunNumber)))),
-    ],
-  );
-
-  // Historical beta layout retained temporarily until the new navigation
-  // has completed widget regression tests; it is never mounted by the app.
-  Widget _betaMoreTab() => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-    children: [
-      Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.primaryDark],
-          ),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.medication_rounded, color: AppColors.accent, size: 36),
-            SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'همراه دارو',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    'مدیریت دارو و سلامت، روی همین دستگاه',
-                    style: TextStyle(color: AppColors.mint, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 20),
-      _sectionTitle('پشتیبان‌گیری'),
-      const SizedBox(height: 8),
-      _settingsTile(
-        icon: Icons.cloud_upload_outlined,
-        title: 'ساخت پشتیبان رمزگذاری‌شده',
-        subtitle: 'خروجی امن و بررسی فایل پشتیبان',
-        onTap: _saving
-            ? null
-            : () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) =>
-                      SecureBackupScreen(database: widget.repository.db),
-                ),
-              ),
-      ),
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 4),
-        child: Text(
-          'در نسخهٔ بتا ساخت و بررسی پشتیبان امکان‌پذیر است؛ بازیابی هنوز فعال نیست.',
-          style: TextStyle(color: AppColors.muted, fontSize: 12),
-        ),
-      ),
-      const SizedBox(height: 20),
-      _sectionTitle('پیگیری‌ها و ویزیت‌ها'),
-      const SizedBox(height: 8),
-      _settingsTile(
-        icon: Icons.event_available_outlined,
-        title: 'باز کردن کارها و چک‌لیست ویزیت',
-        subtitle: 'کارهای پیگیری، نوبت‌های پزشک و سؤال‌ها',
-        onTap: _openCareHub,
-      ),
       if (_careReminderError != null)
-        Text(
-          'اشکال در اعلان‌های پیگیری: $_careReminderError',
-          style: const TextStyle(color: Colors.deepOrange),
-        ),
-      const SizedBox(height: 20),
-      _sectionTitle('پروفایل‌های محلی'),
-      const SizedBox(height: 12),
-      for (final profile in _profiles)
-        Card(
-          child: ListTile(
-            leading: AppIconTile(
-              profile.kind == 'self'
-                  ? Icons.person_outline_rounded
-                  : Icons.people_outline_rounded,
-            ),
-            title: Text(profile.displayName),
-            subtitle: Text(
-              profile.kind == 'self' ? 'برای خودم' : 'تحت مدیریت من',
-            ),
-            trailing: profile.id == _active?.id
-                ? const Icon(Icons.check_circle, color: _deepTeal)
-                : const Icon(Icons.chevron_left),
-            onTap: profile.id == _active?.id || _saving
-                ? null
-                : () => _perform(
-                    () => widget.profileRepository.selectActiveProfile(
-                      profile.id,
-                    ),
-                  ),
-          ),
-        ),
-      const SizedBox(height: 12),
-      FilledButton.tonalIcon(
-        onPressed: _saving ? null : () => _startGuest(false),
-        icon: const Icon(Icons.person_add_alt_1_outlined),
-        label: const Text('افزودن پروفایل عزیزانم'),
-      ),
-      const SizedBox(height: 24),
-      _sectionTitle('یادآوری دارو'),
-      const SizedBox(height: 8),
-      Text(
-        _remindersEnabled
-            ? 'فعال: یادآورها برای همه پروفایل‌های محلی تنظیم می‌شوند.'
-            : 'غیرفعال: تا اجازه ندهید، یادآور دارو ثبت نمی‌شود.',
-      ),
-      const SizedBox(height: 10),
-      if (_reminderError != null)
-        Text(
-          'اشکال در یادآوری: $_reminderError',
-          style: const TextStyle(color: Colors.deepOrange),
-        ),
-      const SizedBox(height: 8),
-      if (widget.reminderCoordinator != null) ...[
-        if (!_remindersEnabled)
-          FilledButton.icon(
-            onPressed: _saving ? null : _enableReminders,
-            icon: const Icon(Icons.notifications_active_outlined),
-            label: const Text('فعال‌سازی یادآوری دارو'),
-          )
-        else ...[
-          FilledButton.tonalIcon(
-            onPressed: _saving ? null : _testReminders,
-            icon: const Icon(Icons.timer_outlined),
-            label: const Text('تست اعلان — ۵ ثانیه دیگر'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _saving ? null : _disableReminders,
-            icon: const Icon(Icons.notifications_off_outlined),
-            label: const Text('خاموش کردن یادآورها'),
-          ),
-        ],
-      ],
-      const SizedBox(height: 8),
-      const Text(
-        'آلارم دقیق و مجوز اعلان لازم‌اند. اعلان‌ها معمولی و خصوصی‌اند؛ '
-        'به‌صورت تمام‌صفحه باز نمی‌شوند. '
-        'یادآورها ممکن است با محدودیت باتری یا تنظیمات گوشی به تأخیر بیفتند؛ جایگزین مراقبت پزشکی نیستند.',
-        style: TextStyle(fontSize: 12, color: AppColors.muted),
-      ),
-      const SizedBox(height: 20),
-      _sectionTitle('ورود متن فارسی'),
-      const SizedBox(height: 8),
-      const Text(
-        'فیلدهای برنامه حروف فارسی را می‌پذیرند. اگر فقط انگلیسی می‌بینید، '
-        'در کیبورد گوشی زبان فارسی را فعال کنید. '
-        'پس از افزودن فارسی در Gboard، با نگه‌داشتن کلید فاصله زبان را عوض کنید.',
-        style: TextStyle(color: AppColors.muted, fontSize: 12),
-      ),
-      const SizedBox(height: 8),
-      OutlinedButton.icon(
-        onPressed: _openKeyboardSettings,
-        icon: const Icon(Icons.keyboard_outlined),
-        label: const Text('بازکردن تنظیمات زبان کیبورد'),
-      ),
-      const SizedBox(height: 20),
-      _sectionTitle('درباره برنامه'),
-      const SizedBox(height: 8),
-      const Text('همراه دارو — بتا ۰.۳.۰'),
-      Text(
-        _betaRunNumber == 'محلی'
-            ? 'ساخت محلی'
-            : 'شماره ساخت آزمایشی: CI$_betaRunNumber',
-      ),
-      const SizedBox(height: 12),
-      const _InfoNote(
-        'این نسخهٔ بتای خصوصی است؛ داده‌ها فقط روی همین دستگاه‌اند. حساب آنلاین، همگام‌سازی و بازیابی پشتیبان فعال نیستند. برای مصرف دارو به اعلان برنامه به‌تنهایی تکیه نکنید.',
-      ),
+        Text('اشکال در اعلان‌های پیگیری: $_careReminderError',
+          style: const TextStyle(color: Colors.deepOrange)),
     ],
   );
 
@@ -1255,28 +1076,6 @@ class _MedicationHomeState extends State<MedicationHome>
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
       trailing: const Icon(Icons.chevron_left_rounded, color: AppColors.muted),
       onTap: onTap,
-    ),
-  );
-}
-
-class _InfoNote extends StatelessWidget {
-  const _InfoNote(this.message);
-  final String message;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: const Color(0xFFFFF6E7),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(Icons.info_outline, color: Color(0xFF9A6400)),
-        const SizedBox(width: 9),
-        Expanded(child: Text(message)),
-      ],
     ),
   );
 }

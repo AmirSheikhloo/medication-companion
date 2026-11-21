@@ -26,7 +26,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('برای خودم'));
+    await tester.tap(find.text('شروع'));
     await tester.pumpAndSettle();
     final active = await profiles.activeProfile();
     expect(active, isNotNull);
@@ -123,7 +123,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('برای خودم'));
+    await tester.tap(find.text('شروع'));
     await tester.pumpAndSettle();
     final profile = (await profiles.activeProfile())!;
 

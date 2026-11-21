@@ -63,7 +63,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('برای خودم'));
+    await tester.tap(find.text('شروع'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('بیشتر'));
     await tester.pumpAndSettle();
