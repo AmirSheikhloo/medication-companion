@@ -44,23 +44,54 @@ void main() {
 
     Future<void> save(String filename) async {
       await tester.pumpAndSettle();
-      final render = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      final picture = await render.toImage(pixelRatio: 2);
-      final bytes = await picture.toByteData(format: ui.ImageByteFormat.png);
-      picture.dispose();
-      await File('${folder.path}/$filename.png').writeAsBytes(bytes!.buffer.asUint8List());
+      await tester.runAsync(() async {
+        final render = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final picture = await render.toImage(pixelRatio: 2);
+        final bytes = await picture.toByteData(format: ui.ImageByteFormat.png);
+        picture.dispose();
+        await File('${folder.path}/$filename.png').writeAsBytes(bytes!.buffer.asUint8List());
+      });
     }
 
     await save('01-today');
     await tester.tap(find.text('داروها'));
     await save('02-medicines');
+    await tester.tap(find.text('افزودن دارو'));
+    await save('06-medication-form');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('متفورمین ۵۰۰'));
     await save('03-medicine-detail');
     await tester.pageBack();
     await tester.pumpAndSettle();
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('موجودی و بسته‌ها'));
+    await save('07-stock');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('سلامت'));
     await save('04-health');
+    await tester.scrollUntilVisible(find.text('ثبت فشار خون'), 240);
+    await tester.tap(find.text('ثبت فشار خون'));
+    await save('08-health-entry');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('بیشتر'));
     await save('05-more');
+    await tester.tap(find.text('پروفایل‌ها'));
+    await save('09-profiles');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('یادآوری‌ها'));
+    await save('10-reminders');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('پشتیبان‌گیری'));
+    await save('11-backup');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('پیگیری‌ها و ویزیت‌ها'));
+    await save('12-care');
   });
 }

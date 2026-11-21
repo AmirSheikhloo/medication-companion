@@ -22,7 +22,10 @@ class MedicineArtwork extends StatelessWidget {
       const Color(0xFFDCF2ED),
       const Color(0xFFE7E6FC),
     ];
-    final color = palette[value % palette.length];
+    final color = seed.contains('همراه') ? AppColors.accent :
+      palette[value % palette.length];
+    final roundTablet = !seed.contains('همراه') && value % 3 == 0;
+    final goldenSoftgel = seed.contains('ویتامین') || seed.contains('امگا');
     return Container(
       width: size,
       height: size,
@@ -31,24 +34,42 @@ class MedicineArtwork extends StatelessWidget {
         color: AppColors.mint,
         borderRadius: BorderRadius.circular(size * .26),
       ),
-      child: Transform.rotate(
-        angle: value.isEven ? -.55 : .45,
-        child: Container(
-          width: size * .59,
-          height: size * .31,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(size),
-            border: Border.all(color: Colors.white, width: 1.8),
-            boxShadow: const [
-              BoxShadow(color: Color(0x330B5051), blurRadius: 5, offset: Offset(1, 3)),
-            ],
-            gradient: LinearGradient(
-              colors: [Colors.white, Colors.white, color, color],
-              stops: const [0, .48, .49, 1],
+      child: roundTablet
+        ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            for (var i = 0; i < 2; i++)
+              Container(
+                width: size * .27, height: size * .27,
+                margin: const EdgeInsets.symmetric(horizontal: 1),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.white, color]),
+                  border: Border.all(color: Colors.white, width: 1),
+                  boxShadow: const [BoxShadow(color: Color(0x330B5051),
+                    blurRadius: 4, offset: Offset(1, 2))],
+                ),
+              ),
+          ])
+        : Transform.rotate(
+            angle: value.isEven ? -.55 : .45,
+            child: Container(
+              width: size * .59,
+              height: size * .31,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(size),
+                border: Border.all(color: Colors.white, width: 1.8),
+                boxShadow: const [BoxShadow(color: Color(0x330B5051),
+                  blurRadius: 5, offset: Offset(1, 3))],
+                gradient: LinearGradient(
+                  colors: goldenSoftgel
+                      ? const [Color(0xFFFFDC65), Color(0xFFEC9F17)]
+                      : [Colors.white, Colors.white, color, color],
+                  stops: goldenSoftgel ? null : const [0, .48, .49, 1],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
     );
   }
 }
@@ -197,23 +218,25 @@ class AppBottomNav extends StatelessWidget {
             onTap: () => onSelected(i),
             borderRadius: BorderRadius.circular(15),
             child: Padding(padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                  width: 64, height: 37,
+              child: Container(
+                  width: 76, height: 58,
+                  padding: const EdgeInsets.symmetric(vertical: 5),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(13),
                     gradient: selectedIndex == i
                         ? const LinearGradient(colors: [AppColors.primary, Color(0xFF007A76)])
                         : null,
                   ),
-                  child: Icon(entries[i].$2, size: 22,
-                    color: selectedIndex == i ? Colors.white : AppColors.muted),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(entries[i].$2, size: 22,
+                      color: selectedIndex == i ? Colors.white : AppColors.muted),
+                    const SizedBox(height: 2),
+                    Text(entries[i].$1, style: TextStyle(fontSize: 11,
+                      fontWeight: selectedIndex == i ? FontWeight.w800 : FontWeight.w500,
+                      color: selectedIndex == i ? Colors.white : AppColors.ink)),
+                  ]),
                 ),
-                const SizedBox(height: 2),
-                Text(entries[i].$1, style: TextStyle(fontSize: 11,
-                  fontWeight: selectedIndex == i ? FontWeight.w800 : FontWeight.w500,
-                  color: selectedIndex == i ? AppColors.primaryDark : AppColors.ink)),
-              ])),
+              ),
           )),
       ]),
     ));

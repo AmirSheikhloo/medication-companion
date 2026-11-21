@@ -369,6 +369,7 @@ class _MedicationHomeState extends State<MedicationHome>
         archived: false,
       ),
     );
+    if (mounted) setState(() => _showArchived = false);
   }
 
   Future<void> _enableReminders() async {
@@ -899,7 +900,7 @@ class _MedicationHomeState extends State<MedicationHome>
     final selected = stock?.selected;
     final lowStock = stock?.lowStock == true;
     final stockLabel = selected == null
-        ? 'بدون موجودی ثبت‌شده'
+        ? '—'
         : PersianDate.persianDigits('${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}');
     return InkWell(
       onTap: () => _openMedicationDetail(med, slots, todaySlots,
@@ -935,6 +936,8 @@ class _MedicationHomeState extends State<MedicationHome>
                   color: lowStock ? const Color(0xFF99520A) : AppColors.primaryDark)),
               if (lowStock) const Text('کم‌موجودی',
                 style: TextStyle(fontSize: 9, color: Color(0xFF99520A))),
+              if (selected == null && !lowStock) const Text('ثبت نشده',
+                style: TextStyle(fontSize: 9, color: AppColors.muted)),
             ]),
           ),
           PopupMenuButton<String>(

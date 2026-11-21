@@ -29,6 +29,7 @@ class _HealthTabState extends State<HealthTab> {
   bool _busy = false;
   String? _error;
   List<HealthMeasurement> _records = [];
+  List<HealthMeasurement> _recentCombined = [];
   HealthMeasurement? _lastPressure;
   HealthMeasurement? _lastWeight;
   int _ticket = 0;
@@ -44,6 +45,7 @@ class _HealthTabState extends State<HealthTab> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.profile.id != widget.profile.id) {
       _records = [];
+      _recentCombined = [];
       _reload();
     }
   }
@@ -61,9 +63,12 @@ class _HealthTabState extends State<HealthTab> {
         profileId: widget.profile.id, metric: HealthMetric.pressure, days: 3650);
       final weight = await widget.repository.measurementsFor(
         profileId: widget.profile.id, metric: HealthMetric.weight, days: 3650);
+      final recent = await widget.repository.measurementsFor(
+        profileId: widget.profile.id, days: 30);
       if (!mounted || ticket != _ticket) return;
       setState(() {
         _records = entries;
+        _recentCombined = recent;
         _lastPressure = pressure.isEmpty ? null : pressure.first;
         _lastWeight = weight.isEmpty ? null : weight.first;
         _error = null;
@@ -287,34 +292,39 @@ class _HealthTabState extends State<HealthTab> {
                 'در $_days روز گذشته برای ${_metric.label} داده‌ای ثبت نشده است.'),
                 textAlign: TextAlign.center),
             ])),
-        if (_records.isNotEmpty) ...[
+        if (_recentCombined.isNotEmpty) ...[
           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
             decoration: BoxDecoration(color: AppColors.mint,
               borderRadius: BorderRadius.circular(9)),
             child: const Row(children: [
               Expanded(child: Text('تاریخ و ساعت', style: TextStyle(
                 fontWeight: FontWeight.w700, fontSize: 11))),
+              Expanded(child: Text('نوع', style: TextStyle(
+                fontWeight: FontWeight.w700, fontSize: 11))),
               Expanded(child: Text('اندازه‌گیری', style: TextStyle(
                 fontWeight: FontWeight.w700, fontSize: 11))),
               SizedBox(width: 36),
             ])),
-          for (var i = 0; i < _records.length && i < 5; i++) ...[
+          for (var i = 0; i < _recentCombined.length && i < 5; i++) ...[
             if (i != 0) const Divider(height: 1, color: AppColors.outline),
             Row(children: [
-              Expanded(child: Text(healthDateTimeLabel(_records[i].observedAt),
+              Expanded(child: Text(healthDateTimeLabel(_recentCombined[i].observedAt),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 10))),
-              Expanded(child: Text(_reading(_records[i].metric,
-                _records[i].primaryMilliunits, _records[i].secondaryMilliunits),
+              Expanded(child: Text(HealthMetric.fromCode(_recentCombined[i].metric).label,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10))),
+              Expanded(child: Text(_reading(_recentCombined[i].metric,
+                _recentCombined[i].primaryMilliunits, _recentCombined[i].secondaryMilliunits),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11))),
               PopupMenuButton<String>(
                 tooltip: 'گزینه‌های اندازه‌گیری',
                 enabled: !_busy,
                 onSelected: (action) {
-                  if (action == 'edit') _edit(_records[i]);
-                  if (action == 'history') _history(_records[i]);
-                  if (action == 'archive') _archive(_records[i]);
+                  if (action == 'edit') _edit(_recentCombined[i]);
+                  if (action == 'history') _history(_recentCombined[i]);
+                  if (action == 'archive') _archive(_recentCombined[i]);
                 },
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'edit', child: Text('اصلاح ثبت')),
