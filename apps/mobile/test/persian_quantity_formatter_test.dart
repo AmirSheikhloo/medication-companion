@@ -29,7 +29,7 @@ void main() {
           reason: invalid);
     }
     expect(formatter.formatEditUpdate(previous, value('۰')).text, '۰');
-    expect(StockQuantity.parsePositive('۰'), throwsArgumentError);
+    expect(() => StockQuantity.parsePositive('۰'), throwsArgumentError);
     expect(formatter.formatEditUpdate(value('۰'), value('0.5')).text, '۰٫۵');
   });
 }
