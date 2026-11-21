@@ -198,7 +198,9 @@ void main() {
 
     await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('بایگانی'));
+    // The segmented archive filter and the open popup both use this label.
+    // Target the popup action, not the archive filter behind the overlay.
+    await tester.tap(find.text('بایگانی').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('بایگانی شود'));
     await tester.pumpAndSettle();

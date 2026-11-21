@@ -71,6 +71,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('تنظیمات زبان و صفحه‌کلید'), 160,
       scrollable: find.byType(Scrollable).last);
+    // On a 600px test viewport this tile otherwise sits behind the fixed
+    // bottom navigation bar, even though it is within the scroll viewport.
+    await tester.drag(find.byType(ListView).last, const Offset(0, -180));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('تنظیمات زبان و صفحه‌کلید'));
     await tester.pumpAndSettle();
     expect(find.text('بازکردن تنظیمات زبان کیبورد'), findsOneWidget);

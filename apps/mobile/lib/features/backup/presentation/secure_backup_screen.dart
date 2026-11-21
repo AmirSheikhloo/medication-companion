@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import '../../../core/ui/app_design.dart';
+import '../../../core/ui/redesign_widgets.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -264,17 +265,18 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('پشتیبان رمزگذاری‌شده')),
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('پشتیبان‌گیری'),
+          backgroundColor: AppColors.primary, foregroundColor: Colors.white),
         body: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
           children: [
-            const Center(
-              child: Icon(Icons.enhanced_encryption_outlined,
-                  size: 56, color: AppColors.primary),
-            ),
+            const AppSoftHeader(title: 'محلی و آفلاین',
+              subtitle: 'پشتیبان فقط با رمز انتخابی شما ساخته می‌شود.',
+              icon: Icons.wifi_off_outlined),
             const SizedBox(height: 16),
-            const AppSectionHeading('ساخت فایل پشتیبان آفلاین',
-                icon: Icons.cloud_upload_outlined),
+            const AppSectionHeading('ساخت فایل پشتیبان',
+              icon: Icons.lock_outline_rounded),
             const SizedBox(height: 12),
             const Text(
               'از تمام پروفایل‌ها، برنامه‌های دارویی، رویدادهای مصرف، موجودی، '
@@ -324,16 +326,15 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: _busy ? null : _startExport,
-              icon: const Icon(Icons.save_alt),
-              label: const Text('انتخاب محل و ساخت پشتیبان'),
-            ),
+            AppGradientButton(label: 'انتخاب محل و ساخت پشتیبان',
+              icon: Icons.folder_open_outlined,
+              onPressed: _busy ? null : _startExport),
             const SizedBox(height: 30),
             const Divider(),
             const SizedBox(height: 12),
-            const AppSectionHeading('بررسی فایل پشتیبان (فقط خواندنی)',
-                icon: Icons.fact_check_outlined),
+            const AppSoftHeader(title: 'بررسی فایل پشتیبان موجود',
+              subtitle: 'پیش‌نمایش امن و فقط‌خواندنی؛ بدون جایگزینی اطلاعات.',
+              icon: Icons.fact_check_outlined),
             const SizedBox(height: 8),
             const Text('فایل را انتخاب کنید و رمز همان فایل را وارد کنید. '
                 'پس از تأیید اصالت رمزنگاری، فقط تعداد رکوردها با اطلاعات فعلی '

@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
 import 'package:medication_companion/features/medications/data/medication_repository.dart';
@@ -17,8 +18,11 @@ void main() {
 
   testWidgets('Persian welcome stays scrollable on narrow enlarged screens',
       (tester) async {
+    await (FontLoader('NotoSansArabic')
+      ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'))).load();
     narrowScreen(tester);
     await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(fontFamily: 'NotoSansArabic'),
       home: MediaQuery(
         data: const MediaQueryData(
           size: Size(360, 640),
@@ -37,6 +41,8 @@ void main() {
 
   testWidgets('long Persian medication name and instructions do not overflow',
       (tester) async {
+    await (FontLoader('NotoSansArabic')
+      ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'))).load();
     narrowScreen(tester);
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
@@ -54,6 +60,7 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(fontFamily: 'NotoSansArabic'),
       home: MediaQuery(
         data: const MediaQueryData(
           size: Size(360, 640),

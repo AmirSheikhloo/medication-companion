@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:drift/native.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
@@ -16,6 +17,16 @@ import 'package:medication_companion/main.dart';
 void main() {
   testWidgets('render full-screen previews of four rebuilt tabs and medicine details',
       (tester) async {
+    // Widget tests default to Ahem (all text looks like square glyphs). Load
+    // the bundled Persian UI font so these artifacts are legitimate visual
+    // references, not unreadable test placeholders.
+    final persianFont = FontLoader('NotoSansArabic')
+      ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'));
+    await persianFont.load();
+    // Flutter bundles MaterialIcons when uses-material-design is enabled.
+    final iconFont = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    await iconFont.load();
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

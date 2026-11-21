@@ -23,6 +23,7 @@ void main() {
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), '۱۲۵');
     await tester.enterText(fields.at(1), '۸۱');
+    await tester.ensureVisible(find.text('ذخیره اندازه‌گیری'));
     await tester.tap(find.text('ذخیره اندازه‌گیری'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.textContaining('۱۲۵/۸۱').last, 160);
