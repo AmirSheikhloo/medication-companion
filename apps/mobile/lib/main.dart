@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+
 import 'package:material_ui/material_ui.dart';
 
 import 'core/storage/app_database.dart';
@@ -32,7 +33,7 @@ class MedicationBetaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'NotoSansArabic',
+        fontFamily: 'Vazirmatn',
         colorScheme: ColorScheme.fromSeed(seedColor: brand),
         scaffoldBackgroundColor: const Color(0xFFF7FBFA),
         appBarTheme: const AppBarTheme(
@@ -40,9 +41,7 @@ class MedicationBetaApp extends StatelessWidget {
           surfaceTintColor: Colors.transparent,
         ),
         inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         ),
         cardTheme: CardThemeData(
           color: Colors.white,
@@ -111,7 +110,8 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
       );
     } catch (_) {
       if (db != null) unawaited(_closeDatabase(db));
-      _startupError = 'بازکردن اطلاعات محلی انجام نشد. '
+      _startupError =
+          'بازکردن اطلاعات محلی انجام نشد. '
           'برنامه را دوباره اجرا کنید؛ اطلاعات موجود حذف نشده‌اند.';
     }
   }
@@ -147,8 +147,10 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
             children: [
               const Icon(Icons.info_outline, size: 36),
               const SizedBox(height: 12),
-              Text(_startupError ?? 'اطلاعات محلی آماده نیست.',
-                  textAlign: TextAlign.center),
+              Text(
+                _startupError ?? 'اطلاعات محلی آماده نیست.',
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => setState(_initialize),
@@ -161,4 +163,3 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
     );
   }
 }
-

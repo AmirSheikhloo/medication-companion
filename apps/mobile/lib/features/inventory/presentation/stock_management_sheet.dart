@@ -12,15 +12,15 @@ Future<void> showStockManagementSheet(
   required Medication medication,
   required String profileId,
 }) => showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _StockManagementSheet(
-        repository: repository,
-        medication: medication,
-        profileId: profileId,
-      ),
-    );
+  context: context,
+  isScrollControlled: true,
+  showDragHandle: true,
+  builder: (_) => _StockManagementSheet(
+    repository: repository,
+    medication: medication,
+    profileId: profileId,
+  ),
+);
 
 class _StockManagementSheet extends StatefulWidget {
   const _StockManagementSheet({
@@ -80,7 +80,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   Future<void> _load() async {
     try {
       final current = await widget.repository.summary(
-        widget.profileId, widget.medication.id);
+        widget.profileId,
+        widget.medication.id,
+      );
       final histories = <String, List<StockMovement>>{};
       for (final id in _historyOpen) {
         histories[id] = await widget.repository.movementsForPackage(
@@ -124,15 +126,13 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         setState(() => _feedbackMessage = successMessage);
         // The inline confirmation remains visible even if the modal sheet
         // covers the Scaffold's Snackbar area.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(successMessage)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(successMessage)));
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ثبت نشد: $error')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('ثبت نشد: $error')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -177,8 +177,11 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         selectForUse: _selectNew,
         expiryIso: _expiry == null
             ? null
-            : StockQuantity.isoDate(_precision == 'month'
-                ? DateTime(_expiry!.year, _expiry!.month) : _expiry!),
+            : StockQuantity.isoDate(
+                _precision == 'month'
+                    ? DateTime(_expiry!.year, _expiry!.month)
+                    : _expiry!,
+              ),
         expiryPrecision: _expiry == null ? 'none' : _precision,
       );
       if (mounted) {
@@ -200,7 +203,6 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         thresholdMilliunits: threshold,
       );
     }, successMessage: 'حد هشدار با موفقیت ذخیره شد.');
-
   }
 
   Future<void> _adjust(String packageId) async {
@@ -235,31 +237,42 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 4, 18, 32),
             children: [
-              Text('موجودی: ${widget.medication.name}',
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'موجودی: ${widget.medication.name}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 8),
-              const Text('موجودی هر بسته جداست؛ مقدار مصرف را خودتان اعلام می‌کنید. '
-                  'این بخش توصیه دارویی یا کنترل اصالت تاریخ انقضا نیست.'),
-              if (_error != null) Text(_error!,
-                  style: const TextStyle(color: Colors.deepOrange)),
+              const Text(
+                'موجودی هر بسته جداست؛ مقدار مصرف را خودتان اعلام می‌کنید. '
+                'این بخش توصیه دارویی یا کنترل اصالت تاریخ انقضا نیست.',
+              ),
+              if (_error != null)
+                Text(_error!, style: const TextStyle(color: Colors.deepOrange)),
               if (_feedbackMessage != null)
-                Text(_feedbackMessage!,
-                    style: const TextStyle(color: Colors.green)),
+                Text(
+                  _feedbackMessage!,
+                  style: const TextStyle(color: Colors.green),
+                ),
               const SizedBox(height: 12),
               if (summary == null)
                 const Center(child: CircularProgressIndicator())
               else ...[
                 if (summary.packages.isEmpty)
                   const ListTile(title: Text('هنوز بسته‌ای ثبت نشده است.')),
-                for (final item in summary.packages) _packageCard(item, summary),
+                for (final item in summary.packages)
+                  _packageCard(item, summary),
                 const SizedBox(height: 16),
-                Text('هشدار کمبود بسته انتخاب‌شده'
-                    '${summary.selected == null ? '' : ' (${summary.selected!.package.unit})'}',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'هشدار کمبود بسته انتخاب‌شده'
+                  '${summary.selected == null ? '' : ' (${summary.selected!.package.unit})'}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _threshold,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'حد هشدار (خالی = خاموش)',
                     helperText: 'بر حسب واحد بستهٔ انتخابی؛ بدون تبدیل واحد یا تخمین روز.',
@@ -271,21 +284,30 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   onPressed: _busy ? null : _saveThreshold,
                   child: const Text('ذخیره حد هشدار'),
                 ),
-                if (summary.thresholdMilliunits != null && summary.selected != null)
+                if (summary.thresholdMilliunits != null &&
+                    summary.selected != null)
                   Text(
-                    'حد فعال: ${StockQuantity.format(summary.thresholdMilliunits!)} '
-                    '${summary.selected!.package.unit} — '
-                    '${summary.lowStock ? 'موجودی در محدودهٔ هشدار است.' : 'موجودی فعلی بالاتر از حد هشدار است.'}',
+                    PersianDate.persianDigits(
+                      'حد فعال: ${StockQuantity.format(summary.thresholdMilliunits!)} '
+                      '${summary.selected!.package.unit} — '
+                      '${summary.lowStock ? 'موجودی در محدودهٔ هشدار است.' : 'موجودی فعلی بالاتر از حد هشدار است.'}',
+                    ),
                     style: TextStyle(
-                      color: summary.lowStock ? Colors.deepOrange : Colors.green,
+                      color: summary.lowStock
+                          ? Colors.deepOrange
+                          : Colors.green,
                     ),
                   ),
                 if (_feedbackMessage == 'حد هشدار با موفقیت ذخیره شد.')
-                  const Text('حد هشدار با موفقیت ذخیره شد.',
-                      style: TextStyle(color: Colors.green)),
+                  const Text(
+                    'حد هشدار با موفقیت ذخیره شد.',
+                    style: TextStyle(color: Colors.green),
+                  ),
                 const Divider(height: 32),
-                Text('افزودن بسته جدید',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'افزودن بسته جدید',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _label,
@@ -296,44 +318,56 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(child: TextField(
-                    controller: _initial,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'موجودی واقعی اولیه',
-                      border: OutlineInputBorder(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _initial,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'موجودی واقعی اولیه',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
                     ),
-                  )),
-                  const SizedBox(width: 8),
-                  Expanded(child: TextField(
-                    controller: _unit,
-                    decoration: const InputDecoration(
-                      labelText: 'واحد (مثلاً عدد یا ml)',
-                      border: OutlineInputBorder(),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _unit,
+                        decoration: const InputDecoration(
+                          labelText: 'واحد (مثلاً عدد یا ml)',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
                     ),
-                  )),
-                ]),
+                  ],
+                ),
                 const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _busy ? null : _chooseExpiry,
-                      icon: const Icon(Icons.event),
-                      label: Text(_expiry == null
-                          ? 'تاریخ انقضا (اختیاری)'
-                          : _precision == 'month'
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : _chooseExpiry,
+                        icon: const Icon(Icons.event),
+                        label: Text(
+                          _expiry == null
+                              ? 'تاریخ انقضا (اختیاری)'
+                              : _precision == 'month'
                               ? 'ماه میلادی ${gregorianDateLabel(_expiry!)}'
-                              : 'روز شمسی ${persianDateLabel(_expiry!)}'),
+                              : 'روز شمسی ${persianDateLabel(_expiry!)}',
+                        ),
+                      ),
                     ),
-                  ),
-                  if (_expiry != null)
-                    IconButton(
-                      tooltip: 'حذف تاریخ',
-                      onPressed: () => setState(() => _expiry = null),
-                      icon: const Icon(Icons.close),
-                    ),
-                ]),
+                    if (_expiry != null)
+                      IconButton(
+                        tooltip: 'حذف تاریخ',
+                        onPressed: () => setState(() => _expiry = null),
+                        icon: const Icon(Icons.close),
+                      ),
+                  ],
+                ),
                 if (_expiry != null)
                   DropdownButtonFormField<String>(
                     initialValue: _precision,
@@ -342,20 +376,30 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     ),
                     items: const [
                       DropdownMenuItem(value: 'day', child: Text('روز دقیق')),
-                      DropdownMenuItem(value: 'month', child: Text('فقط ماه و سال')),
+                      DropdownMenuItem(
+                        value: 'month',
+                        child: Text('فقط ماه و سال'),
+                      ),
                     ],
-                    onChanged: _busy ? null : (value) {
-                      if (value != null) setState(() => _precision = value);
-                    },
+                    onChanged: _busy
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() => _precision = value);
+                            }
+                          },
                   ),
                 if (_expiry != null && _precision == 'month')
-                  const Text('برای تاریخ با دقت ماه، همان ماه میلادیِ تاریخ انتخابی ثبت می‌شود.'),
+                  const Text(
+                    'برای تاریخ با دقت ماه، همان ماه میلادیِ تاریخ انتخابی ثبت می‌شود.',
+                  ),
                 CheckboxListTile(
                   value: _selectNew,
                   title: const Text('این بسته برای کسر موجودی انتخاب شود'),
                   subtitle: const Text('بسته منقضی قابل انتخاب نیست.'),
-                  onChanged: _busy ? null : (value) =>
-                      setState(() => _selectNew = value ?? false),
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _selectNew = value ?? false),
                   contentPadding: EdgeInsets.zero,
                 ),
                 FilledButton.icon(
@@ -381,64 +425,97 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Expanded(
-                child: Text(pack.label,
-                    style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    pack.label,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (selected) const Chip(label: Text('انتخاب‌شده')),
+              ],
+            ),
+            Text(
+              PersianDate.persianDigits(
+                'باقی‌مانده: ${StockQuantity.format(item.balanceMilliunits)} ${pack.unit}',
               ),
-              if (selected) const Chip(label: Text('انتخاب‌شده')),
-            ]),
-            Text('باقی‌مانده: ${StockQuantity.format(item.balanceMilliunits)} ${pack.unit}'),
-            Text(pack.expiryIso == null
-                ? 'انقضا ثبت نشده'
-                : 'انقضا (میلادی): ${pack.expiryIso} '
-                  '${pack.expiryPrecision == 'month' ? '(ماه/سال)' : '(روز)'}'),
+            ),
+            Text(
+              PersianDate.persianDigits(
+                pack.expiryIso == null
+                    ? 'انقضا ثبت نشده'
+                    : 'انقضا (میلادی): ${pack.expiryIso} '
+                          '${pack.expiryPrecision == 'month' ? '(ماه/سال)' : '(روز)'}',
+              ),
+            ),
             if (expired)
-              const Text('هشدار: تاریخ انقضای ثبت‌شده گذشته است.',
-                  style: TextStyle(color: Colors.deepOrange)),
+              const Text(
+                'هشدار: تاریخ انقضای ثبت‌شده گذشته است.',
+                style: TextStyle(color: Colors.deepOrange),
+              ),
             if (selected && summary.lowStock)
-              const Text('هشدار: موجودی بسته انتخاب‌شده کم است.',
-                  style: TextStyle(color: Colors.deepOrange)),
-            Wrap(spacing: 8, children: [
-              if (!selected && !expired)
-                TextButton(
-                  onPressed: _busy ? null : () => _run(() =>
-                      widget.repository.selectPackage(
-                        profileId: widget.profileId,
-                        medicationId: widget.medication.id,
-                        packageId: pack.id,
-                      )),
-                  child: const Text('انتخاب برای مصرف'),
-                ),
-              if (selected)
-                TextButton(
-                  onPressed: _busy ? null : () => _run(() =>
-                      widget.repository.clearSelection(
-                        profileId: widget.profileId,
-                        medicationId: widget.medication.id,
-                      )),
-                  child: const Text('لغو انتخاب'),
-                ),
-              TextButton(
-                onPressed: _busy ? null : () => setState(() {
-                  _adjustingPackageId =
-                      _adjustingPackageId == pack.id ? null : pack.id;
-                  _adjustQuantity.clear();
-                  _adjustReason.clear();
-                }),
-                child: const Text('اصلاح موجودی'),
+              const Text(
+                'هشدار: موجودی بسته انتخاب‌شده کم است.',
+                style: TextStyle(color: Colors.deepOrange),
               ),
-              TextButton.icon(
-                onPressed: _busy ? null : () => _toggleHistory(pack.id),
-                icon: Icon(_historyOpen.contains(pack.id)
-                    ? Icons.expand_less : Icons.history),
-                label: const Text('تاریخچه موجودی'),
-              ),
-            ]),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (!selected && !expired)
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _run(
+                            () => widget.repository.selectPackage(
+                              profileId: widget.profileId,
+                              medicationId: widget.medication.id,
+                              packageId: pack.id,
+                            ),
+                          ),
+                    child: const Text('انتخاب برای مصرف'),
+                  ),
+                if (selected)
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _run(
+                            () => widget.repository.clearSelection(
+                              profileId: widget.profileId,
+                              medicationId: widget.medication.id,
+                            ),
+                          ),
+                    child: const Text('لغو انتخاب'),
+                  ),
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() {
+                          _adjustingPackageId = _adjustingPackageId == pack.id
+                              ? null
+                              : pack.id;
+                          _adjustQuantity.clear();
+                          _adjustReason.clear();
+                        }),
+                  child: const Text('اصلاح موجودی'),
+                ),
+                TextButton.icon(
+                  onPressed: _busy ? null : () => _toggleHistory(pack.id),
+                  icon: Icon(
+                    _historyOpen.contains(pack.id)
+                        ? Icons.expand_less
+                        : Icons.history,
+                  ),
+                  label: const Text('تاریخچه موجودی'),
+                ),
+              ],
+            ),
             if (_historyOpen.contains(pack.id)) ...[
               const Divider(),
-              Text('تاریخچه تغییرات این بسته',
-                  style: Theme.of(context).textTheme.titleSmall),
+              Text(
+                'تاریخچه تغییرات این بسته',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
               if (_history[pack.id] == null)
                 const Padding(
                   padding: EdgeInsets.all(10),
@@ -453,14 +530,21 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(_movementName(entry)),
                     subtitle: Text(
-                      '${entry.createdAt.toLocal().toString().substring(0, 16)}'
-                      '${entry.note == null ? '' : ' — ${entry.note}'}',
+                      PersianDate.persianDigits(
+                        '${entry.createdAt.toLocal().toString().substring(0, 16)}'
+                        '${entry.note == null ? '' : ' — ${entry.note}'}',
+                      ),
                     ),
                     trailing: Text(
-                      '${entry.deltaMilliunits > 0 ? '+' : ''}'
-                      '${StockQuantity.format(entry.deltaMilliunits)} ${pack.unit}',
-                      style: TextStyle(color: entry.deltaMilliunits < 0
-                          ? Colors.deepOrange : Colors.green),
+                      PersianDate.persianDigits(
+                        '${entry.deltaMilliunits > 0 ? '+' : ''}'
+                        '${StockQuantity.format(entry.deltaMilliunits)} ${pack.unit}',
+                      ),
+                      style: TextStyle(
+                        color: entry.deltaMilliunits < 0
+                            ? Colors.deepOrange
+                            : Colors.green,
+                      ),
                     ),
                   ),
             ],
@@ -472,13 +556,16 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   ButtonSegment(value: false, label: Text('کاهش/دورریز')),
                 ],
                 selected: {_adjustIncrease},
-                onSelectionChanged: _busy ? null :
-                    (value) => setState(() => _adjustIncrease = value.first),
+                onSelectionChanged: _busy
+                    ? null
+                    : (value) => setState(() => _adjustIncrease = value.first),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _adjustQuantity,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'مقدار اصلاح',
                   border: OutlineInputBorder(),

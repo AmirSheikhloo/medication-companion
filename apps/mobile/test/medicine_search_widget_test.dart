@@ -39,7 +39,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('خلاصه امروز'), findsOneWidget);
-    expect(find.text('ثبت‌نشده: 2'), findsOneWidget);
+    expect(find.text('ثبت‌نشده: ۲'), findsOneWidget);
 
     await tester.tap(find.text('داروها'));
     await tester.pumpAndSettle();
