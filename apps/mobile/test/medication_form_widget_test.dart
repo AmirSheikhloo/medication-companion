@@ -13,15 +13,17 @@ void main() {
     final profiles = ProfileRepository(db);
     final medications = MedicationRepository(db);
 
-    await tester.pumpWidget(MaterialApp(
-      home: Directionality(
-        textDirection: TextDirection.rtl,
-        child: MedicationHome(
-          repository: medications,
-          profileRepository: profiles,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: MedicationHome(
+            repository: medications,
+            profileRepository: profiles,
+          ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('برای خودم'));
@@ -42,8 +44,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect((await medications.medicationsFor(active!.id)).map((m) => m.name),
-        contains('داروی آزمایشی'));
+    expect(
+      (await medications.medicationsFor(active!.id)).map((m) => m.name),
+      contains('داروی آزمایشی'),
+    );
     expect(find.text('داروی آزمایشی'), findsWidgets);
 
     await tester.tap(find.text('امروز'));
@@ -62,18 +66,21 @@ void main() {
     expect(find.text('ثبت نشده'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('managed profile dialog safely persists its entered name',
-      (tester) async {
+  testWidgets('managed profile dialog safely persists its entered name', (
+    tester,
+  ) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
 
-    await tester.pumpWidget(MaterialApp(
-      home: MedicationHome(
-        repository: MedicationRepository(db),
-        profileRepository: profiles,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MedicationHome(
+          repository: MedicationRepository(db),
+          profileRepository: profiles,
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('برای یکی از عزیزانم'));
     await tester.pumpAndSettle();
@@ -85,9 +92,9 @@ void main() {
     expect((await profiles.activeProfile())?.displayName, 'مادر آزمایشی');
   });
 
-
-  testWidgets('manage two daily slots, edit, archive and restore in UI',
-      (tester) async {
+  testWidgets('manage two daily slots, edit, archive and restore in UI', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1000, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -97,15 +104,17 @@ void main() {
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
     final medications = MedicationRepository(db);
-    await tester.pumpWidget(MaterialApp(
-      home: Directionality(
-        textDirection: TextDirection.rtl,
-        child: MedicationHome(
-          repository: medications,
-          profileRepository: profiles,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: MedicationHome(
+            repository: medications,
+            profileRepository: profiles,
+          ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('برای خودم'));
     await tester.pumpAndSettle();
@@ -125,19 +134,61 @@ void main() {
     await tester.tap(find.text('ذخیره دارو'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(await medications.dosesForDay(profile.id, DateTime.now()),
-        hasLength(2));
+    expect(
+      await medications.dosesForDay(profile.id, DateTime.now()),
+      hasLength(2),
+    );
 
     await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('ویرایش'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'داروی اصلاح‌شده');
+    await tester.enterText(find.byType(TextField).at(1), 'دوز تازه ۲ عدد');
     await tester.ensureVisible(find.text('ذخیره تغییرات'));
     await tester.tap(find.text('ذخیره تغییرات'));
     await tester.pumpAndSettle();
-    expect((await medications.medicationsFor(profile.id)).single.name,
-        'داروی اصلاح‌شده');
+    expect(
+      (await medications.medicationsFor(profile.id)).single.name,
+      'داروی اصلاح‌شده',
+    );
+    expect(find.text('برنامه جدید — از فردا'), findsOneWidget);
+    expect(find.textContaining('دوز تازه ۲ عدد'), findsOneWidget);
+    expect(
+      find.text('نوبت‌های امروز طبق برنامه قبلی ثبت می‌شوند.'),
+      findsOneWidget,
+    );
+    final today = DateTime.now();
+    final tomorrow = DateTime(today.year, today.month, today.day + 1);
+    expect(
+      (await medications.dosesForDay(profile.id, today)).first.plan.doseText,
+      'صبح طبق نسخه',
+    );
+    expect(
+      (await medications.dosesForDay(profile.id, tomorrow)).first.plan.doseText,
+      'دوز تازه ۲ عدد',
+    );
+
+    // A second edit must pre-fill and replace the *pending* schedule, not
+    // accidentally revert to today's older plan.
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ویرایش'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(1)).controller?.text,
+      'دوز تازه ۲ عدد',
+    );
+    await tester.enterText(find.byType(TextField).at(1), 'دوز سوم ۳ عدد');
+    await tester.ensureVisible(find.text('ذخیره تغییرات'));
+    await tester.tap(find.text('ذخیره تغییرات'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('دوز سوم ۳ عدد'), findsOneWidget);
+    expect(find.textContaining('دوز تازه ۲ عدد'), findsNothing);
+    expect(
+      (await medications.dosesForDay(profile.id, tomorrow)).first.plan.doseText,
+      'دوز سوم ۳ عدد',
+    );
 
     await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();
@@ -146,7 +197,7 @@ void main() {
     await tester.tap(find.text('بایگانی شود'));
     await tester.pumpAndSettle();
     expect(await medications.medicationsFor(profile.id), isEmpty);
-    await tester.tap(find.text('نمایش بایگانی (1)'));
+    await tester.tap(find.text('نمایش بایگانی (۱)'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('بازیابی'));
     await tester.pumpAndSettle();

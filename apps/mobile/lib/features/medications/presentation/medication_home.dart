@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/calendar/persian_date.dart';
 import '../../../core/storage/app_database.dart';
 import '../../profiles/data/profile_repository.dart';
 import '../../profiles/presentation/guest_welcome_screen.dart';
@@ -21,14 +22,16 @@ import '../../backup/presentation/secure_backup_screen.dart';
 
 const _teal = Color(0xFF008F87);
 const _deepTeal = Color(0xFF008F87);
-const _betaRunNumber = String.fromEnvironment('BETA_RUN_NUMBER', defaultValue: 'محلی');
-const _keyboardSettings = MethodChannel('medication_companion/keyboard_settings');
+const _betaRunNumber = String.fromEnvironment(
+  'BETA_RUN_NUMBER',
+  defaultValue: 'محلی',
+);
+const _keyboardSettings = MethodChannel(
+  'medication_companion/keyboard_settings',
+);
 
-String _normalizeMedicineSearch(String value) => value
-    .trim()
-    .toLowerCase()
-    .replaceAll('ي', 'ی')
-    .replaceAll('ك', 'ک');
+String _normalizeMedicineSearch(String value) =>
+    value.trim().toLowerCase().replaceAll('ي', 'ی').replaceAll('ك', 'ک');
 
 class MedicationHome extends StatefulWidget {
   const MedicationHome({
@@ -61,9 +64,11 @@ class _MedicationHomeState extends State<MedicationHome>
   bool _searchVisible = false;
   final _medicineSearch = TextEditingController();
   List<DailyDose> _doses = [];
+  List<DailyDose> _nextDayDoses = [];
   Map<String, StockSummary> _stocks = {};
 
-  InventoryRepository get _inventory => InventoryRepository(widget.repository.db);
+  InventoryRepository get _inventory =>
+      InventoryRepository(widget.repository.db);
   String? _error;
   bool _remindersEnabled = false;
   String? _reminderError;
@@ -88,6 +93,9 @@ class _MedicationHomeState extends State<MedicationHome>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // The local day may have changed while the app was in the background.
+      // Refresh both today's and tomorrow's schedule, not only notifications.
+      _reload();
       _syncReminders();
       _syncCareReminders();
     }
@@ -121,13 +129,19 @@ class _MedicationHomeState extends State<MedicationHome>
     } on PlatformException catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('بازکردن تنظیمات کیبورد ممکن نشد؛ از تنظیمات اندروید وارد شوید.')),
+          const SnackBar(
+            content: Text(
+              'بازکردن تنظیمات کیبورد ممکن نشد؛ از تنظیمات اندروید وارد شوید.',
+            ),
+          ),
         );
       }
     } on MissingPluginException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تنظیمات کیبورد فقط در نسخهٔ اندروید در دسترس است.')),
+          const SnackBar(
+            content: Text('تنظیمات کیبورد فقط در نسخهٔ اندروید در دسترس است.'),
+          ),
         );
       }
     }
@@ -136,13 +150,15 @@ class _MedicationHomeState extends State<MedicationHome>
   Future<void> _openCareHub() async {
     final profile = _active;
     if (profile == null) return;
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => CareHubScreen(
-        profile: profile,
-        repository: CareRepository(widget.repository.db),
-        reminderCoordinator: widget.careReminderCoordinator,
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CareHubScreen(
+          profile: profile,
+          repository: CareRepository(widget.repository.db),
+          reminderCoordinator: widget.careReminderCoordinator,
+        ),
       ),
-    ));
+    );
     if (mounted) await _reload();
   }
 
@@ -157,9 +173,14 @@ class _MedicationHomeState extends State<MedicationHome>
       final archivedMeds = profile == null
           ? <Medication>[]
           : await widget.repository.medicationsFor(profile.id, archived: true);
+      final today = DateTime.now();
+      final tomorrow = DateTime(today.year, today.month, today.day + 1);
       final doses = profile == null
           ? <DailyDose>[]
-          : await widget.repository.dosesForDay(profile.id, DateTime.now());
+          : await widget.repository.dosesForDay(profile.id, today);
+      final nextDayDoses = profile == null
+          ? <DailyDose>[]
+          : await widget.repository.dosesForDay(profile.id, tomorrow);
       final stocks = <String, StockSummary>{};
       if (profile != null) {
         for (final med in meds) {
@@ -179,6 +200,7 @@ class _MedicationHomeState extends State<MedicationHome>
         _medications = meds;
         _archivedMedications = archivedMeds;
         _doses = doses;
+        _nextDayDoses = nextDayDoses;
         _stocks = stocks;
         _remindersEnabled = remindersEnabled;
         _loading = false;
@@ -200,10 +222,12 @@ class _MedicationHomeState extends State<MedicationHome>
       name = await askProfileNameDialog(context);
       if (!mounted || name == null) return;
     }
-    await _perform(() => widget.profileRepository.createGuestProfile(
-          forSelf: forSelf,
-          displayName: name,
-        ));
+    await _perform(
+      () => widget.profileRepository.createGuestProfile(
+        forSelf: forSelf,
+        displayName: name,
+      ),
+    );
   }
 
   Future<void> _perform(Future<dynamic> Function() action) async {
@@ -218,16 +242,17 @@ class _MedicationHomeState extends State<MedicationHome>
         if (mounted) {
           setState(() => _reminderError = '$error');
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('تغییر ذخیره شد ولی یادآور به‌روز نشد: $error')),
+            SnackBar(
+              content: Text('تغییر ذخیره شد ولی یادآور به‌روز نشد: $error'),
+            ),
           );
         }
       }
       await _reload();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ذخیره انجام نشد: $error')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('ذخیره انجام نشد: $error')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -241,25 +266,31 @@ class _MedicationHomeState extends State<MedicationHome>
       profileName: profile.displayName,
     );
     if (!mounted || draft == null) return;
-    await _perform(() => widget.repository.addMedicationSchedule(
-          profileId: profile.id,
-          name: draft.name,
-          slots: [
-            for (final slot in draft.slots)
-              DoseSlotInput(
-                doseText: slot.dose,
-                time: TimeOfDayValue(slot.time.hour, slot.time.minute),
-              ),
-          ],
-        ));
+    await _perform(
+      () => widget.repository.addMedicationSchedule(
+        profileId: profile.id,
+        name: draft.name,
+        slots: [
+          for (final slot in draft.slots)
+            DoseSlotInput(
+              doseText: slot.dose,
+              time: TimeOfDayValue(slot.time.hour, slot.time.minute),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _editMedication(Medication medication) async {
     final profile = _active;
     if (profile == null || _saving) return;
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    final doses = await widget.repository
-        .dosesForMedicationOnDay(profile.id, medication.id, tomorrow);
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final doses = await widget.repository.dosesForMedicationOnDay(
+      profile.id,
+      medication.id,
+      tomorrow,
+    );
     if (!mounted) return;
     final draft = await showMedicationEntrySheet(
       context,
@@ -274,18 +305,20 @@ class _MedicationHomeState extends State<MedicationHome>
       ],
     );
     if (!mounted || draft == null) return;
-    await _perform(() => widget.repository.updateMedicationSchedule(
-          profileId: profile.id,
-          medicationId: medication.id,
-          name: draft.name,
-          slots: [
-            for (final slot in draft.slots)
-              DoseSlotInput(
-                doseText: slot.dose,
-                time: TimeOfDayValue(slot.time.hour, slot.time.minute),
-              ),
-          ],
-        ));
+    await _perform(
+      () => widget.repository.updateMedicationSchedule(
+        profileId: profile.id,
+        medicationId: medication.id,
+        name: draft.name,
+        slots: [
+          for (final slot in draft.slots)
+            DoseSlotInput(
+              doseText: slot.dose,
+              time: TimeOfDayValue(slot.time.hour, slot.time.minute),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _archiveMedication(Medication medication) async {
@@ -312,21 +345,25 @@ class _MedicationHomeState extends State<MedicationHome>
       ),
     );
     if (!mounted || confirmed != true) return;
-    await _perform(() => widget.repository.setArchived(
-          profileId: profile.id,
-          medicationId: medication.id,
-          archived: true,
-        ));
+    await _perform(
+      () => widget.repository.setArchived(
+        profileId: profile.id,
+        medicationId: medication.id,
+        archived: true,
+      ),
+    );
   }
 
   Future<void> _restoreMedication(Medication medication) async {
     final profile = _active;
     if (profile == null || _saving) return;
-    await _perform(() => widget.repository.setArchived(
-          profileId: profile.id,
-          medicationId: medication.id,
-          archived: false,
-        ));
+    await _perform(
+      () => widget.repository.setArchived(
+        profileId: profile.id,
+        medicationId: medication.id,
+        archived: false,
+      ),
+    );
   }
 
   Future<void> _enableReminders() async {
@@ -374,16 +411,21 @@ class _MedicationHomeState extends State<MedicationHome>
       final stock = await _inventory.summary(profile.id, dose.medication.id);
       if (!mounted) return;
       choice = await askDoseStockChoice(
-        context, medicationName: dose.medication.name, stock: stock);
+        context,
+        medicationName: dose.medication.name,
+        stock: stock,
+      );
       if (!mounted || choice == null) return;
     }
-    await _perform(() => widget.repository.recordDose(
-          dose: dose,
-          profileId: profile.id,
-          action: action,
-          stockPackageId: choice?.packageId,
-          stockQuantityMilliunits: choice?.quantityMilliunits,
-        ));
+    await _perform(
+      () => widget.repository.recordDose(
+        dose: dose,
+        profileId: profile.id,
+        action: action,
+        stockPackageId: choice?.packageId,
+        stockQuantityMilliunits: choice?.quantityMilliunits,
+      ),
+    );
   }
 
   @override
@@ -401,7 +443,10 @@ class _MedicationHomeState extends State<MedicationHome>
               children: [
                 Text(_error!, textAlign: TextAlign.center),
                 const SizedBox(height: 12),
-                FilledButton(onPressed: _reload, child: const Text('تلاش مجدد')),
+                FilledButton(
+                  onPressed: _reload,
+                  child: const Text('تلاش مجدد'),
+                ),
               ],
             ),
           ),
@@ -449,11 +494,18 @@ class _MedicationHomeState extends State<MedicationHome>
         selectedIndex: _tab,
         onDestinationSelected: (value) => setState(() => _tab = value),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.today_outlined), label: 'امروز'),
           NavigationDestination(
-            icon: Icon(Icons.medication_outlined), label: 'داروها',
+            icon: Icon(Icons.today_outlined),
+            label: 'امروز',
           ),
-          NavigationDestination(icon: Icon(Icons.favorite_outline), label: 'سلامت'),
+          NavigationDestination(
+            icon: Icon(Icons.medication_outlined),
+            label: 'داروها',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.favorite_outline),
+            label: 'سلامت',
+          ),
           NavigationDestination(icon: Icon(Icons.more_horiz), label: 'بیشتر'),
         ],
       ),
@@ -492,15 +544,22 @@ class _MedicationHomeState extends State<MedicationHome>
                   for (final profile in _profiles)
                     DropdownMenuItem(
                       value: profile.id,
-                      child: Text('پروفایل: ${profile.displayName}',
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        'پروفایل: ${profile.displayName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                 ],
                 onChanged: _saving
                     ? null
                     : (id) {
                         if (id != null) {
-                          _perform(() => widget.profileRepository.selectActiveProfile(id));
+                          _perform(
+                            () => widget.profileRepository.selectActiveProfile(
+                              id,
+                            ),
+                          );
                         }
                       },
               ),
@@ -524,75 +583,95 @@ class _MedicationHomeState extends State<MedicationHome>
       }
     }
     return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-        children: [
-          _sectionTitle('نوبت‌های امروز'),
-          const SizedBox(height: 5),
-          Text(
-            'ثبت‌های این بخش فقط اعلام شما هستند، نه تأیید پزشکی مصرف.',
-            style: TextStyle(color: Colors.blueGrey.shade700),
-          ),
-          const SizedBox(height: 12),
-          if (_doses.isNotEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('خلاصه امروز',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: taken / _doses.length,
-                        minHeight: 7,
-                        backgroundColor: const Color(0xFFE4F0EE),
-                        color: _deepTeal,
-                      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+      children: [
+        _sectionTitle('نوبت‌های امروز'),
+        const SizedBox(height: 5),
+        Text(
+          'ثبت‌های این بخش فقط اعلام شما هستند، نه تأیید پزشکی مصرف.',
+          style: TextStyle(color: Colors.blueGrey.shade700),
+        ),
+        const SizedBox(height: 12),
+        if (_doses.isNotEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'خلاصه امروز',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: taken / _doses.length,
+                      minHeight: 7,
+                      backgroundColor: const Color(0xFFE4F0EE),
+                      color: _deepTeal,
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(spacing: 8, runSpacing: 6, children: [
-                      Chip(label: Text('مصرف‌شده: $taken')),
-                      Chip(label: Text('ثبت‌نشده: $pending')),
-                      Chip(label: Text('سایر وضعیت‌ها: $other')),
-                    ]),
-                    if (nextDose != null) ...[
-                      const SizedBox(height: 8),
-                      Text('نوبت بعدی: ${nextDose.medication.name} — '
-                          '${_clock(TimeOfDay.fromDateTime(nextDose.scheduledAt))}'),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      Chip(
+                        label: Text(
+                          PersianDate.persianDigits('مصرف‌شده: $taken'),
+                        ),
+                      ),
+                      Chip(
+                        label: Text(
+                          PersianDate.persianDigits('ثبت‌نشده: $pending'),
+                        ),
+                      ),
+                      Chip(
+                        label: Text(
+                          PersianDate.persianDigits('سایر وضعیت‌ها: $other'),
+                        ),
+                      ),
                     ],
+                  ),
+                  if (nextDose != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'نوبت بعدی: ${nextDose.medication.name} — '
+                      '${_clock(TimeOfDay.fromDateTime(nextDose.scheduledAt))}',
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
-          if (_doses.isEmpty)
-            _emptyCard(
-              'هنوز دارویی ثبت نکرده‌اید.',
-              'برای شروع، دارو و زمان آن را طبق نسخه وارد کنید.',
-              'افزودن اولین دارو',
-              () => setState(() => _tab = 1),
-            ),
-          for (final dose in _doses) _doseCard(dose),
-          if (_doses.isNotEmpty)
-            OutlinedButton.icon(
-              onPressed: _saving ? null : _addMedication,
-              icon: const Icon(Icons.add_circle_outline),
-              label: const Text('افزودن داروی جدید'),
-            ),
-          const SizedBox(height: 16),
-          const _InfoNote(
-            'یادآوری را از «بیشتر» فعال کنید. کسر موجودی فقط پس از تأیید مقدار واقعی انجام می‌شود.',
           ),
-          const SizedBox(height: 12),
-          FilledButton.tonalIcon(
-            onPressed: _openCareHub,
-            icon: const Icon(Icons.event_note_outlined),
-            label: const Text('کارهای پیگیری، ویزیت‌ها و سؤال‌های پزشک'),
+        if (_doses.isEmpty)
+          _emptyCard(
+            'هنوز دارویی ثبت نکرده‌اید.',
+            'برای شروع، دارو و زمان آن را طبق نسخه وارد کنید.',
+            'افزودن اولین دارو',
+            () => setState(() => _tab = 1),
           ),
-        ],
-      );
+        for (final dose in _doses) _doseCard(dose),
+        if (_doses.isNotEmpty)
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _addMedication,
+            icon: const Icon(Icons.add_circle_outline),
+            label: const Text('افزودن داروی جدید'),
+          ),
+        const SizedBox(height: 16),
+        const _InfoNote(
+          'یادآوری را از «بیشتر» فعال کنید. کسر موجودی فقط پس از تأیید مقدار واقعی انجام می‌شود.',
+        ),
+        const SizedBox(height: 12),
+        FilledButton.tonalIcon(
+          onPressed: _openCareHub,
+          icon: const Icon(Icons.event_note_outlined),
+          label: const Text('کارهای پیگیری، ویزیت‌ها و سؤال‌های پزشک'),
+        ),
+      ],
+    );
   }
 
   Widget _doseCard(DailyDose dose) {
@@ -614,14 +693,18 @@ class _MedicationHomeState extends State<MedicationHome>
                 const Icon(Icons.medication_outlined, color: _deepTeal),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(dose.medication.name,
-                      style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    dose.medication.name,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 Text(_clock(TimeOfDay.fromDateTime(dose.scheduledAt))),
               ],
             ),
             const SizedBox(height: 8),
-            Text('طبق ثبت شما: ${dose.plan.doseText}'),
+            Text(
+              'طبق ثبت شما: ${PersianDate.persianDigits(dose.plan.doseText)}',
+            ),
             if (dose.status == 'taken')
               Text(
                 dose.stockDebited
@@ -630,26 +713,34 @@ class _MedicationHomeState extends State<MedicationHome>
                 style: TextStyle(color: Colors.blueGrey.shade700),
               ),
             if (_stocks[dose.medication.id]?.lowStock == true)
-              const Text('هشدار: موجودی بسته انتخاب‌شده کم است.',
-                  style: TextStyle(color: Colors.deepOrange)),
+              const Text(
+                'هشدار: موجودی بسته انتخاب‌شده کم است.',
+                style: TextStyle(color: Colors.deepOrange),
+              ),
             const SizedBox(height: 8),
-            Row(children: [
-              Icon(status.$2, color: status.$3, size: 20),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(status.$1,
+            Row(
+              children: [
+                Icon(status.$2, color: status.$3, size: 20),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    status.$1,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: status.$3)),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text('برای ${_active!.displayName}',
+                    style: TextStyle(color: status.$3),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'برای ${_active!.displayName}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end),
-              ),
-            ]),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             if (dose.status == 'pending') ...[
               FilledButton.icon(
@@ -657,16 +748,19 @@ class _MedicationHomeState extends State<MedicationHome>
                 icon: const Icon(Icons.check),
                 label: const Text('مصرف کردم'),
               ),
-              Wrap(spacing: 8, children: [
-                TextButton(
-                  onPressed: _saving ? null : () => _mark(dose, 'skipped'),
-                  child: const Text('مصرف نکردم'),
-                ),
-                TextButton(
-                  onPressed: _saving ? null : () => _mark(dose, 'unknown'),
-                  child: const Text('مطمئن نیستم'),
-                ),
-              ]),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: _saving ? null : () => _mark(dose, 'skipped'),
+                    child: const Text('مصرف نکردم'),
+                  ),
+                  TextButton(
+                    onPressed: _saving ? null : () => _mark(dose, 'unknown'),
+                    child: const Text('مطمئن نیستم'),
+                  ),
+                ],
+              ),
             ] else
               OutlinedButton.icon(
                 onPressed: _saving ? null : () => _mark(dose, 'undo'),
@@ -685,99 +779,118 @@ class _MedicationHomeState extends State<MedicationHome>
         .where((med) => _normalizeMedicineSearch(med.name).contains(query))
         .toList();
     return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-        children: [
-          Row(children: [
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+      children: [
+        Row(
+          children: [
             Expanded(child: _sectionTitle('داروهای ${_active!.displayName}')),
             if (_medications.isNotEmpty)
               IconButton(
-                tooltip: _searchVisible ? 'بستن جست‌وجوی دارو' : 'جست‌وجوی دارو',
+                tooltip: _searchVisible
+                    ? 'بستن جست‌وجوی دارو'
+                    : 'جست‌وجوی دارو',
                 icon: Icon(_searchVisible ? Icons.close : Icons.search),
                 onPressed: () => setState(() {
                   _searchVisible = !_searchVisible;
                   if (!_searchVisible) _medicineSearch.clear();
                 }),
               ),
-          ]),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Text('برای ویرایش یا بایگانی، منوی سه‌نقطه هر دارو را باز کنید.'),
+        if (_searchVisible) ...[
           const SizedBox(height: 10),
-          const Text(
-            'برای ویرایش یا بایگانی، منوی سه‌نقطه هر دارو را باز کنید.',
-          ),
-          if (_searchVisible) ...[
-            const SizedBox(height: 10),
-            TextField(
-              key: const ValueKey('medication-search-field'),
-              controller: _medicineSearch,
-              onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                labelText: 'جست‌وجوی نام دارو',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
+          TextField(
+            key: const ValueKey('medication-search-field'),
+            controller: _medicineSearch,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'جست‌وجوی نام دارو',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
             ),
-          ],
-          const SizedBox(height: 12),
-          if (_medications.isEmpty)
-            _emptyCard(
-              'فهرست دارو خالی است.',
-              'نام دارو و ساعت‌های روزانه را طبق نسخه وارد کنید.',
-              'افزودن دارو',
-              _addMedication,
-            )
-          else if (visible.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('دارویی با این نام پیدا نشد.'),
-              ),
-            ),
-          for (final med in visible) _medicationCard(med),
-          const SizedBox(height: 12),
-          TextButton.icon(
-            onPressed: () => setState(() => _showArchived = !_showArchived),
-            icon: Icon(_showArchived
-                ? Icons.expand_less
-                : Icons.inventory_2_outlined),
-            label: Text(_showArchived
-                ? 'پنهان کردن بایگانی'
-                : 'نمایش بایگانی (${_archivedMedications.length})'),
-          ),
-          if (_showArchived) ...[
-            if (_archivedMedications.isEmpty)
-              const ListTile(title: Text('هنوز دارویی بایگانی نشده است.')),
-            for (final med in _archivedMedications)
-              Card(
-                child: ListTile(
-                  title: Text(med.name),
-                  subtitle: const Text('بایگانی‌شده؛ سوابق مصرف نگهداری می‌شوند'),
-                  trailing: TextButton(
-                    onPressed: _saving ? null : () => _restoreMedication(med),
-                    child: const Text('بازیابی'),
-                  ),
-                ),
-              ),
-          ],
-          const SizedBox(height: 12),
-          const _InfoNote(
-            'ویرایش برنامه روزانه از فردا اعمال می‌شود. '
-            'ثبت‌های قبلی حفظ می‌شوند؛ یادآورها با فعال‌سازی در بخش «بیشتر» هماهنگ می‌شوند.',
           ),
         ],
-      );
+        const SizedBox(height: 12),
+        if (_medications.isEmpty)
+          _emptyCard(
+            'فهرست دارو خالی است.',
+            'نام دارو و ساعت‌های روزانه را طبق نسخه وارد کنید.',
+            'افزودن دارو',
+            _addMedication,
+          )
+        else if (visible.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('دارویی با این نام پیدا نشد.'),
+            ),
+          ),
+        for (final med in visible) _medicationCard(med),
+        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: () => setState(() => _showArchived = !_showArchived),
+          icon: Icon(
+            _showArchived ? Icons.expand_less : Icons.inventory_2_outlined,
+          ),
+          label: Text(
+            _showArchived
+                ? 'پنهان کردن بایگانی'
+                : PersianDate.persianDigits(
+                    'نمایش بایگانی (${_archivedMedications.length})',
+                  ),
+          ),
+        ),
+        if (_showArchived) ...[
+          if (_archivedMedications.isEmpty)
+            const ListTile(title: Text('هنوز دارویی بایگانی نشده است.')),
+          for (final med in _archivedMedications)
+            Card(
+              child: ListTile(
+                title: Text(med.name),
+                subtitle: const Text('بایگانی‌شده؛ سوابق مصرف نگهداری می‌شوند'),
+                trailing: TextButton(
+                  onPressed: _saving ? null : () => _restoreMedication(med),
+                  child: const Text('بازیابی'),
+                ),
+              ),
+            ),
+        ],
+        const SizedBox(height: 12),
+        const _InfoNote(
+          'ویرایش برنامه روزانه از فردا اعمال می‌شود. '
+          'ثبت‌های قبلی حفظ می‌شوند؛ یادآورها با فعال‌سازی در بخش «بیشتر» هماهنگ می‌شوند.',
+        ),
+      ],
+    );
   }
 
   Widget _medicationCard(Medication med) {
-    final slots = _doses
+    final todaySlots = _doses
         .where((dose) => dose.medication.id == med.id)
         .toList();
+    final nextDaySlots = _nextDayDoses
+        .where((dose) => dose.medication.id == med.id)
+        .toList();
+    // A schedule edit intentionally takes effect tomorrow. Show the newly
+    // saved schedule on the card immediately, while keeping today's original
+    // occurrence keys and dose history unchanged.
+    final hasPendingSchedule =
+        todaySlots.isNotEmpty &&
+        nextDaySlots.isNotEmpty &&
+        todaySlots.first.plan.version != nextDaySlots.first.plan.version;
+    final slots = hasPendingSchedule ? nextDaySlots : todaySlots;
     final stock = _stocks[med.id];
     final selected = stock?.selected;
     final stockLine = selected == null
         ? 'موجودی بسته انتخاب نشده'
-        : 'بسته: ${selected.package.label} — '
-          '${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}'
-          '${selected.expired ? ' (منقضی)' : ''}'
-          '${stock!.lowStock ? ' (هشدار کمبود)' : ''}';
+        : PersianDate.persianDigits(
+            'بسته: ${selected.package.label} — '
+            '${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}'
+            '${selected.expired ? ' (منقضی)' : ''}'
+            '${stock!.lowStock ? ' (هشدار کمبود)' : ''}',
+          );
     final lowStock = stock?.lowStock == true;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -786,40 +899,57 @@ class _MedicationHomeState extends State<MedicationHome>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              const CircleAvatar(
-                backgroundColor: Color(0xFFE0F8F5),
-                child: Icon(Icons.medication_outlined, color: _deepTeal),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
+            Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: Color(0xFFE0F8F5),
+                  child: Icon(Icons.medication_outlined, color: _deepTeal),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    med.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'گزینه‌های دارو',
+                  enabled: !_saving,
+                  onSelected: (value) {
+                    if (value == 'stock') {
+                      _openStock(med);
+                    } else if (value == 'edit') {
+                      _editMedication(med);
+                    } else if (value == 'archive') {
+                      _archiveMedication(med);
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'stock',
+                      child: Text('موجودی و بسته‌ها'),
+                    ),
+                    PopupMenuItem(value: 'edit', child: Text('ویرایش')),
+                    PopupMenuItem(value: 'archive', child: Text('بایگانی')),
+                  ],
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+            if (hasPendingSchedule) ...[
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
                 child: Text(
-                  med.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  'برنامه جدید — از فردا',
+                  style: TextStyle(
+                    color: _deepTeal,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              PopupMenuButton<String>(
-                tooltip: 'گزینه‌های دارو',
-                enabled: !_saving,
-                onSelected: (value) {
-                  if (value == 'stock') {
-                    _openStock(med);
-                  } else if (value == 'edit') {
-                    _editMedication(med);
-                  } else if (value == 'archive') {
-                    _archiveMedication(med);
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'stock', child: Text('موجودی و بسته‌ها')),
-                  PopupMenuItem(value: 'edit', child: Text('ویرایش')),
-                  PopupMenuItem(value: 'archive', child: Text('بایگانی')),
-                ],
-              ),
-            ]),
-            const Divider(height: 20),
+            ],
             if (slots.isEmpty)
               const Text('برنامهٔ روزانه ثبت شده است.')
             else
@@ -829,18 +959,31 @@ class _MedicationHomeState extends State<MedicationHome>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.schedule_outlined,
-                          size: 18, color: _deepTeal),
+                      const Icon(
+                        Icons.schedule_outlined,
+                        size: 18,
+                        color: _deepTeal,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))} — '
-                          '${dose.plan.doseText}',
+                          PersianDate.persianDigits(
+                            '${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))} — '
+                            '${dose.plan.doseText}',
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
+            if (hasPendingSchedule)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                  'نوبت‌های امروز طبق برنامه قبلی ثبت می‌شوند.',
+                  style: TextStyle(fontSize: 12, color: Colors.blueGrey),
+                ),
+              ),
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
@@ -851,15 +994,17 @@ class _MedicationHomeState extends State<MedicationHome>
                     : const Color(0xFFEAF7F4),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(children: [
-                Icon(
-                  Icons.inventory_2_outlined,
-                  color: lowStock ? Colors.deepOrange : _deepTeal,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Expanded(child: Text(stockLine)),
-              ]),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    color: lowStock ? Colors.deepOrange : _deepTeal,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(stockLine)),
+                ],
+              ),
             ),
           ],
         ),
@@ -868,146 +1013,163 @@ class _MedicationHomeState extends State<MedicationHome>
   }
 
   Widget _moreTab() => ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _sectionTitle('پشتیبان‌گیری'),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _saving
+    padding: const EdgeInsets.all(16),
+    children: [
+      _sectionTitle('پشتیبان‌گیری'),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: _saving
+            ? null
+            : () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      SecureBackupScreen(database: widget.repository.db),
+                ),
+              ),
+        icon: const Icon(Icons.enhanced_encryption_outlined),
+        label: const Text('ساخت پشتیبان رمزگذاری‌شده'),
+      ),
+      const Text(
+        'در نسخهٔ بتا ساخت پشتیبان و بررسی فایل امکان‌پذیر است؛ بازیابی اطلاعات هنوز فعال نیست.',
+      ),
+      const SizedBox(height: 20),
+      _sectionTitle('پیگیری‌ها و ویزیت‌ها'),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: _openCareHub,
+        icon: const Icon(Icons.event_available_outlined),
+        label: const Text('باز کردن کارها و چک‌لیست ویزیت'),
+      ),
+      if (_careReminderError != null)
+        Text(
+          'اشکال در اعلان‌های پیگیری: $_careReminderError',
+          style: const TextStyle(color: Colors.deepOrange),
+        ),
+      const SizedBox(height: 20),
+      _sectionTitle('پروفایل‌های محلی'),
+      const SizedBox(height: 12),
+      for (final profile in _profiles)
+        Card(
+          child: ListTile(
+            title: Text(profile.displayName),
+            subtitle: Text(
+              profile.kind == 'self' ? 'برای خودم' : 'تحت مدیریت من',
+            ),
+            trailing: profile.id == _active?.id
+                ? const Icon(Icons.check_circle, color: _deepTeal)
+                : const Icon(Icons.chevron_left),
+            onTap: profile.id == _active?.id || _saving
                 ? null
-                : () => Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) =>
-                          SecureBackupScreen(database: widget.repository.db),
-                    )),
-            icon: const Icon(Icons.enhanced_encryption_outlined),
-            label: const Text('ساخت پشتیبان رمزگذاری‌شده'),
-          ),
-          const Text('در نسخهٔ بتا ساخت پشتیبان و بررسی فایل امکان‌پذیر است؛ بازیابی اطلاعات هنوز فعال نیست.'),
-          const SizedBox(height: 20),
-          _sectionTitle('پیگیری‌ها و ویزیت‌ها'),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _openCareHub,
-            icon: const Icon(Icons.event_available_outlined),
-            label: const Text('باز کردن کارها و چک‌لیست ویزیت'),
-          ),
-          if (_careReminderError != null)
-            Text('اشکال در اعلان‌های پیگیری: $_careReminderError',
-                style: const TextStyle(color: Colors.deepOrange)),
-          const SizedBox(height: 20),
-          _sectionTitle('پروفایل‌های محلی'),
-          const SizedBox(height: 12),
-          for (final profile in _profiles)
-            Card(
-              child: ListTile(
-                title: Text(profile.displayName),
-                subtitle: Text(profile.kind == 'self' ? 'برای خودم' : 'تحت مدیریت من'),
-                trailing: profile.id == _active?.id
-                    ? const Icon(Icons.check_circle, color: _deepTeal)
-                    : const Icon(Icons.chevron_left),
-                onTap: profile.id == _active?.id || _saving
-                    ? null
-                    : () => _perform(() =>
-                        widget.profileRepository.selectActiveProfile(profile.id)),
-              ),
-            ),
-          const SizedBox(height: 12),
-          FilledButton.tonalIcon(
-            onPressed: _saving ? null : () => _startGuest(false),
-            icon: const Icon(Icons.person_add_alt_1_outlined),
-            label: const Text('افزودن پروفایل عزیزانم'),
-          ),
-          const SizedBox(height: 24),
-          _sectionTitle('یادآوری دارو'),
-          const SizedBox(height: 8),
-          Text(_remindersEnabled
-              ? 'فعال: یادآورها برای همه پروفایل‌های محلی تنظیم می‌شوند.'
-              : 'غیرفعال: تا اجازه ندهید، یادآور دارو ثبت نمی‌شود.'),
-          const SizedBox(height: 10),
-          if (_reminderError != null)
-            Text(
-              'اشکال در یادآوری: $_reminderError',
-              style: const TextStyle(color: Colors.deepOrange),
-            ),
-          const SizedBox(height: 8),
-          if (widget.reminderCoordinator != null) ...[
-            if (!_remindersEnabled)
-              FilledButton.icon(
-                onPressed: _saving ? null : _enableReminders,
-                icon: const Icon(Icons.notifications_active_outlined),
-                label: const Text('فعال‌سازی یادآوری دارو'),
-              )
-            else ...[
-              FilledButton.tonalIcon(
-                onPressed: _saving ? null : _testReminders,
-                icon: const Icon(Icons.timer_outlined),
-                label: const Text('تست اعلان — ۵ ثانیه دیگر'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _saving ? null : _disableReminders,
-                icon: const Icon(Icons.notifications_off_outlined),
-                label: const Text('خاموش کردن یادآورها'),
-              ),
-            ],
-          ],
-          const SizedBox(height: 8),
-          const Text(
-            'آلارم دقیق و مجوز اعلان لازم‌اند. اعلان‌ها معمولی و خصوصی‌اند؛ '
-            'به‌صورت تمام‌صفحه باز نمی‌شوند. '
-            'یادآورها ممکن است با محدودیت باتری یا تنظیمات گوشی به تأخیر بیفتند؛ جایگزین مراقبت پزشکی نیستند.',
-          ),
-          const SizedBox(height: 20),
-          _sectionTitle('ورود متن فارسی'),
-          const SizedBox(height: 8),
-          const Text(
-            'فیلدهای برنامه حروف فارسی را می‌پذیرند. اگر فقط انگلیسی می‌بینید، '
-            'در کیبورد گوشی زبان فارسی را فعال کنید. '
-            'پس از افزودن فارسی در Gboard، با نگه‌داشتن کلید فاصله زبان را عوض کنید.',
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _openKeyboardSettings,
-            icon: const Icon(Icons.keyboard_outlined),
-            label: const Text('بازکردن تنظیمات زبان کیبورد'),
-          ),
-          const SizedBox(height: 20),
-          _sectionTitle('درباره برنامه'),
-          const SizedBox(height: 8),
-          const Text('همراه دارو — بتا ۰.۳.۰'),
-          Text(_betaRunNumber == 'محلی'
-              ? 'ساخت محلی'
-              : 'شماره ساخت آزمایشی: CI$_betaRunNumber'),
-          const SizedBox(height: 12),
-          const _InfoNote(
-            'این نسخهٔ بتای خصوصی است؛ داده‌ها فقط روی همین دستگاه‌اند. حساب آنلاین، همگام‌سازی و بازیابی پشتیبان فعال نیستند. برای مصرف دارو به اعلان برنامه به‌تنهایی تکیه نکنید.',
-          ),
-        ],
-      );
-
-  Widget _emptyCard(String title, String description, String button,
-      VoidCallback onTap) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 6),
-              Text(description),
-              const SizedBox(height: 14),
-              FilledButton(onPressed: onTap, child: Text(button)),
-            ],
+                : () => _perform(
+                    () => widget.profileRepository.selectActiveProfile(
+                      profile.id,
+                    ),
+                  ),
           ),
         ),
-      );
+      const SizedBox(height: 12),
+      FilledButton.tonalIcon(
+        onPressed: _saving ? null : () => _startGuest(false),
+        icon: const Icon(Icons.person_add_alt_1_outlined),
+        label: const Text('افزودن پروفایل عزیزانم'),
+      ),
+      const SizedBox(height: 24),
+      _sectionTitle('یادآوری دارو'),
+      const SizedBox(height: 8),
+      Text(
+        _remindersEnabled
+            ? 'فعال: یادآورها برای همه پروفایل‌های محلی تنظیم می‌شوند.'
+            : 'غیرفعال: تا اجازه ندهید، یادآور دارو ثبت نمی‌شود.',
+      ),
+      const SizedBox(height: 10),
+      if (_reminderError != null)
+        Text(
+          'اشکال در یادآوری: $_reminderError',
+          style: const TextStyle(color: Colors.deepOrange),
+        ),
+      const SizedBox(height: 8),
+      if (widget.reminderCoordinator != null) ...[
+        if (!_remindersEnabled)
+          FilledButton.icon(
+            onPressed: _saving ? null : _enableReminders,
+            icon: const Icon(Icons.notifications_active_outlined),
+            label: const Text('فعال‌سازی یادآوری دارو'),
+          )
+        else ...[
+          FilledButton.tonalIcon(
+            onPressed: _saving ? null : _testReminders,
+            icon: const Icon(Icons.timer_outlined),
+            label: const Text('تست اعلان — ۵ ثانیه دیگر'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _disableReminders,
+            icon: const Icon(Icons.notifications_off_outlined),
+            label: const Text('خاموش کردن یادآورها'),
+          ),
+        ],
+      ],
+      const SizedBox(height: 8),
+      const Text(
+        'آلارم دقیق و مجوز اعلان لازم‌اند. اعلان‌ها معمولی و خصوصی‌اند؛ '
+        'به‌صورت تمام‌صفحه باز نمی‌شوند. '
+        'یادآورها ممکن است با محدودیت باتری یا تنظیمات گوشی به تأخیر بیفتند؛ جایگزین مراقبت پزشکی نیستند.',
+      ),
+      const SizedBox(height: 20),
+      _sectionTitle('ورود متن فارسی'),
+      const SizedBox(height: 8),
+      const Text(
+        'فیلدهای برنامه حروف فارسی را می‌پذیرند. اگر فقط انگلیسی می‌بینید، '
+        'در کیبورد گوشی زبان فارسی را فعال کنید. '
+        'پس از افزودن فارسی در Gboard، با نگه‌داشتن کلید فاصله زبان را عوض کنید.',
+      ),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: _openKeyboardSettings,
+        icon: const Icon(Icons.keyboard_outlined),
+        label: const Text('بازکردن تنظیمات زبان کیبورد'),
+      ),
+      const SizedBox(height: 20),
+      _sectionTitle('درباره برنامه'),
+      const SizedBox(height: 8),
+      const Text('همراه دارو — بتا ۰.۳.۰'),
+      Text(
+        _betaRunNumber == 'محلی'
+            ? 'ساخت محلی'
+            : 'شماره ساخت آزمایشی: CI$_betaRunNumber',
+      ),
+      const SizedBox(height: 12),
+      const _InfoNote(
+        'این نسخهٔ بتای خصوصی است؛ داده‌ها فقط روی همین دستگاه‌اند. حساب آنلاین، همگام‌سازی و بازیابی پشتیبان فعال نیستند. برای مصرف دارو به اعلان برنامه به‌تنهایی تکیه نکنید.',
+      ),
+    ],
+  );
+
+  Widget _emptyCard(
+    String title,
+    String description,
+    String button,
+    VoidCallback onTap,
+  ) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(description),
+          const SizedBox(height: 14),
+          FilledButton(onPressed: onTap, child: Text(button)),
+        ],
+      ),
+    ),
+  );
 
   Widget _sectionTitle(String title) => Text(
-        title,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF124B49),
-            ),
-      );
+    title,
+    style: Theme.of(context).textTheme.titleLarge
+        ?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFF124B49)),
+  );
 }
 
 class _InfoNote extends StatelessWidget {
@@ -1016,21 +1178,22 @@ class _InfoNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF6E7),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.info_outline, color: Color(0xFF9A6400)),
-            const SizedBox(width: 9),
-            Expanded(child: Text(message)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF6E7),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.info_outline, color: Color(0xFF9A6400)),
+        const SizedBox(width: 9),
+        Expanded(child: Text(message)),
+      ],
+    ),
+  );
 }
 
-String _clock(TimeOfDay time) =>
-    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+String _clock(TimeOfDay time) => PersianDate.persianDigits(
+  '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+);

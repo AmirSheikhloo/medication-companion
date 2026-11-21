@@ -9,11 +9,7 @@ import 'health_chart.dart';
 import 'health_report_screen.dart';
 
 class HealthTab extends StatefulWidget {
-  const HealthTab({
-    super.key,
-    required this.profile,
-    required this.repository,
-  });
+  const HealthTab({super.key, required this.profile, required this.repository});
 
   final Profile profile;
   final HealthRepository repository;
@@ -78,7 +74,9 @@ class _HealthTabState extends State<HealthTab> {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: _HealthEntryForm(
           initialMetric: original == null
               ? _metric
@@ -106,14 +104,12 @@ class _HealthTabState extends State<HealthTab> {
       setState(() => _metric = draft.metric);
       await _reload();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اندازه‌گیری ذخیره شد.')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('اندازه‌گیری ذخیره شد.')));
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ذخیره انجام نشد: $error')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('ذخیره انجام نشد: $error')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -154,9 +150,8 @@ class _HealthTabState extends State<HealthTab> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('بایگانی انجام نشد: $error')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('بایگانی انجام نشد: $error')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -178,7 +173,10 @@ class _HealthTabState extends State<HealthTab> {
             child: ListView(
               shrinkWrap: true,
               children: [
-                Text('تاریخچه اصلاحات', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'تاریخچه اصلاحات',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 10),
                 for (final v in versions)
                   ListTile(
@@ -214,7 +212,7 @@ class _HealthTabState extends State<HealthTab> {
     final type = HealthMetric.fromCode(metric);
     final value = HealthNumber.format(first);
     final extra = second == null ? '' : '/${HealthNumber.format(second)}';
-    return '$value$extra ${type.unit}';
+    return PersianDate.persianDigits('$value$extra ${type.unit}');
   }
 
   @override
@@ -222,8 +220,10 @@ class _HealthTabState extends State<HealthTab> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       children: [
-        Text('دفترچه سلامت ${widget.profile.displayName}',
-            style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          'دفترچه سلامت ${widget.profile.displayName}',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: 8),
         const Text('فقط اطلاعات ثبت‌شده توسط شما؛ بدون تشخیص یا تفسیر پزشکی.'),
         const SizedBox(height: 14),
@@ -253,7 +253,7 @@ class _HealthTabState extends State<HealthTab> {
               Padding(
                 padding: const EdgeInsetsDirectional.only(end: 7),
                 child: ChoiceChip(
-                  label: Text('$days روز'),
+                  label: Text(PersianDate.persianDigits('$days روز')),
                   selected: _days == days,
                   onSelected: _busy
                       ? null
@@ -276,15 +276,15 @@ class _HealthTabState extends State<HealthTab> {
           onPressed: _busy
               ? null
               : () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => HealthReportScreen(
-                        profile: widget.profile,
-                        metric: _metric,
-                        repository: widget.repository,
-                        initialDays: _days,
-                      ),
+                  MaterialPageRoute<void>(
+                    builder: (_) => HealthReportScreen(
+                      profile: widget.profile,
+                      metric: _metric,
+                      repository: widget.repository,
+                      initialDays: _days,
                     ),
                   ),
+                ),
           icon: const Icon(Icons.monitor_heart_outlined),
           label: const Text('نمودار و نمایش به پزشک'),
         ),
@@ -303,11 +303,19 @@ class _HealthTabState extends State<HealthTab> {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(18),
-              child: Text('در $_days روز گذشته برای ${_metric.label} داده‌ای ثبت نشده است.'),
+              child: Text(
+                PersianDate.persianDigits(
+                  'در $_days روز گذشته برای ${_metric.label} داده‌ای ثبت نشده است.',
+                ),
+              ),
             ),
           )
         else ...[
-          Text('${_records.length} ثبت در $_days روز گذشته'),
+          Text(
+            PersianDate.persianDigits(
+              '${_records.length} ثبت در $_days روز گذشته',
+            ),
+          ),
           const SizedBox(height: 8),
           Card(
             child: Padding(
@@ -319,14 +327,21 @@ class _HealthTabState extends State<HealthTab> {
           for (final record in _records)
             Card(
               child: ListTile(
-                title: Text(_reading(record.metric, record.primaryMilliunits,
-                    record.secondaryMilliunits)),
+                title: Text(
+                  _reading(
+                    record.metric,
+                    record.primaryMilliunits,
+                    record.secondaryMilliunits,
+                  ),
+                ),
                 subtitle: Text(
                   '${healthDateTimeLabel(record.observedAt)}'
                   '${record.context == null ? '' : '\n${_contextLabel(record.context!)}'}'
                   '${record.note == null || record.note!.isEmpty ? '' : '\n${record.note}'}',
                 ),
-                isThreeLine: record.context != null || (record.note?.isNotEmpty ?? false),
+                isThreeLine:
+                    record.context != null ||
+                    (record.note?.isNotEmpty ?? false),
                 trailing: PopupMenuButton<String>(
                   tooltip: 'گزینه‌های اندازه‌گیری',
                   enabled: !_busy,
@@ -337,7 +352,10 @@ class _HealthTabState extends State<HealthTab> {
                   },
                   itemBuilder: (_) => const [
                     PopupMenuItem(value: 'edit', child: Text('اصلاح ثبت')),
-                    PopupMenuItem(value: 'history', child: Text('تاریخچه اصلاحات')),
+                    PopupMenuItem(
+                      value: 'history',
+                      child: Text('تاریخچه اصلاحات'),
+                    ),
                     PopupMenuItem(value: 'archive', child: Text('بایگانی')),
                   ],
                 ),
@@ -389,7 +407,9 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
     _observedAt = original?.observedAt.toLocal() ?? DateTime.now();
     _glucoseContext = original?.context ?? 'other';
     _first = TextEditingController(
-      text: original == null ? '' : HealthNumber.format(original.primaryMilliunits),
+      text: original == null
+          ? ''
+          : HealthNumber.format(original.primaryMilliunits),
     );
     _second = TextEditingController(
       text: original?.secondaryMilliunits == null
@@ -416,8 +436,15 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
       title: 'تاریخ اندازه‌گیری',
     );
     if (!mounted || date == null) return;
-    setState(() => _observedAt = DateTime(
-      date.year, date.month, date.day, _observedAt.hour, _observedAt.minute));
+    setState(
+      () => _observedAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        _observedAt.hour,
+        _observedAt.minute,
+      ),
+    );
   }
 
   Future<void> _pickTime() async {
@@ -426,9 +453,15 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
       initialTime: TimeOfDay.fromDateTime(_observedAt),
     );
     if (!mounted || time == null) return;
-    setState(() => _observedAt = DateTime(
-      _observedAt.year, _observedAt.month, _observedAt.day,
-      time.hour, time.minute));
+    setState(
+      () => _observedAt = DateTime(
+        _observedAt.year,
+        _observedAt.month,
+        _observedAt.day,
+        time.hour,
+        time.minute,
+      ),
+    );
   }
 
   void _save() {
@@ -465,8 +498,10 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.original == null ? 'ثبت اندازه‌گیری' : 'اصلاح اندازه‌گیری',
-              style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            widget.original == null ? 'ثبت اندازه‌گیری' : 'اصلاح اندازه‌گیری',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 10),
           if (widget.original == null)
             DropdownButton<HealthMetric>(
@@ -497,7 +532,9 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
             const SizedBox(height: 10),
             TextField(
               controller: _second,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: 'عدد پایینی فشار (mmHg)',
@@ -536,8 +573,10 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
               ),
             ],
           ),
-          Text('شمسی: ${persianDateLabel(_observedAt, showTime: true)}'
-              ' · میلادی: ${healthDateTimeLabel(_observedAt)}'),
+          Text(
+            'شمسی: ${persianDateLabel(_observedAt, showTime: true)}'
+            ' · میلادی: ${healthDateTimeLabel(_observedAt)}',
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _note,
