@@ -18,7 +18,7 @@ void main() {
       ),
     );
     final theme = tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!;
-    expect(theme.fontFamily, 'NotoSansArabic');
+    expect(theme.appBarTheme.titleTextStyle?.fontFamily, 'NotoSansArabic');
     expect(theme.colorScheme.primary, AppColors.primary);
     expect(theme.scaffoldBackgroundColor, AppColors.background);
     await tester.pumpAndSettle();

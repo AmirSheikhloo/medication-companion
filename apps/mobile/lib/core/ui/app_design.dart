@@ -27,8 +27,8 @@ class AppSectionHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      if (icon != null) ...[
-        Icon(icon, color: AppColors.primary, size: 21),
+      if (icon case final IconData iconValue) ...[
+        Icon(iconValue, color: AppColors.primary, size: 21),
         const SizedBox(width: 8),
       ],
       Expanded(
