@@ -166,6 +166,17 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   Future<void> _add() async {
     await _run(() async {
       final initial = StockQuantity.parseNonNegative(_initial.text);
+      // A past expiry should be reported explicitly before the user saves.
+      // Month-only dates remain valid through their last calendar day.
+      if (_expiry != null && StockQuantity.isExpired(
+        StockQuantity.isoDate(_precision == 'month'
+            ? DateTime(_expiry!.year, _expiry!.month) : _expiry!),
+        _precision,
+        DateTime.now(),
+      )) {
+        throw StateError('تاریخ انقضای واردشده گذشته است. '
+            'اگر تاریخ را درست وارد کرده‌اید، از مصرف این دارو خودداری کنید.');
+      }
       await widget.repository.addPackage(
         profileId: widget.profileId,
         medicationId: widget.medication.id,
