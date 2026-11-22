@@ -41,7 +41,9 @@ void main() {
     await tester.enterText(find.byKey(const Key('medication-name-field')),
       'داروی آزمایشی');
     await tester.scrollUntilVisible(
-      find.byKey(const Key('med-stock-1')), 220);
+      find.byKey(const Key('med-stock-1')), 220,
+      scrollable: find.descendant(of: find.byType(ListView).first,
+        matching: find.byType(Scrollable)).first);
     await tester.enterText(find.byKey(const Key('med-stock-1')), '10');
     await tester.tap(find.text('ثبت دارو'));
     await tester.pumpAndSettle();
