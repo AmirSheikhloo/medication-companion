@@ -1059,18 +1059,7 @@ class _MedicationHomeState extends State<MedicationHome>
             style: TextStyle(fontFamily: 'Vazirmatn',
               fontSize: 12, color: AppColors.muted)),
         ] else ...[
-          AppStatusPill(
-            text: switch (dose.status) {
-              'taken' => 'این نوبت مصرف شده است',
-              'skipped' => 'مصرف این نوبت ثبت نشده است',
-              _ => 'وضعیت این نوبت نامشخص ثبت شده است',
-            },
-            icon: dose.status == 'taken'
-                ? Icons.check_circle : Icons.info_outline,
-            color: dose.status == 'taken' ? AppColors.success
-                : dose.status == 'skipped' ? const Color(0xFFC23F43)
-                : const Color(0xFF996116),
-          ),
+          TodayRecordedOutcomeBanner(status: dose.status),
           const SizedBox(height: 10),
           FilledButton.icon(
             key: Key('today-undo-${dose.occurrenceKey}'),
