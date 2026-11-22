@@ -5,10 +5,11 @@ import '../../../core/storage/app_database.dart';
 import '../domain/stock_quantity.dart';
 
 class PackageBalance {
-  const PackageBalance(this.package, this.balanceMilliunits);
+  const PackageBalance(this.package, this.balanceMilliunits, {this.archived = false});
 
   final StockPackage package;
   final int balanceMilliunits;
+  final bool archived;
 
   bool get expired =>
       StockQuantity.isExpired(package.expiryIso, package.expiryPrecision, DateTime.now());
@@ -27,7 +28,7 @@ class StockSummary {
 
   PackageBalance? get selected {
     for (final pack in packages) {
-      if (pack.package.id == selectedPackageId) return pack;
+      if (pack.package.id == selectedPackageId && !pack.archived) return pack;
     }
     return null;
   }
@@ -47,6 +48,15 @@ class InventoryRepository {
 
   final AppDatabase db;
   final Uuid _uuid = Uuid();
+
+  String _archiveKey(String profileId, String medicationId, String packageId) =>
+      'stock-package-archived:v1:$profileId:$medicationId:$packageId';
+
+  Future<bool> _isArchived(String profileId, String medicationId,
+      String packageId) async =>
+      await (db.select(db.appSettings)..where((s) => s.key.equals(
+        _archiveKey(profileId, medicationId, packageId)))).getSingleOrNull()
+          != null;
 
   Future<Medication> _ownedMedication(String profileId, String medicationId) async {
     final med = await (db.select(db.medications)
@@ -102,6 +112,12 @@ class InventoryRepository {
           ..where((t) => t.profileId.equals(profileId) &
               t.medicationId.equals(medicationId)))
         .get();
+    final archiveKeys = [for (final pack in packs)
+      _archiveKey(profileId, medicationId, pack.id)];
+    final archivedRows = archiveKeys.isEmpty ? <AppSetting>[] :
+        await (db.select(db.appSettings)
+          ..where((s) => s.key.isIn(archiveKeys))).get();
+    final archivedKeys = archivedRows.map((row) => row.key).toSet();
     final balances = <String, int>{};
     for (final row in movements) {
       balances.update(row.packageId, (v) => v + row.deltaMilliunits,
@@ -121,7 +137,9 @@ class InventoryRepository {
     ];
     return StockSummary(
       packages: [for (final pack in packs)
-        PackageBalance(pack, balances[pack.id] ?? 0)],
+        PackageBalance(pack, balances[pack.id] ?? 0,
+          archived: archivedKeys.contains(_archiveKey(
+            profileId, medicationId, pack.id)))],
       selectedPackageId: selected?.packageId,
       // Never re-interpret a threshold for tablets as millilitres or vice versa.
       thresholdMilliunits: rule != null &&
@@ -219,6 +237,9 @@ class InventoryRepository {
   }) async {
     await db.transaction(() async {
       final pack = await _ownedPackage(profileId, medicationId, packageId);
+      if (await _isArchived(profileId, medicationId, packageId)) {
+        throw StateError('بستهٔ بایگانی‌شده قابل انتخاب برای مصرف نیست.');
+      }
       if (StockQuantity.isExpired(
           pack.expiryIso, pack.expiryPrecision, DateTime.now())) {
         throw StateError('این بسته منقضی شده است.');
@@ -230,6 +251,98 @@ class InventoryRepository {
           packageId: packageId,
         ),
       );
+    });
+  }
+
+  /// Package metadata can be corrected without rewriting historic movements.
+  /// Record the correction as a zero-quantity audit event.
+  Future<void> editPackage({
+    required String profileId,
+    required String medicationId,
+    required String packageId,
+    required String label,
+    String? expiryIso,
+    String expiryPrecision = 'none',
+  }) async {
+    if (label.trim().isEmpty || label.trim().length > 80 ||
+        !{'none', 'day', 'month'}.contains(expiryPrecision) ||
+        (expiryPrecision == 'none') != (expiryIso == null)) {
+      throw ArgumentError('نام بسته یا تاریخ انقضا معتبر نیست.');
+    }
+    if (expiryIso != null) StockQuantity.parseIso(expiryIso);
+    await db.transaction(() async {
+      final pack = await _ownedPackage(profileId, medicationId, packageId);
+      if (await _isArchived(profileId, medicationId, packageId)) {
+        throw StateError('برای ویرایش، ابتدا بسته را از بایگانی برگردان.');
+      }
+      if (StockQuantity.isExpired(expiryIso, expiryPrecision, DateTime.now())) {
+        throw StateError('تاریخ انقضا گذشته است؛ از مصرف داروی منقضی خودداری کن.');
+      }
+      if (pack.label == label.trim() && pack.expiryIso == expiryIso &&
+          pack.expiryPrecision == expiryPrecision) return;
+      await (db.update(db.stockPackages)
+            ..where((t) => t.id.equals(packageId) &
+              t.profileId.equals(profileId) &
+              t.medicationId.equals(medicationId)))
+          .write(StockPackagesCompanion(
+            label: Value(label.trim()), expiryIso: Value(expiryIso),
+            expiryPrecision: Value(expiryPrecision)));
+      await _insertMovement(profileId: profileId, medicationId: medicationId,
+        packageId: packageId, kind: 'metadata', delta: 0,
+        note: 'اصلاح مشخصات بسته: ${pack.label} / ${pack.expiryIso ?? 'بدون انقضا'}'
+          ' ← ${label.trim()} / ${expiryIso ?? 'بدون انقضا'}');
+    });
+  }
+
+  /// Soft archive keeps consumption and stock history intact.
+  Future<void> archivePackage({required String profileId,
+      required String medicationId, required String packageId}) async {
+    await db.transaction(() async {
+      await _ownedPackage(profileId, medicationId, packageId);
+      await db.into(db.appSettings).insertOnConflictUpdate(
+        AppSettingsCompanion.insert(key: _archiveKey(
+            profileId, medicationId, packageId), value: '1'));
+      await (db.delete(db.stockSelections)..where((s) =>
+        s.profileId.equals(profileId) & s.medicationId.equals(medicationId) &
+        s.packageId.equals(packageId))).go();
+      await _insertMovement(profileId: profileId, medicationId: medicationId,
+        packageId: packageId, kind: 'metadata', delta: 0,
+        note: 'بسته بایگانی شد');
+    });
+  }
+
+  Future<void> restorePackage({required String profileId,
+      required String medicationId, required String packageId}) async {
+    await db.transaction(() async {
+      await _ownedPackage(profileId, medicationId, packageId);
+      await (db.delete(db.appSettings)..where((s) => s.key.equals(
+        _archiveKey(profileId, medicationId, packageId)))).go();
+      await _insertMovement(profileId: profileId, medicationId: medicationId,
+        packageId: packageId, kind: 'metadata', delta: 0,
+        note: 'بسته از بایگانی بازگردانده شد');
+    });
+  }
+
+  /// Only truly unused packages may be permanently removed. A package with
+  /// ledger entries must be archived so dose/stock records are never lost.
+  Future<void> deleteUnusedPackage({required String profileId,
+      required String medicationId, required String packageId}) async {
+    await db.transaction(() async {
+      await _ownedPackage(profileId, medicationId, packageId);
+      final movements = await movementsForPackage(profileId: profileId,
+        medicationId: medicationId, packageId: packageId);
+      if (movements.isNotEmpty) {
+        throw StateError('این بسته سابقهٔ موجودی یا مصرف دارد؛ برای حفظ سوابق، '
+          'به‌جای حذف آن را بایگانی کن.');
+      }
+      await (db.delete(db.stockSelections)..where((s) =>
+        s.profileId.equals(profileId) & s.medicationId.equals(medicationId) &
+        s.packageId.equals(packageId))).go();
+      await (db.delete(db.appSettings)..where((s) => s.key.equals(
+        _archiveKey(profileId, medicationId, packageId)))).go();
+      await (db.delete(db.stockPackages)..where((p) =>
+        p.profileId.equals(profileId) & p.medicationId.equals(medicationId) &
+        p.id.equals(packageId))).go();
     });
   }
 
@@ -323,6 +436,9 @@ class InventoryRepository {
   }) async {
     _validateQuantity(quantityMilliunits, allowZero: false);
     final pack = await _ownedPackage(profileId, medicationId, packageId);
+    if (await _isArchived(profileId, medicationId, packageId)) {
+      throw StateError('از بستهٔ بایگانی‌شده موجودی کسر نمی‌شود.');
+    }
     final selection = await (db.select(db.stockSelections)
           ..where((t) => t.profileId.equals(profileId) &
               t.medicationId.equals(medicationId)))

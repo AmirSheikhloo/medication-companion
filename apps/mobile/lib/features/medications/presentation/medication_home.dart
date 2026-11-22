@@ -14,6 +14,7 @@ import '../../profiles/presentation/profile_name_dialog.dart';
 import 'medication_entry_sheet.dart';
 import 'medication_detail_screen.dart';
 import 'medication_artwork.dart';
+import 'medication_expiry_dialog.dart';
 import 'today_visuals.dart';
 import 'settings_screens.dart';
 import '../data/medication_repository.dart';
@@ -512,6 +513,96 @@ class _MedicationHomeState extends State<MedicationHome>
       profileId: profile.id,
     );
     if (mounted) await _reload();
+  }
+
+  Future<void> _packageAction(Medication medication, PackageBalance balance,
+      String action) async {
+    final profile = _active;
+    if (!mounted || profile == null || _saving) return;
+    final package = balance.package;
+    if (action == 'stock') {
+      await _openStock(medication);
+      return;
+    }
+    if (action == 'edit') {
+      final name = TextEditingController(text: package.label);
+      DateTime? expiry = package.expiryIso == null
+          ? null : StockQuantity.parseIso(package.expiryIso!);
+      final edited = await showDialog<({String label, DateTime? expiry})>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) =>
+          AlertDialog(
+            title: const Text('ویرایش مشخصات بسته'),
+            content: Column(mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                TextField(controller: name, maxLength: 80,
+                  decoration: const InputDecoration(labelText: 'نام بسته')),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final chosen = await showMedicationExpiryDialog(context,
+                      initialDate: expiry);
+                    if (chosen != null) setDialogState(() => expiry = chosen);
+                  },
+                  icon: const Icon(Icons.event_outlined),
+                  label: Text(expiry == null ? 'افزودن تاریخ انقضا' :
+                    'تاریخ انقضا: ${persianDateLabel(expiry!)}'),
+                ),
+                if (expiry != null) TextButton(
+                  onPressed: () => setDialogState(() => expiry = null),
+                  child: const Text('برداشتن تاریخ انقضا')),
+              ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('انصراف')),
+              FilledButton(onPressed: () => Navigator.pop(dialogContext,
+                (label: name.text.trim(), expiry: expiry)),
+                child: const Text('ذخیره تغییرات')),
+            ],
+          )),
+      );
+      name.dispose();
+      if (!mounted || edited == null) return;
+      await _perform(() => _inventory.editPackage(
+        profileId: profile.id, medicationId: medication.id,
+        packageId: package.id, label: edited.label,
+        expiryIso: edited.expiry == null ? null :
+          StockQuantity.isoDate(edited.expiry!),
+        expiryPrecision: edited.expiry == null ? 'none' : 'day'));
+      return;
+    }
+    if (action == 'delete' && (await _inventory.movementsForPackage(
+      profileId: profile.id, medicationId: medication.id,
+      packageId: package.id)).isNotEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('این بسته سابقهٔ موجودی یا مصرف دارد. برای حفظ سوابق '
+          'آن را بایگانی کن؛ حذف دائمی مجاز نیست.')));
+      return;
+    }
+    if (action == 'archive' || action == 'delete') {
+      final confirm = await showDialog<bool>(context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(action == 'archive' ? 'بایگانی بسته؟' : 'حذف بسته؟'),
+          content: Text(action == 'archive'
+            ? 'سوابق باقی می‌ماند و دیگر از این بسته موجودی کسر نمی‌شود.'
+            : 'این بسته سابقه‌ای ندارد و به‌صورت دائمی حذف خواهد شد.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('انصراف')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('تأیید')),
+          ]));
+      if (!mounted || confirm != true) return;
+    }
+    await _perform(() => switch (action) {
+      'archive' => _inventory.archivePackage(profileId: profile.id,
+        medicationId: medication.id, packageId: package.id),
+      'restore' => _inventory.restorePackage(profileId: profile.id,
+        medicationId: medication.id, packageId: package.id),
+      'delete' => _inventory.deleteUnusedPackage(profileId: profile.id,
+        medicationId: medication.id, packageId: package.id),
+      _ => Future<void>.value(),
+    });
   }
 
   Future<void> _mark(DailyDose dose, String action) async {
@@ -1451,6 +1542,10 @@ class _MedicationHomeState extends State<MedicationHome>
         archived: _showArchived,
         onEdit: () { Navigator.pop(detailContext); _editMedication(med); },
         onStock: () { Navigator.pop(detailContext); _openStock(med); },
+        onPackageAction: (balance, action) {
+          Navigator.pop(detailContext);
+          _packageAction(med, balance, action);
+        },
         onArchive: () { Navigator.pop(detailContext); _archiveMedication(med); },
         onRestore: () { Navigator.pop(detailContext); _restoreMedication(med); },
       ),

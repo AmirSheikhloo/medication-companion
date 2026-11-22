@@ -149,6 +149,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
     'taken' => 'کسر بابت مصرف ثبت‌شده',
     'undo' => 'جبران کسر هنگام بازگرداندن مصرف',
     'adjustment' => 'اصلاح دستی',
+    'metadata' => 'تغییر مشخصات یا وضعیت بسته',
     _ => 'تغییر موجودی',
   };
 
@@ -483,6 +484,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   ),
                 ),
                 if (selected) const Chip(label: Text('انتخاب‌شده')),
+                if (item.archived) const Chip(label: Text('بایگانی‌شده')),
               ],
             ),
             Text(
@@ -511,7 +513,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
             Wrap(
               spacing: 8,
               children: [
-                if (!selected && !expired)
+                if (!selected && !expired && !item.archived)
                   TextButton(
                     onPressed: _busy
                         ? null
@@ -536,7 +538,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                           ),
                     child: const Text('لغو انتخاب'),
                   ),
-                TextButton(
+                if (!item.archived) TextButton(
                   onPressed: _busy
                       ? null
                       : () => setState(() {
@@ -547,6 +549,13 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                           _adjustReason.clear();
                         }),
                   child: const Text('اصلاح موجودی'),
+                ),
+                if (item.archived) TextButton.icon(
+                  onPressed: _busy ? null : () => _run(() =>
+                    widget.repository.restorePackage(profileId: widget.profileId,
+                      medicationId: widget.medication.id, packageId: pack.id)),
+                  icon: const Icon(Icons.unarchive_outlined),
+                  label: const Text('بازیابی بسته'),
                 ),
                 TextButton.icon(
                   onPressed: _busy ? null : () => _toggleHistory(pack.id),

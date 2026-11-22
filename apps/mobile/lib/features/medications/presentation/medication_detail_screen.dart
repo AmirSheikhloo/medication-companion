@@ -19,7 +19,8 @@ class MedicationDetailScreen extends StatelessWidget {
     required this.medicationRepository, required this.inventoryRepository,
     required this.pendingSchedule, required this.archived,
     required this.onEdit, required this.onStock,
-    required this.onArchive, required this.onRestore});
+    required this.onArchive, required this.onRestore,
+    required this.onPackageAction});
 
   final Medication medication;
   final List<DailyDose> slots;
@@ -34,6 +35,7 @@ class MedicationDetailScreen extends StatelessWidget {
   final VoidCallback onStock;
   final VoidCallback onArchive;
   final VoidCallback onRestore;
+  final void Function(PackageBalance balance, String action) onPackageAction;
 
   String _clock(DateTime date) => PersianDate.persianDigits(
     '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}');
@@ -50,10 +52,10 @@ class MedicationDetailScreen extends StatelessWidget {
 
   Widget _packageRow(PackageBalance balance, bool isSelected) {
     final expired = balance.expired;
-    final color = expired
+    final color = balance.archived ? AppColors.muted : expired
         ? const Color(0xFFBB4356)
         : isSelected ? AppColors.primary : AppColors.muted;
-    final fill = expired
+    final fill = balance.archived ? const Color(0xFFF0F2F3) : expired
         ? const Color(0xFFFFF0F1)
         : isSelected ? const Color(0xFFE0F5F0) : const Color(0xFFF5F8F9);
     return Container(
@@ -85,6 +87,8 @@ class MedicationDetailScreen extends StatelessWidget {
             if (isSelected) const Text('بسته انتخاب‌شده برای مصرف',
               style: TextStyle(color: AppColors.primary, fontSize: 11,
                 fontWeight: FontWeight.w700)),
+            if (balance.archived) const Text('بایگانی‌شده؛ در مصرف و موجودی فعال استفاده نمی‌شود',
+              style: TextStyle(color: AppColors.muted, fontSize: 11)),
             if (expired) const Text('منقضی‌شده؛ قابل انتخاب برای مصرف نیست',
               style: TextStyle(color: Color(0xFFBB4356), fontSize: 11,
                 fontWeight: FontWeight.w700)),
@@ -93,9 +97,15 @@ class MedicationDetailScreen extends StatelessWidget {
         if (!archived) PopupMenuButton<String>(
           tooltip: 'گزینه‌های بسته',
           icon: const Icon(Icons.more_vert_rounded, color: AppColors.primaryDark),
-          onSelected: (_) => onStock(),
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'manage', child: Text('مدیریت و تغییر بسته')),
+          onSelected: (action) => onPackageAction(balance, action),
+          itemBuilder: (_) => balance.archived ? const [
+            PopupMenuItem(value: 'restore', child: Text('بازیابی بسته')),
+            PopupMenuItem(value: 'delete', child: Text('حذف بستهٔ بدون سابقه')),
+          ] : const [
+            PopupMenuItem(value: 'edit', child: Text('ویرایش نام و انقضا')),
+            PopupMenuItem(value: 'stock', child: Text('اصلاح موجودی و انتخاب بسته')),
+            PopupMenuItem(value: 'archive', child: Text('بایگانی بسته')),
+            PopupMenuItem(value: 'delete', child: Text('حذف بستهٔ بدون سابقه')),
           ],
         ),
       ]),
@@ -110,6 +120,7 @@ class MedicationDetailScreen extends StatelessWidget {
     // explicit user action from the stock management screen.
     final packages = <PackageBalance>[...?stock?.packages];
     packages.sort((a, b) {
+      if (a.archived != b.archived) return a.archived ? 1 : -1;
       final left = a.package.expiryIso;
       final right = b.package.expiryIso;
       if (left == null) return right == null ? 0 : 1;
