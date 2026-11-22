@@ -32,6 +32,29 @@ void main() {
     expect(todaySkyPhaseForHour(0), TodaySkyPhase.night);
   });
 
+  testWidgets('attention badge pulses gently and respects reduced motion',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Center(child: TodayDueAttentionBadge()),
+    ));
+    expect(find.text('⚠️ ثبت وضعیت'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1400));
+    await tester.pump(const Duration(milliseconds: 460));
+    expect(tester.widget<AnimatedOpacity>(
+      find.byType(AnimatedOpacity)).opacity, .7);
+
+    await tester.pumpWidget(const MaterialApp(
+      home: MediaQuery(
+        data: MediaQueryData(disableAnimations: true),
+        child: Center(child: TodayDueAttentionBadge()),
+      ),
+    ));
+    final staticBadge = tester.widget<AnimatedOpacity>(
+      find.byType(AnimatedOpacity));
+    expect(staticBadge.opacity, 1);
+    expect(staticBadge.duration, Duration.zero);
+  });
+
   testWidgets('due alerts get a red dot until notifications are seen',
       (tester) async {
     // Match the Android emulator viewport; the default 800×600 widget-test
@@ -64,6 +87,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('شب بخیر'), findsOneWidget);
     expect(find.byKey(const Key('today-unread-dot')), findsOneWidget);
+    expect(tester.widget<Material>(
+      find.byKey(const Key('today-bell-surface'))).color, Colors.white);
     expect(find.byKey(const Key('today-date-banner')), findsNothing);
     expect(find.byKey(const Key('today-date-heading')), findsOneWidget);
     expect(find.byKey(const Key('today-multistatus-ring')), findsOneWidget);
@@ -81,7 +106,7 @@ void main() {
     await tester.pumpAndSettle();
     // No direct "taken" action on a collapsed card. Due doses must prompt
     // the user to choose a status explicitly via the expandable time row.
-    expect(find.text('ثبت وضعیت'), findsOneWidget);
+    expect(find.text('⚠️ ثبت وضعیت'), findsOneWidget);
     expect(find.textContaining('(یک عدد)'), findsOneWidget);
     expect(find.text('مصرف کردم'), findsNothing);
     expect(find.byWidgetPredicate((widget) =>
@@ -90,6 +115,13 @@ void main() {
       findsNothing);
     await tester.tap(find.text('۰۸:۰۰'));
     await tester.pumpAndSettle();
+    final details = tester.widget<AnimatedContainer>(find.byWidgetPredicate(
+      (widget) => widget is AnimatedContainer &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value
+              .startsWith('today-expanded-actions-')));
+    expect((details.decoration! as BoxDecoration).color,
+      todayDoseCardBackground('pending'));
     expect(find.text('مصرف کردم'), findsOneWidget);
     expect(find.text('مصرف نکردم'), findsOneWidget);
     expect(find.text('مطمئن نیستم'), findsOneWidget);
@@ -110,6 +142,14 @@ void main() {
     final animated = tester.widget<AnimatedContainer>(recordedCard);
     expect((animated.decoration! as BoxDecoration).color,
       todayDoseCardBackground('skipped'));
+    await tester.ensureVisible(find.text('قرص صبح'));
+    await tester.tap(find.text('قرص صبح'));
+    await tester.pumpAndSettle();
+    final undo = find.ancestor(
+      of: find.text('بازگرداندن ثبت'), matching: find.byType(FilledButton));
+    expect(undo, findsOneWidget);
+    expect(tester.widget<FilledButton>(undo)
+        .style!.backgroundColor!.resolve({}), const Color(0xFF006D70));
   });
 
   testWidgets('future doses have no unread alert dot and picker is rounded',
@@ -139,7 +179,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('صبح بخیر'), findsOneWidget);
     expect(find.byKey(const Key('today-unread-dot')), findsNothing);
-    expect(find.text('ثبت وضعیت'), findsNothing);
+    expect(find.text('⚠️ ثبت وضعیت'), findsNothing);
     await tester.tap(find.byKey(const Key('today-profile-selector')));
     await tester.pumpAndSettle();
     expect(find.text('انتخاب شخص'), findsOneWidget);
