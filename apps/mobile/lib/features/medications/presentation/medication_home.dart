@@ -936,6 +936,7 @@ class _MedicationHomeState extends State<MedicationHome>
                 const SizedBox(height: 7),
                 AppStatusPill(text: status.$1, icon: status.$2,
                   color: status.$3,
+                  fontSize: 13,
                   background: status.$3.withValues(alpha: .12)),
               ],
             )),
@@ -1373,8 +1374,6 @@ class _MedicationHomeState extends State<MedicationHome>
       ),
     ),
   );
-
-  Widget _sectionTitle(String title) => AppSectionHeading(title);
 
   Widget _settingsTile({
     required IconData icon,

@@ -153,11 +153,12 @@ class AppSoftHeader extends StatelessWidget {
 
 class AppStatusPill extends StatelessWidget {
   const AppStatusPill({super.key, required this.text, required this.color,
-    this.icon, this.background});
+    this.icon, this.background, this.fontSize = 12});
   final String text;
   final Color color;
   final Color? background;
   final IconData? icon;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -166,8 +167,8 @@ class AppStatusPill extends StatelessWidget {
       borderRadius: BorderRadius.circular(18)),
     child: Row(mainAxisSize: MainAxisSize.min, children: [
       if (icon != null) ...[Icon(icon, size: 15, color: color), const SizedBox(width: 4)],
-      Text(text, style: TextStyle(color: color, fontSize: 11,
-        fontWeight: FontWeight.w700)),
+      Text(text, style: TextStyle(fontFamily: 'Vazirmatn', color: color,
+        fontSize: fontSize, fontWeight: FontWeight.w700)),
     ]),
   );
 }
