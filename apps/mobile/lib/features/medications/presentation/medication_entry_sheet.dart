@@ -353,7 +353,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       key: keyName == null ? ValueKey(controller) : ValueKey(keyName),
       textDirection: TextDirection.ltr,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩.,٫]'))],
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩.٫]'))],
       maxLength: maxLength,
       decoration: InputDecoration(labelText: label, hintText: hint,
         counterText: '', border: OutlineInputBorder(
@@ -418,7 +418,17 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             keyName: 'med-stock-${index + 1}')),
           const SizedBox(width: 8),
           Expanded(flex: 2, child: _unitSelector(item.unit,
-            (value) => setState(() { item.unit = value; }),
+            (value) {
+              final previous = item.unit;
+              setState(() {
+                item.unit = value;
+                if (index == 0) {
+                  for (final slot in _slots) {
+                    if (slot.unit == previous) slot.unit = value;
+                  }
+                }
+              });
+            },
             showGroup: false)),
         ]),
         const SizedBox(height: 8),
@@ -450,11 +460,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         textDirection: TextDirection.ltr,
         keyboardType: TextInputType.number,
         maxLength: 2,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly,
+        inputFormatters: [FilteringTextInputFormatter.allow(
+            RegExp(r'[0-9۰-۹٠-٩]')),
           LengthLimitingTextInputFormatter(2)],
         onChanged: (value) {
-          if (value.length == 2 && int.tryParse(value) != null &&
-              int.parse(value) > maximum) {
+          final normalized = PersianDate.latinDigits(value);
+          if (value.length == 2 && int.tryParse(normalized) != null &&
+              int.parse(normalized) > maximum) {
             controller.text = maximum.toString().padLeft(2, '0');
           }
         },

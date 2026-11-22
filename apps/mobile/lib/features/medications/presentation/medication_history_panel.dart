@@ -5,7 +5,6 @@ import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
 import '../../../core/storage/app_database.dart';
 import '../../../core/ui/app_design.dart';
-import '../../../core/ui/redesign_widgets.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
 import '../data/medication_repository.dart';

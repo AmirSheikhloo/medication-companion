@@ -111,7 +111,8 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
           textDirection: TextDirection.ltr,
           keyboardType: TextInputType.number,
           maxLength: length,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly,
+          inputFormatters: [FilteringTextInputFormatter.allow(
+              RegExp(r'[0-9۰-۹٠-٩]')),
             LengthLimitingTextInputFormatter(length)],
           onChanged: (_) => setState(() => _error = null),
           onEditingComplete: () {
