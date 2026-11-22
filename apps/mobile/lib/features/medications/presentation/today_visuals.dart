@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
@@ -34,6 +35,71 @@ Color todayDoseCardBackground(String status) => switch (status) {
   'unknown' => const Color(0xFFFFE8CB), // Distinct desaturated amber for unsure.
   _ => Colors.white,
 };
+
+/// Gently calls attention to an overdue dose without flashing rapidly.
+/// A brief opacity change every 1.4 seconds leaves the text readable and
+/// allows widget animations to settle between pulses. Respect Android's
+/// reduced-animation preference and dispose the timer with the badge.
+class TodayDueAttentionBadge extends StatefulWidget {
+  const TodayDueAttentionBadge({super.key});
+
+  @override
+  State<TodayDueAttentionBadge> createState() =>
+      _TodayDueAttentionBadgeState();
+}
+
+class _TodayDueAttentionBadgeState extends State<TodayDueAttentionBadge> {
+  Timer? _pulseTimer;
+  bool _bright = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      _pulseTimer?.cancel();
+      _pulseTimer = null;
+      _bright = true;
+    } else {
+      _pulseTimer ??= Timer.periodic(const Duration(milliseconds: 1400), (_) {
+        if (mounted) setState(() => _bright = !_bright);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    return Semantics(
+      label: 'زمان مصرف رسیده؛ ثبت وضعیت لازم است',
+      excludeSemantics: true,
+      child: AnimatedOpacity(
+        duration: reduceMotion ? Duration.zero
+            : const Duration(milliseconds: 460),
+        curve: Curves.easeInOut,
+        opacity: reduceMotion || _bright ? 1 : .7,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFE9BE),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE9B65B)),
+          ),
+          child: const Text('⚠️ ثبت وضعیت',
+            maxLines: 1,
+            style: TextStyle(fontFamily: 'Vazirmatn',
+              fontSize: 11.5, fontWeight: FontWeight.bold,
+              color: Color(0xFF7D4A00))),
+        ),
+      ),
+    );
+  }
+}
 
 /// Unlike a single green progress arc, each segment preserves the *actual*
 /// logged outcome. An unlogged slot stays neutral gray.
