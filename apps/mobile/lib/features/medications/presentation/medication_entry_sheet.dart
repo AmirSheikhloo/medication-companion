@@ -96,8 +96,9 @@ class _MedicationEntrySheetState extends State<_MedicationEntrySheet> {
   }
 
   void _addSlot() {
-    if (_slots.length == 12) {
-      _showError('حداکثر ۱۲ نوبت در روز قابل ثبت است.');
+    // Every minute in the 24-hour day can be used only once.
+    if (_slots.length >= 24 * 60) {
+      _showError('همهٔ زمان‌های یکتای روز ثبت شده‌اند.');
       return;
     }
     final used = {
