@@ -74,6 +74,10 @@ void main() {
     // The inline action panel stays expanded after an undo so the user can
     // choose the correct state immediately, without opening another sheet.
     expect(find.text('مصرف کردم'), findsOneWidget);
+    await tester.ensureVisible(find.text('مصرف کردم، بدون کسر موجودی'));
+    await tester.tap(find.text('مصرف کردم، بدون کسر موجودی'));
+    await tester.pumpAndSettle();
+    expect(find.text('مصرف شد'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('managed profile dialog safely persists its entered name', (
