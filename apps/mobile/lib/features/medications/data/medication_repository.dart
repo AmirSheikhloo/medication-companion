@@ -163,8 +163,8 @@ class MedicationRepository {
   }
 
   List<DoseSlotInput> _validateSlots(List<DoseSlotInput> slots) {
-    if (slots.isEmpty || slots.length > 12) {
-      throw ArgumentError('بین ۱ تا ۱۲ نوبت روزانه وارد کنید.');
+    if (slots.isEmpty || slots.length > 24 * 60) {
+      throw ArgumentError('دست‌کم یک نوبت و حداکثر یک نوبت در هر دقیقه مجاز است.');
     }
     final clockKeys = <int>{};
     final validated = <DoseSlotInput>[];
