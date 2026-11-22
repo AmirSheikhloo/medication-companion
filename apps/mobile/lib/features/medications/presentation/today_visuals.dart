@@ -101,6 +101,46 @@ class _TodayDueAttentionBadgeState extends State<TodayDueAttentionBadge> {
   }
 }
 
+/// Unlike a short pill, the full explanation must wrap on narrow phones.
+/// Its tint follows the recorded outcome while the surrounding details panel
+/// stays exactly the same color as the dose card.
+class TodayRecordedOutcomeBanner extends StatelessWidget {
+  const TodayRecordedOutcomeBanner({super.key, required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = switch (status) {
+      'taken' => AppColors.success,
+      'skipped' => const Color(0xFFB72D40),
+      _ => const Color(0xFF92570F),
+    };
+    final message = switch (status) {
+      'taken' => 'این نوبت مصرف شده است',
+      'skipped' => 'مصرف این نوبت ثبت نشده است',
+      _ => 'وضعیت این نوبت نامشخص ثبت شده است',
+    };
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Row(children: [
+        Icon(status == 'taken' ? Icons.check_circle_rounded
+            : Icons.info_outline_rounded, color: tone, size: 19),
+        const SizedBox(width: 8),
+        Expanded(child: Text(message, softWrap: true,
+          style: TextStyle(fontFamily: 'Vazirmatn',
+            fontSize: 12.5, fontWeight: FontWeight.w600,
+            color: tone))),
+      ]),
+    );
+  }
+}
+
 /// Unlike a single green progress arc, each segment preserves the *actual*
 /// logged outcome. An unlogged slot stays neutral gray.
 class TodayStatusRing extends StatelessWidget {
