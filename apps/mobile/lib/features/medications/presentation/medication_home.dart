@@ -439,6 +439,11 @@ class _MedicationHomeState extends State<MedicationHome>
       );
       if (!mounted || choice == null) return;
     }
+    // A saved dose moves to the completed section in its compact state.
+    // Undo deliberately keeps the panel open, ready for a corrected choice.
+    if (action != 'undo') {
+      setState(() => _expandedDoseKeys.remove(dose.occurrenceKey));
+    }
     await _perform(
       () => widget.repository.recordDose(
         dose: dose,

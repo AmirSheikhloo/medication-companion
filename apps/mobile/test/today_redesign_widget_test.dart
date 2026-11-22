@@ -50,7 +50,8 @@ void main() {
     await tester.tap(find.byKey(const Key('today-notifications-button')));
     await tester.pumpAndSettle();
     expect(find.text('اعلان‌های امروز'), findsOneWidget);
-    await tester.pageBack();
+    // The notification panel is a modal sheet without an AppBar back button.
+    await tester.tapAt(const Offset(8, 8));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('today-unread-dot')), findsNothing);
 
@@ -64,6 +65,8 @@ void main() {
     expect(find.text('ثبت مصرف دارو'), findsNothing);
     await tester.ensureVisible(find.text('مصرف نکردم'));
     await tester.tap(find.text('مصرف نکردم'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('ثبت‌شده‌ها'), 120);
     await tester.pumpAndSettle();
     expect(find.text('ثبت‌شده‌ها'), findsOneWidget);
     expect(find.text('مصرف نشد'), findsOneWidget);

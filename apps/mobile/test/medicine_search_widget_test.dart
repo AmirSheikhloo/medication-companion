@@ -38,8 +38,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('خلاصه امروز'), findsOneWidget);
-    expect(find.textContaining('ثبت‌نشده: ۲'), findsOneWidget);
+    expect(find.text('خلاصهٔ امروز'), findsOneWidget);
+    expect(find.textContaining('۲ ثبت‌نشده'), findsOneWidget);
 
     await tester.tap(find.text('داروها'));
     await tester.pumpAndSettle();
