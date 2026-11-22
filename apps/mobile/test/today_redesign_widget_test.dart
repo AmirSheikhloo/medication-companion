@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:medication_companion/core/ui/app_design.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
 import 'package:medication_companion/features/medications/data/medication_repository.dart';
 import 'package:medication_companion/features/medications/presentation/medication_home.dart';
@@ -87,8 +88,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('شب بخیر'), findsOneWidget);
     expect(find.byKey(const Key('today-unread-dot')), findsOneWidget);
+    expect(tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+      TodayPalette.page);
+    expect(tester.widget<AppPanel>(
+      find.byKey(const Key('today-summary-panel'))).color,
+      TodayPalette.summary);
     expect(tester.widget<Material>(
-      find.byKey(const Key('today-bell-surface'))).color, Colors.white);
+      find.byKey(const Key('today-bell-surface'))).color,
+      Colors.transparent);
+    final bellDecoration = tester.widget<Ink>(
+      find.byKey(const Key('today-bell-fill'))).decoration! as BoxDecoration;
+    expect((bellDecoration.gradient! as LinearGradient).colors,
+      [TodayPalette.bellHighlight, TodayPalette.bellShadow]);
     expect(find.byKey(const Key('today-date-banner')), findsNothing);
     expect(find.byKey(const Key('today-date-heading')), findsOneWidget);
     expect(find.byKey(const Key('today-multistatus-ring')), findsOneWidget);
@@ -101,6 +112,9 @@ void main() {
     expect(find.byKey(const Key('today-unread-dot')), findsNothing);
 
     await tester.ensureVisible(find.text('قرص صبح'));
+    expect(tester.widget<Container>(
+      find.byKey(const Key('today-group-header-صبح'))).color,
+      TodayPalette.dayPartHeader);
     await tester.drag(find.byKey(const Key('today-scroll-list')),
       const Offset(0, -120));
     await tester.pumpAndSettle();
