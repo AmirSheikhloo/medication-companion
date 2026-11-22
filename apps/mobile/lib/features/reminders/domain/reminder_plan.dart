@@ -9,6 +9,7 @@ class ReminderSlot {
     required this.doseText,
     required this.scheduledAt,
     required this.status,
+    this.reminderNote = '',
   });
 
   final String occurrenceKey;
@@ -18,6 +19,7 @@ class ReminderSlot {
   final String doseText;
   final DateTime scheduledAt;
   final String status;
+  final String reminderNote;
 }
 
 class ReminderJob {
@@ -74,7 +76,8 @@ class ReminderPlanner {
         localAt: date ?? slot.scheduledAt,
         title: 'یادآور دارو',
         body: 'برای ${slot.profileName}: ${slot.medicationName} — '
-            '${slot.doseText}',
+            '${slot.doseText}'
+            '${slot.reminderNote.isEmpty ? '' : '\n${slot.reminderNote}'}',
         daily: daily,
       ));
     }

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
 import 'package:medication_companion/features/medications/data/medication_repository.dart';
+import 'package:medication_companion/features/inventory/data/inventory_repository.dart';
 import 'package:medication_companion/features/medications/presentation/medication_home.dart';
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
 
@@ -37,11 +38,11 @@ void main() {
     await tester.tap(find.text('افزودن دارو').first);
     await tester.pumpAndSettle();
 
-    expect(find.byType(TextField), findsNWidgets(2));
-    await tester.enterText(find.byType(TextField).at(0), 'داروی آزمایشی');
-    await tester.enterText(find.byType(TextField).at(1), 'فقط برای تست');
-    await tester.ensureVisible(find.text('ذخیره دارو'));
-    await tester.tap(find.text('ذخیره دارو'));
+    await tester.enterText(find.byKey(const Key('medication-name-field')),
+      'داروی آزمایشی');
+    await tester.ensureVisible(find.byKey(const Key('med-stock-1')));
+    await tester.enterText(find.byKey(const Key('med-stock-1')), '10');
+    await tester.tap(find.text('ثبت دارو'));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
@@ -62,15 +63,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('مصرف کردم'));
     await tester.pumpAndSettle();
-    expect(find.text('ثبت مصرف و موجودی'), findsOneWidget);
-    await tester.tap(find.text('ثبت بدون کسر'));
-    await tester.pumpAndSettle();
+    expect(find.text('ثبت مصرف و موجودی'), findsNothing);
     expect(find.text('مصرف شد'), findsOneWidget);
+    final medicine = (await medications.medicationsFor(active.id)).single;
+    final stockAfter = await InventoryRepository(db).summary(active.id, medicine.id);
+    expect(stockAfter.selected?.balanceMilliunits, 9000);
 
     await tester.tap(find.text('داروی آزمایشی').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('بازگرداندن ثبت'));
     await tester.pumpAndSettle();
+    final stockUndone = await InventoryRepository(db).summary(active.id, medicine.id);
+    expect(stockUndone.selected?.balanceMilliunits, 10000);
     // The inline action panel stays expanded after an undo so the user can
     // choose the correct state immediately, without opening another sheet.
     expect(find.text('مصرف کردم'), findsOneWidget);
@@ -82,6 +86,8 @@ void main() {
     await tester.tap(find.text('مصرف کردم، بدون کسر موجودی'));
     await tester.pumpAndSettle();
     expect(find.text('مصرف شد'), findsOneWidget);
+    final stockNoDebit = await InventoryRepository(db).summary(active.id, medicine.id);
+    expect(stockNoDebit.selected?.balanceMilliunits, 10000);
     expect(tester.takeException(), isNull);
   });
   testWidgets('managed profile dialog safely persists its entered name', (
@@ -148,14 +154,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('افزودن دارو').first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'داروی تست چندنوبتی');
-    await tester.enterText(find.byType(TextField).at(1), 'صبح طبق نسخه');
-    await tester.tap(find.text('افزودن نوبت دیگر'));
+    await tester.enterText(find.byKey(const Key('medication-name-field')),
+      'داروی تست چندنوبتی');
+    await tester.enterText(find.byKey(const Key('med-dose-1')), '2');
+    await tester.ensureVisible(find.text('افزودن ساعت مصرف'));
+    await tester.tap(find.text('افزودن ساعت مصرف'));
     await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsNWidgets(3));
-    await tester.enterText(find.byType(TextField).at(2), 'عصر طبق نسخه');
-    await tester.ensureVisible(find.text('ذخیره دارو'));
-    await tester.tap(find.text('ذخیره دارو'));
+    await tester.enterText(find.byKey(const Key('med-dose-2')), '3');
+    await tester.ensureVisible(find.byKey(const Key('med-stock-1')));
+    await tester.enterText(find.byKey(const Key('med-stock-1')), '30');
+    await tester.tap(find.text('ثبت دارو'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(
@@ -167,8 +175,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('ویرایش'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'داروی اصلاح‌شده');
-    await tester.enterText(find.byType(TextField).at(1), 'دوز تازه ۲ عدد');
+    await tester.enterText(find.byKey(const Key('medication-name-field')), 'داروی اصلاح‌شده');
+    await tester.enterText(find.byKey(const Key('med-dose-1')), '4');
     await tester.ensureVisible(find.text('ذخیره تغییرات'));
     await tester.tap(find.text('ذخیره تغییرات'));
     await tester.pumpAndSettle();
@@ -177,16 +185,16 @@ void main() {
       'داروی اصلاح‌شده',
     );
     expect(find.text('برنامه جدید — از فردا'), findsOneWidget);
-    expect(find.textContaining('دوز تازه ۲ عدد'), findsOneWidget);
+    expect(find.textContaining('۴ عدد'), findsWidgets);
     final today = DateTime.now();
     final tomorrow = DateTime(today.year, today.month, today.day + 1);
     expect(
       (await medications.dosesForDay(profile.id, today)).first.plan.doseText,
-      'صبح طبق نسخه',
+      '2 عدد',
     );
     expect(
       (await medications.dosesForDay(profile.id, tomorrow)).first.plan.doseText,
-      'دوز تازه ۲ عدد',
+      '4 عدد',
     );
 
     // A second edit must pre-fill and replace the *pending* schedule, not
@@ -196,18 +204,18 @@ void main() {
     await tester.tap(find.text('ویرایش'));
     await tester.pumpAndSettle();
     expect(
-      tester.widget<TextField>(find.byType(TextField).at(1)).controller?.text,
-      'دوز تازه ۲ عدد',
+      tester.widget<TextField>(find.byKey(const Key('med-dose-1'))).controller?.text,
+      '4',
     );
-    await tester.enterText(find.byType(TextField).at(1), 'دوز سوم ۳ عدد');
+    await tester.enterText(find.byKey(const Key('med-dose-1')), '5');
     await tester.ensureVisible(find.text('ذخیره تغییرات'));
     await tester.tap(find.text('ذخیره تغییرات'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('دوز سوم ۳ عدد'), findsOneWidget);
-    expect(find.textContaining('دوز تازه ۲ عدد'), findsNothing);
+    expect(find.textContaining('۵ عدد'), findsWidgets);
+    expect(find.textContaining('۴ عدد'), findsNothing);
     expect(
       (await medications.dosesForDay(profile.id, tomorrow)).first.plan.doseText,
-      'دوز سوم ۳ عدد',
+      '5 عدد',
     );
 
     await tester.tap(find.byType(PopupMenuButton<String>).first);

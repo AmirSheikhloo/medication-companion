@@ -1,5 +1,6 @@
 import '../../../core/storage/app_database.dart';
 import '../../medications/data/medication_repository.dart';
+import '../../medications/data/medication_setup_repository.dart';
 import '../../profiles/data/profile_repository.dart';
 import '../domain/reminder_plan.dart';
 import 'android_reminder_port.dart';
@@ -87,9 +88,17 @@ class ReminderCoordinator {
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
     final todaySlots = <ReminderSlot>[];
     final tomorrowSlots = <ReminderSlot>[];
+    final setupRepository = MedicationSetupRepository(database);
     for (final profile in await profiles.profiles()) {
       final todayDoses = await medications.dosesForDay(profile.id, today);
       final tomorrowDoses = await medications.dosesForDay(profile.id, tomorrow);
+      final notes = <String, String>{};
+      for (final dose in [...todayDoses, ...tomorrowDoses]) {
+        final id = dose.medication.id;
+        if (!notes.containsKey(id)) {
+          notes[id] = (await setupRepository.read(profile.id, id)).reminderNote;
+        }
+      }
       todaySlots.addAll([
         for (final dose in todayDoses)
           ReminderSlot(
@@ -100,6 +109,7 @@ class ReminderCoordinator {
             doseText: dose.plan.doseText,
             scheduledAt: dose.scheduledAt,
             status: dose.status,
+            reminderNote: notes[dose.medication.id] ?? '',
           ),
       ]);
       tomorrowSlots.addAll([
@@ -112,6 +122,7 @@ class ReminderCoordinator {
             doseText: dose.plan.doseText,
             scheduledAt: dose.scheduledAt,
             status: dose.status,
+            reminderNote: notes[dose.medication.id] ?? '',
           ),
       ]);
     }

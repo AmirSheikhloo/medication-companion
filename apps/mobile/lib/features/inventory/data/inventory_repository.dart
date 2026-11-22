@@ -58,6 +58,19 @@ class InventoryRepository {
     return med;
   }
 
+  /// History and summaries remain readable after a medicine is archived.
+  /// Mutations continue to require `_ownedMedication` (active-only).
+  Future<void> _assertReadableMedication(
+      String profileId, String medicationId) async {
+    final medication = await (db.select(db.medications)
+          ..where((t) => t.id.equals(medicationId) &
+              t.profileId.equals(profileId)))
+        .getSingleOrNull();
+    if (medication == null) {
+      throw StateError('دارو متعلق به این پروفایل نیست.');
+    }
+  }
+
   Future<StockPackage> _ownedPackage(
       String profileId, String medicationId, String packageId) async {
     await _ownedMedication(profileId, medicationId);
@@ -79,7 +92,7 @@ class InventoryRepository {
   }
 
   Future<StockSummary> summary(String profileId, String medicationId) async {
-    await _ownedMedication(profileId, medicationId);
+    await _assertReadableMedication(profileId, medicationId);
     final packs = await (db.select(db.stockPackages)
           ..where((t) => t.profileId.equals(profileId) &
               t.medicationId.equals(medicationId))
@@ -125,7 +138,13 @@ class InventoryRepository {
     required String medicationId,
     required String packageId,
   }) async {
-    await _ownedPackage(profileId, medicationId, packageId);
+    await _assertReadableMedication(profileId, medicationId);
+    final package = await (db.select(db.stockPackages)
+          ..where((t) => t.id.equals(packageId) &
+              t.profileId.equals(profileId) &
+              t.medicationId.equals(medicationId)))
+        .getSingleOrNull();
+    if (package == null) throw StateError('بسته متعلق به این دارو نیست.');
     return (db.select(db.stockMovements)
           ..where((t) => t.profileId.equals(profileId) &
               t.medicationId.equals(medicationId) &

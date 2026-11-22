@@ -7,11 +7,16 @@ import '../../../core/ui/redesign_widgets.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
 import '../data/medication_repository.dart';
+import '../data/medication_setup_repository.dart';
+import 'medication_artwork.dart';
+import 'medication_history_panel.dart';
 
 /// A dedicated details page, rather than expanding the beta medicine card.
 class MedicationDetailScreen extends StatelessWidget {
   const MedicationDetailScreen({super.key, required this.medication,
     required this.slots, required this.todaySlots, required this.stock,
+    this.setup,
+    required this.medicationRepository, required this.inventoryRepository,
     required this.pendingSchedule, required this.archived,
     required this.onEdit, required this.onStock,
     required this.onArchive, required this.onRestore});
@@ -20,6 +25,9 @@ class MedicationDetailScreen extends StatelessWidget {
   final List<DailyDose> slots;
   final List<DailyDose> todaySlots;
   final StockSummary? stock;
+  final MedicationSetup? setup;
+  final MedicationRepository medicationRepository;
+  final InventoryRepository inventoryRepository;
   final bool pendingSchedule;
   final bool archived;
   final VoidCallback onEdit;
@@ -114,7 +122,7 @@ class MedicationDetailScreen extends StatelessWidget {
         backgroundColor: AppColors.background),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 15, 16, 32), children: [
         Row(children: [
-          MedicineArtwork(seed: medication.name, size: 82),
+          MedicationArtwork(name: medication.name, setup: setup, size: 82),
           const SizedBox(width: 15),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(medication.name, style: const TextStyle(fontWeight: FontWeight.w900,
@@ -179,30 +187,20 @@ class MedicationDetailScreen extends StatelessWidget {
             label: const Text('افزودن بسته یا مدیریت موجودی')),
         ])),
         const SizedBox(height: 12),
-        AppPanel(child: Column(children: [
-          const AppSectionHeading('سوابق مصرف امروز', icon: Icons.history),
-          const SizedBox(height: 7),
-          if (todaySlots.isEmpty)
-            const Text('هنوز نوبت یا سابقه‌ای برای امروز وجود ندارد.'),
-          for (var i = 0; i < todaySlots.length; i++) ...[
-            if (i != 0) const Divider(height: 1),
-            Padding(padding: const EdgeInsets.symmetric(vertical: 9),
-              child: Row(children: [
-                Icon(todaySlots[i].status == 'taken' ? Icons.check_circle :
-                    Icons.schedule_outlined,
-                  color: todaySlots[i].status == 'taken'
-                    ? AppColors.success : AppColors.muted, size: 19),
-                const SizedBox(width: 8),
-                Expanded(child: Text(_clock(todaySlots[i].scheduledAt))),
-                Text(switch (todaySlots[i].status) {
-                  'taken' => 'مصرف ثبت شده',
-                  'skipped' => 'مصرف نشده',
-                  'unknown' => 'نامشخص',
-                  _ => 'در انتظار ثبت',
-                }),
-              ])),
-          ],
-        ])),
+        if (setup?.reminderNote.isNotEmpty == true) ...[
+          AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AppSectionHeading('توضیح همراه یادآور',
+                icon: Icons.notifications_active_outlined),
+              const SizedBox(height: 8),
+              Text(setup!.reminderNote),
+            ])),
+          const SizedBox(height: 12),
+        ],
+        MedicationHistoryPanel(medication: medication,
+          medicationRepository: medicationRepository,
+          inventoryRepository: inventoryRepository,
+          stock: stock),
         const SizedBox(height: 16),
         if (archived)
           AppGradientButton(label: 'بازیابی دارو', icon: Icons.restore,

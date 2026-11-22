@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:drift/drift.dart';
 
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/storage/app_database.dart';
@@ -12,9 +13,12 @@ import '../../profiles/presentation/guest_welcome_screen.dart';
 import '../../profiles/presentation/profile_name_dialog.dart';
 import 'medication_entry_sheet.dart';
 import 'medication_detail_screen.dart';
+import 'medication_artwork.dart';
 import 'today_visuals.dart';
 import 'settings_screens.dart';
 import '../data/medication_repository.dart';
+import '../data/medication_setup_repository.dart';
+import '../data/medication_photo_storage.dart';
 import '../../reminders/data/reminder_coordinator.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
@@ -76,6 +80,7 @@ class _MedicationHomeState extends State<MedicationHome>
   List<DailyDose> _doses = [];
   List<DailyDose> _nextDayDoses = [];
   Map<String, StockSummary> _stocks = {};
+  Map<String, MedicationSetup> _setups = {};
   final Set<String> _expandedDoseKeys = {};
   final Set<String> _seenDueAlertKeys = {};
   Timer? _todayClockTicker;
@@ -84,6 +89,8 @@ class _MedicationHomeState extends State<MedicationHome>
 
   InventoryRepository get _inventory =>
       InventoryRepository(widget.repository.db);
+  MedicationSetupRepository get _setupRepository =>
+      MedicationSetupRepository(widget.repository.db);
   String? _error;
   bool _remindersEnabled = false;
   String? _reminderError;
@@ -202,9 +209,15 @@ class _MedicationHomeState extends State<MedicationHome>
           ? <DailyDose>[]
           : await widget.repository.dosesForDay(profile.id, tomorrow);
       final stocks = <String, StockSummary>{};
+      final setups = <String, MedicationSetup>{};
       if (profile != null) {
         for (final med in meds) {
           stocks[med.id] = await _inventory.summary(profile.id, med.id);
+          setups[med.id] = await _setupRepository.read(profile.id, med.id);
+        }
+        for (final med in archivedMeds) {
+          stocks[med.id] = await _inventory.summary(profile.id, med.id);
+          setups[med.id] = await _setupRepository.read(profile.id, med.id);
         }
       }
       final remindersEnabled =
@@ -223,6 +236,7 @@ class _MedicationHomeState extends State<MedicationHome>
         _doses = doses;
         _nextDayDoses = nextDayDoses;
         _stocks = stocks;
+        _setups = setups;
         _remindersEnabled = remindersEnabled;
         _loading = false;
         _error = null;
@@ -287,19 +301,91 @@ class _MedicationHomeState extends State<MedicationHome>
       profileName: profile.displayName,
     );
     if (!mounted || draft == null) return;
-    await _perform(
-      () => widget.repository.addMedicationSchedule(
-        profileId: profile.id,
-        name: draft.name,
-        slots: [
-          for (final slot in draft.slots)
-            DoseSlotInput(
-              doseText: slot.dose,
-              time: TimeOfDayValue(slot.time.hour, slot.time.minute),
-            ),
-        ],
-      ),
-    );
+    await _perform(() async {
+      // Photos must survive the temporary Android gallery cache.
+      final photoPath = draft.imagePath == null ? null
+          : await const MedicationPhotoStorage().store(draft.imagePath!);
+      await widget.repository.db.transaction(() async {
+        final medicationId = await widget.repository.addMedicationSchedule(
+          profileId: profile.id,
+          name: draft.name,
+          slots: _slotInputs(draft),
+        );
+        if (draft.packages.isNotEmpty) {
+          await (widget.repository.db.update(widget.repository.db.medications)
+                ..where((m) => m.id.equals(medicationId) &
+                    m.profileId.equals(profile.id)))
+              .write(MedicationsCompanion(
+                unit: Value(draft.packages.first.unit)));
+        }
+        final ids = <String>[];
+        for (final package in draft.packages) {
+          ids.add(await _inventory.addPackage(
+            profileId: profile.id,
+            medicationId: medicationId,
+            label: package.label,
+            unit: package.unit,
+            initialMilliunits: package.initialMilliunits,
+            expiryIso: package.expiry == null ? null
+                : StockQuantity.isoDate(package.expiry!),
+            expiryPrecision: package.expiry == null ? 'none' : 'day',
+          ));
+        }
+        if (ids.isNotEmpty) {
+          // FEFO: known valid expiry dates first; undated packs last.
+          final candidates = List<int>.generate(ids.length, (i) => i);
+          candidates.sort((a, b) {
+            final left = draft.packages[a].expiry;
+            final right = draft.packages[b].expiry;
+            if (left == null) return right == null ? a.compareTo(b) : 1;
+            if (right == null) return -1;
+            return left.compareTo(right);
+          });
+          await _inventory.selectPackage(profileId: profile.id,
+            medicationId: medicationId, packageId: ids[candidates.first]);
+        }
+        await _saveSetupForPlan(profile.id, medicationId, draft,
+          const MedicationSetup(), localPhotoPath: photoPath);
+      });
+    });
+  }
+
+  List<DoseSlotInput> _slotInputs(MedicationDraft draft) => [
+    for (final slot in draft.slots) DoseSlotInput(
+      doseText: slot.dose,
+      time: TimeOfDayValue(slot.time.hour, slot.time.minute),
+    ),
+  ];
+
+  /// Bind exact quantities to immutable plan IDs, never merely to a clock.
+  /// A changed schedule starts tomorrow; previous recorded doses keep their
+  /// original quantity, even after a later edit.
+  Future<void> _saveSetupForPlan(String profileId, String medicationId,
+      MedicationDraft draft, MedicationSetup previous,
+      {String? localPhotoPath}) async {
+    final db = widget.repository.db;
+    final plans = await (db.select(db.medicationPlanVersions)
+          ..where((p) => p.medicationId.equals(medicationId)))
+        .get();
+    final version = plans.map((p) => p.version).reduce(
+      (a, b) => a > b ? a : b);
+    final doses = Map<String, ScheduledQuantity>.of(previous.doses);
+    for (final slot in draft.slots) {
+      final matched = plans.where((p) => p.version == version &&
+          p.hour == slot.time.hour && p.minute == slot.time.minute);
+      if (matched.length != 1) {
+        throw StateError('برنامهٔ مصرف ذخیره شد اما شناسهٔ نوبت یکتا نیست.');
+      }
+      if (slot.quantity != null) doses[matched.single.id] = slot.quantity!;
+    }
+    await _setupRepository.save(profileId: profileId,
+      medicationId: medicationId,
+      setup: MedicationSetup(
+        doses: doses,
+        artwork: draft.artwork,
+        localImagePath: localPhotoPath ?? previous.localImagePath,
+        reminderNote: draft.reminderNote,
+      ));
   }
 
   Future<void> _editMedication(Medication medication) async {
@@ -312,34 +398,37 @@ class _MedicationHomeState extends State<MedicationHome>
       medication.id,
       tomorrow,
     );
+    final previous = await _setupRepository.read(profile.id, medication.id);
     if (!mounted) return;
     final draft = await showMedicationEntrySheet(
       context,
       profileName: profile.displayName,
       initialName: medication.name,
+      initialSetup: previous,
       initialSlots: [
         for (final dose in doses)
           MedicationSlotDraft(
             dose: dose.plan.doseText,
             time: TimeOfDay.fromDateTime(dose.scheduledAt),
+            quantity: previous.doses[dose.plan.id],
           ),
       ],
     );
     if (!mounted || draft == null) return;
-    await _perform(
-      () => widget.repository.updateMedicationSchedule(
-        profileId: profile.id,
-        medicationId: medication.id,
-        name: draft.name,
-        slots: [
-          for (final slot in draft.slots)
-            DoseSlotInput(
-              doseText: slot.dose,
-              time: TimeOfDayValue(slot.time.hour, slot.time.minute),
-            ),
-        ],
-      ),
-    );
+    await _perform(() async {
+      final photoPath = draft.imagePath == null ? null
+          : await const MedicationPhotoStorage().store(draft.imagePath!);
+      await widget.repository.db.transaction(() async {
+        await widget.repository.updateMedicationSchedule(
+          profileId: profile.id,
+          medicationId: medication.id,
+          name: draft.name,
+          slots: _slotInputs(draft),
+        );
+        await _saveSetupForPlan(profile.id, medication.id, draft,
+          previous, localPhotoPath: photoPath);
+      });
+    });
   }
 
   Future<void> _archiveMedication(Medication medication) async {
@@ -433,11 +522,36 @@ class _MedicationHomeState extends State<MedicationHome>
     if (action == 'taken') {
       final stock = await _inventory.summary(profile.id, dose.medication.id);
       if (!mounted) return;
-      choice = await askDoseStockChoice(
-        context,
-        medicationName: dose.medication.name,
-        stock: stock,
-      );
+      final configured = _setups[dose.medication.id]?.doses[dose.plan.id];
+      if (configured == null) {
+        // Legacy free-text instructions cannot safely imply a quantity.
+        choice = await askDoseStockChoice(context,
+          medicationName: dose.medication.name, stock: stock);
+      } else {
+        final selected = stock.selected;
+        if (selected == null || selected.expired) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('بستهٔ معتبر برای کسر موجودی انتخاب نشده است. '
+              'از جزئیات دارو بستهٔ مناسب را انتخاب کن.')));
+          return;
+        }
+        final quantity = MedicationUnits.toPackageMilliunits(
+          configured, selected.package.unit);
+        if (quantity == null || quantity <= 0 ||
+            quantity > StockQuantity.maxMilliunits) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('واحد مصرف با واحد بسته سازگار نیست؛ '
+              'موجودی را بررسی کن.')));
+          return;
+        }
+        if (quantity > selected.balanceMilliunits) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('موجودی بسته برای این نوبت کافی نیست؛ '
+              'بسته را تغییر بده یا مصرف را بدون کسر ثبت کن.')));
+          return;
+        }
+        choice = DoseStockChoice.debit(selected.package.id, quantity);
+      }
       if (!mounted || choice == null) return;
     }
     // A saved dose moves to the completed section in its compact state.
@@ -950,7 +1064,8 @@ class _MedicationHomeState extends State<MedicationHome>
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
           child: Row(children: [
-            MedicineArtwork(seed: dose.medication.name, size: 45),
+            MedicationArtwork(name: dose.medication.name,
+              setup: _setups[dose.medication.id], size: 45),
             const SizedBox(width: 10),
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1265,7 +1380,7 @@ class _MedicationHomeState extends State<MedicationHome>
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 2),
         child: Row(children: [
-          MedicineArtwork(seed: med.name, size: 51),
+          MedicationArtwork(name: med.name, setup: _setups[med.id], size: 51),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(med.name, maxLines: 2, overflow: TextOverflow.ellipsis,
@@ -1329,6 +1444,9 @@ class _MedicationHomeState extends State<MedicationHome>
         slots: slots,
         todaySlots: todaySlots,
         stock: stock,
+        setup: _setups[med.id],
+        medicationRepository: widget.repository,
+        inventoryRepository: _inventory,
         pendingSchedule: pendingSchedule,
         archived: _showArchived,
         onEdit: () { Navigator.pop(detailContext); _editMedication(med); },
