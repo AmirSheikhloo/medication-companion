@@ -125,16 +125,36 @@ void main() {
     await save('12-care');
 
     // Keep real Flutter-rasterized daytime and nighttime Today examples for
-    // design review. The clock controls both the sky illustration and title.
+    // design review. Use a separate database because the original app closes
+    // its owned database when the first MaterialApp is unmounted.
+    final daypartDb = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(daypartDb.close);
+    final daypartProfiles = ProfileRepository(daypartDb);
+    final daypartProfile = await daypartProfiles.createGuestProfile(
+      forSelf: true, displayName: 'امیر');
+    final daypartMedicines = MedicationRepository(daypartDb);
+    for (final data in [
+      ('متفورمین ۵۰۰', '۱ عدد', 8),
+      ('آملودیپین ۵', '۱ عدد', 9),
+      ('ویتامین D', '۱ کپسول', 13),
+      ('آهن', '۱ عدد', 20),
+    ]) {
+      await daypartMedicines.addDailyMedication(
+        profileId: daypartProfile.id,
+        name: data.$1, doseText: data.$2,
+        time: TimeOfDayValue(data.$3, 0),
+      );
+    }
     Future<void> saveTodayAt(int hour, String name) async {
       await tester.pumpWidget(RepaintBoundary(
         key: key,
         child: MaterialApp(
+          theme: ThemeData(fontFamily: 'Vazirmatn'),
           home: Directionality(
             textDirection: TextDirection.rtl,
             child: MedicationHome(
-              repository: medicines,
-              profileRepository: ProfileRepository(db),
+              repository: daypartMedicines,
+              profileRepository: daypartProfiles,
               clock: () => DateTime(2026, 11, 22, hour),
             ),
           ),

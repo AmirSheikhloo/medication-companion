@@ -22,6 +22,12 @@ void main() {
 
   testWidgets('due alerts get a red dot until notifications are seen',
       (tester) async {
+    // Match the Android emulator viewport; the default 800×600 widget-test
+    // viewport puts this long schedule behind its fixed bottom navigation.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
@@ -56,6 +62,9 @@ void main() {
     expect(find.byKey(const Key('today-unread-dot')), findsNothing);
 
     await tester.ensureVisible(find.text('قرص صبح'));
+    await tester.drag(find.byKey(const Key('today-scroll-list')),
+      const Offset(0, -120));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('قرص صبح'));
     await tester.pumpAndSettle();
     expect(find.text('مصرف کردم'), findsOneWidget);
@@ -64,6 +73,9 @@ void main() {
     // Inline expansion must not open the old dose-action bottom sheet.
     expect(find.text('ثبت مصرف دارو'), findsNothing);
     await tester.ensureVisible(find.text('مصرف نکردم'));
+    await tester.drag(find.byKey(const Key('today-scroll-list')),
+      const Offset(0, -80));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('مصرف نکردم'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('ثبت‌شده‌ها'), 120);
