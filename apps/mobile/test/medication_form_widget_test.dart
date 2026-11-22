@@ -40,7 +40,8 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('medication-name-field')),
       'داروی آزمایشی');
-    await tester.ensureVisible(find.byKey(const Key('med-stock-1')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('med-stock-1')), 220);
     await tester.enterText(find.byKey(const Key('med-stock-1')), '10');
     await tester.tap(find.text('ثبت دارو'));
     await tester.pumpAndSettle();

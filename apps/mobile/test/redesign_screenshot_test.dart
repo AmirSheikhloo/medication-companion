@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
+import 'package:medication_companion/core/ui/app_design.dart';
 import 'package:medication_companion/features/medications/data/medication_repository.dart';
 import 'package:medication_companion/features/medications/presentation/medication_home.dart';
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
@@ -73,8 +74,9 @@ void main() {
     await save('02-medicines');
     await tester.tap(find.text('افزودن دارو'));
     await tester.pumpAndSettle();
-    expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
-      Colors.white, reason: 'A teal app bar needs an explicitly white title');
+    expect(tester.widget<AppBar>(find.byType(AppBar)).foregroundColor,
+      AppColors.primaryDark,
+      reason: 'The new medication form uses a light, high-contrast app bar');
     await save('06-medication-form');
     await tester.pageBack();
     await tester.pumpAndSettle();
