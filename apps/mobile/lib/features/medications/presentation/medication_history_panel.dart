@@ -128,8 +128,16 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
     'taken' => 'کسر بابت مصرف',
     'undo' => 'بازگشت موجودی',
     'adjustment' => 'اصلاح دستی موجودی',
+    'metadata' => 'ویرایش یا بایگانی بسته',
     _ => 'تغییر موجودی',
   };
+
+  String _movementTitle(StockMovement movement) {
+    if (movement.kind == 'metadata') return _movementName(movement.kind);
+    final sign = movement.deltaMilliunits > 0 ? '+' : '';
+    return '${_movementName(movement.kind)}: $sign'
+        '${StockQuantity.format(movement.deltaMilliunits)}';
+  }
 
   Widget _eventRow({required String title, required String subtitle,
       required Color color, required IconData icon}) => Padding(
@@ -210,11 +218,10 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               child: Text('در این بازه تغییری در موجودی ثبت نشده است.',
                 style: TextStyle(color: AppColors.muted))),
             for (final move in data.movements) _eventRow(
-              title: PersianDate.persianDigits(
-                '${_movementName(move.kind)}: '
-                '${move.deltaMilliunits > 0 ? '+' : ''}'
-                '${StockQuantity.format(move.deltaMilliunits)}'),
-              subtitle: persianDateLabel(move.createdAt, showTime: true),
+              title: PersianDate.persianDigits(_movementTitle(move)),
+              subtitle: '${persianDateLabel(move.createdAt, showTime: true)}'
+                  '${move.kind == 'metadata' && move.note != null
+                    ? ' — ${move.note}' : ''}',
               color: move.deltaMilliunits < 0
                 ? const Color(0xFFB55B32) : AppColors.primary,
               icon: Icons.inventory_2_outlined),

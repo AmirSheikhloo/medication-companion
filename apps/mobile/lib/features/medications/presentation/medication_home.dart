@@ -574,11 +574,14 @@ class _MedicationHomeState extends State<MedicationHome>
     if (action == 'delete' && (await _inventory.movementsForPackage(
       profileId: profile.id, medicationId: medication.id,
       packageId: package.id)).isNotEmpty) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('این بسته سابقهٔ موجودی یا مصرف دارد. برای حفظ سوابق '
-          'آن را بایگانی کن؛ حذف دائمی مجاز نیست.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('این بسته سابقهٔ موجودی یا مصرف دارد. برای حفظ سوابق '
+            'آن را بایگانی کن؛ حذف دائمی مجاز نیست.')));
+      }
       return;
     }
+    if (!mounted) { return; }
     if (action == 'archive' || action == 'delete') {
       final confirm = await showDialog<bool>(context: context,
         builder: (dialogContext) => AlertDialog(

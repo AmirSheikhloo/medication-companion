@@ -279,7 +279,9 @@ class InventoryRepository {
         throw StateError('تاریخ انقضا گذشته است؛ از مصرف داروی منقضی خودداری کن.');
       }
       if (pack.label == label.trim() && pack.expiryIso == expiryIso &&
-          pack.expiryPrecision == expiryPrecision) return;
+          pack.expiryPrecision == expiryPrecision) {
+        return;
+      }
       await (db.update(db.stockPackages)
             ..where((t) => t.id.equals(packageId) &
               t.profileId.equals(profileId) &
