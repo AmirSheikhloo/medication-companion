@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
 import 'package:medication_companion/features/medications/data/medication_repository.dart';
+import 'package:medication_companion/features/medications/presentation/medication_home.dart';
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
 import 'package:medication_companion/main.dart';
 
@@ -122,5 +123,27 @@ void main() {
     expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
       Colors.white);
     await save('12-care');
+
+    // Keep real Flutter-rasterized daytime and nighttime Today examples for
+    // design review. The clock controls both the sky illustration and title.
+    Future<void> saveTodayAt(int hour, String name) async {
+      await tester.pumpWidget(RepaintBoundary(
+        key: key,
+        child: MaterialApp(
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: MedicationHome(
+              repository: medicines,
+              profileRepository: ProfileRepository(db),
+              clock: () => DateTime(2026, 11, 22, hour),
+            ),
+          ),
+        ),
+      ));
+      await save(name);
+    }
+
+    await saveTodayAt(9, '13-today-morning');
+    await saveTodayAt(19, '14-today-night');
   });
 }
