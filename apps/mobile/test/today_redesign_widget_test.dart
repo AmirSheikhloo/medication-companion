@@ -8,6 +8,18 @@ import 'package:medication_companion/features/medications/presentation/today_vis
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
 
 void main() {
+  test('compact Persian date and dose-outcome colors are consistent', () {
+    expect(todayReadablePersianDate(DateTime(2026, 11, 22)),
+      'یکشنبه، ۱ آذر');
+    expect(todayDoseStatusColor('taken'), const Color(0xFF16995E));
+    expect(todayDoseStatusColor('skipped'), const Color(0xFFD34E58));
+    expect(todayDoseStatusColor('unknown'), const Color(0xFFDD962E));
+    expect(todayDoseCardBackground('skipped'), const Color(0xFFF5EBED));
+    expect(todayDoseCardBackground('unknown'), const Color(0xFFF6F0E7));
+    expect(todayDoseCardBackground('taken'), const Color(0xFFE9F1EE));
+    expect(todayDoseCardBackground('pending'), Colors.white);
+  });
+
   test('greeting and sky always agree across time boundaries', () {
     expect(todaySkyPhaseForHour(5), TodaySkyPhase.morning);
     expect(todayGreetingForHour(8), 'صبح بخیر');
@@ -52,7 +64,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('شب بخیر'), findsOneWidget);
     expect(find.byKey(const Key('today-unread-dot')), findsOneWidget);
-    expect(find.byKey(const Key('today-date-banner')), findsOneWidget);
+    expect(find.byKey(const Key('today-date-banner')), findsNothing);
+    expect(find.byKey(const Key('today-date-heading')), findsOneWidget);
+    expect(find.byKey(const Key('today-multistatus-ring')), findsOneWidget);
     await tester.tap(find.byKey(const Key('today-notifications-button')));
     await tester.pumpAndSettle();
     expect(find.text('اعلان‌های امروز'), findsOneWidget);
@@ -82,6 +96,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ثبت‌شده‌ها'), findsOneWidget);
     expect(find.text('مصرف نشد'), findsOneWidget);
+    final recordedCard = find.ancestor(
+      of: find.text('قرص صبح'), matching: find.byType(AnimatedContainer));
+    final animated = tester.widget<AnimatedContainer>(recordedCard);
+    expect((animated.decoration! as BoxDecoration).color,
+      todayDoseCardBackground('skipped'));
   });
 
   testWidgets('future doses have no unread alert dot and picker is rounded',

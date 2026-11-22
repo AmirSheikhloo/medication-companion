@@ -2,7 +2,111 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/calendar/persian_date.dart';
 import '../../../core/ui/app_design.dart';
+
+/// A conversational date belongs with the daily summary, not in a large card.
+String todayReadablePersianDate(DateTime date) {
+  const weekdays = <String>[
+    'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه', 'یکشنبه',
+  ];
+  const months = <String>[
+    'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+    'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند',
+  ];
+  final local = date.toLocal();
+  final persian = PersianDate.fromGregorian(local);
+  return '${weekdays[local.weekday - 1]}، '
+      '${PersianDate.persianDigits('${persian.day}')} '
+      '${months[persian.month - 1]}';
+}
+
+Color todayDoseStatusColor(String status) => switch (status) {
+  'taken' => AppColors.success,
+  'skipped' => const Color(0xFFD34E58),
+  'unknown' => const Color(0xFFDD962E),
+  _ => const Color(0xFFD6E2E4),
+};
+
+Color todayDoseCardBackground(String status) => switch (status) {
+  'taken' => const Color(0xFFE9F1EE), // Gray-green, not fully saturated.
+  'skipped' => const Color(0xFFF5EBED), // Gray-red.
+  'unknown' => const Color(0xFFF6F0E7), // Gray-amber.
+  _ => Colors.white,
+};
+
+/// Unlike a single green progress arc, each segment preserves the *actual*
+/// logged outcome. An unlogged slot stays neutral gray.
+class TodayStatusRing extends StatelessWidget {
+  const TodayStatusRing({super.key, required this.statuses, this.size = 88});
+
+  final List<String> statuses;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final taken = statuses.where((value) => value == 'taken').length;
+    return Semantics(
+      label: PersianDate.persianDigits(
+        '$taken از ${statuses.length} نوبت مصرف‌شده'),
+      child: SizedBox(
+        width: size, height: size,
+        child: Stack(alignment: Alignment.center, children: [
+          Positioned.fill(child: CustomPaint(
+            key: const Key('today-multistatus-ring'),
+            painter: _TodayStatusRingPainter(statuses),
+          )),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Text(
+              PersianDate.persianDigits('$taken/${statuses.length}'),
+              maxLines: 1,
+              style: const TextStyle(fontFamily: 'Vazirmatn',
+                fontSize: 20, fontWeight: FontWeight.bold,
+                color: AppColors.primaryDark),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _TodayStatusRingPainter extends CustomPainter {
+  const _TodayStatusRingPainter(this.statuses);
+  final List<String> statuses;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Rect.fromLTWH(5, 5, size.width - 10, size.height - 10);
+    final base = Paint()
+      ..color = const Color(0xFFD6E2E4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8;
+    canvas.drawArc(bounds, 0, 2 * math.pi, false, base);
+    if (statuses.isEmpty) return;
+    final angle = 2 * math.pi / statuses.length;
+    for (var i = 0; i < statuses.length; i++) {
+      final status = statuses[i];
+      if (status == 'pending') continue;
+      final pen = Paint()
+        ..color = todayDoseStatusColor(status)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8;
+      canvas.drawArc(bounds, -math.pi / 2 + i * angle + .024,
+          math.max(.01, angle - .048), false, pen);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TodayStatusRingPainter oldDelegate) {
+    if (oldDelegate.statuses.length != statuses.length) return true;
+    for (var i = 0; i < statuses.length; i++) {
+      if (oldDelegate.statuses[i] != statuses[i]) return true;
+    }
+    return false;
+  }
+}
 
 /// A single clock-to-visual mapping keeps the greeting, icon and sky in sync.
 enum TodaySkyPhase { morning, noon, evening, night }
