@@ -30,10 +30,84 @@ class MedicationDetailScreen extends StatelessWidget {
   String _clock(DateTime date) => PersianDate.persianDigits(
     '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}');
 
+  String _expiryLabel(PackageBalance balance) {
+    final iso = balance.package.expiryIso;
+    if (iso == null) return 'بدون تاریخ انقضا';
+    final date = PersianDate.fromGregorian(StockQuantity.parseIso(iso));
+    final prefix = balance.package.expiryPrecision == 'month'
+        ? 'انقضا (ماه)'
+        : 'انقضا';
+    return PersianDate.persianDigits('$prefix: $date');
+  }
+
+  Widget _packageRow(PackageBalance balance, bool isSelected) {
+    final expired = balance.expired;
+    final color = expired
+        ? const Color(0xFFBB4356)
+        : isSelected ? AppColors.primary : AppColors.muted;
+    final fill = expired
+        ? const Color(0xFFFFF0F1)
+        : isSelected ? const Color(0xFFE0F5F0) : const Color(0xFFF5F8F9);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(children: [
+        Icon(expired ? Icons.warning_amber_rounded :
+            isSelected ? Icons.check_circle_rounded : Icons.inventory_2_outlined,
+          color: color, size: 22),
+        const SizedBox(width: 9),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(balance.package.label, style: const TextStyle(
+              color: AppColors.primaryDark, fontWeight: FontWeight.w800,
+              fontSize: 14)),
+            const SizedBox(height: 2),
+            Text(PersianDate.persianDigits(
+              '${StockQuantity.format(balance.balanceMilliunits)} ${balance.package.unit} باقی‌مانده'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
+            Text(_expiryLabel(balance), style: TextStyle(
+              color: expired ? color : AppColors.muted, fontSize: 11)),
+            if (isSelected) const Text('بسته انتخاب‌شده برای مصرف',
+              style: TextStyle(color: AppColors.primary, fontSize: 11,
+                fontWeight: FontWeight.w700)),
+            if (expired) const Text('منقضی‌شده؛ قابل انتخاب برای مصرف نیست',
+              style: TextStyle(color: Color(0xFFBB4356), fontSize: 11,
+                fontWeight: FontWeight.w700)),
+          ],
+        )),
+        if (!archived) PopupMenuButton<String>(
+          tooltip: 'گزینه‌های بسته',
+          icon: const Icon(Icons.more_vert_rounded, color: AppColors.primaryDark),
+          onSelected: (_) => onStock(),
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'manage', child: Text('مدیریت و تغییر بسته')),
+          ],
+        ),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selected = stock?.selected;
     final statusColor = stock?.lowStock == true ? const Color(0xFFB16D06) : AppColors.primary;
+    // FEFO ordering for visibility; changing the selected stock is an
+    // explicit user action from the stock management screen.
+    final packages = <PackageBalance>[...?stock?.packages];
+    packages.sort((a, b) {
+      final left = a.package.expiryIso;
+      final right = b.package.expiryIso;
+      if (left == null) return right == null ? 0 : 1;
+      if (right == null) return -1;
+      return left.compareTo(right);
+    });
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('جزئیات دارو'),
@@ -77,20 +151,32 @@ class MedicationDetailScreen extends StatelessWidget {
           ],
         ])),
         const SizedBox(height: 12),
-        AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const AppSectionHeading('موجودی', icon: Icons.inventory_2_outlined),
-          const SizedBox(height: 8),
-          Text(selected == null ? 'هنوز بسته‌ای برای این دارو انتخاب نشده است.' :
-            PersianDate.persianDigits('${StockQuantity.format(selected.balanceMilliunits)} '
-              '${selected.package.unit} باقی‌مانده از بستهٔ «${selected.package.label}»'),
-            style: TextStyle(color: statusColor, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          if (stock?.lowStock == true)
+        AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const AppSectionHeading('موجودی و بسته‌ها',
+            icon: Icons.inventory_2_outlined),
+          const SizedBox(height: 9),
+          Text(selected == null
+              ? 'هنوز بسته‌ای برای مصرف انتخاب نشده است.'
+              : PersianDate.persianDigits(
+                  '${StockQuantity.format(selected.balanceMilliunits)} '
+                  '${selected.package.unit} در بستهٔ انتخاب‌شده'),
+            style: TextStyle(color: statusColor, fontSize: 15,
+              fontWeight: FontWeight.w900)),
+          if (stock?.lowStock == true) ...[
+            const SizedBox(height: 7),
             const AppStatusPill(text: 'هشدار کم‌موجودی',
               icon: Icons.warning_amber_rounded, color: Color(0xFFB16D06)),
-          const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 12),
+          for (final pack in packages)
+            _packageRow(pack, pack.package.id == stock?.selectedPackageId),
+          if (packages.isEmpty)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('برای این دارو هنوز بسته‌ای ثبت نشده است.',
+                style: TextStyle(color: AppColors.muted))),
           OutlinedButton.icon(onPressed: archived ? null : onStock,
-            icon: const Icon(Icons.add), label: const Text('مدیریت موجودی و بسته‌ها')),
+            icon: const Icon(Icons.add_circle_outline),
+            label: const Text('افزودن بسته یا مدیریت موجودی')),
         ])),
         const SizedBox(height: 12),
         AppPanel(child: Column(children: [
