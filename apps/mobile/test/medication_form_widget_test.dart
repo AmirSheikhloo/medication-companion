@@ -26,8 +26,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('شروع'));
-    await tester.tap(find.text('شروع'));
+    await tester.ensureVisible(find.text('ورود به عنوان مهمان'));
+    await tester.tap(find.text('ورود به عنوان مهمان'));
     await tester.pumpAndSettle();
     final active = await profiles.activeProfile();
     expect(active, isNotNull);
@@ -93,6 +93,10 @@ void main() {
     await tester.ensureVisible(find.text('برای یکی از عزیزانم'));
     await tester.tap(find.text('برای یکی از عزیزانم'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('ادامه'));
+    await tester.pumpAndSettle();
+    expect(find.text('برای ادامه، نام عزیزت رو بنویس.'), findsOneWidget);
+    expect(await profiles.activeProfile(), isNull);
     await tester.enterText(find.byType(TextField).last, 'مادر آزمایشی');
     await tester.tap(find.text('ادامه'));
     await tester.pumpAndSettle();
@@ -125,8 +129,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('شروع'));
-    await tester.tap(find.text('شروع'));
+    await tester.ensureVisible(find.text('ورود به عنوان مهمان'));
+    await tester.tap(find.text('ورود به عنوان مهمان'));
     await tester.pumpAndSettle();
     final profile = (await profiles.activeProfile())!;
 

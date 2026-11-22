@@ -63,8 +63,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('شروع'));
-    await tester.tap(find.text('شروع'));
+    await tester.ensureVisible(find.text('ورود به عنوان مهمان'));
+    await tester.tap(find.text('ورود به عنوان مهمان'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('بیشتر'));
     await tester.pumpAndSettle();

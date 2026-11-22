@@ -38,6 +38,7 @@ flutter:
   assets:
     - assets/fonts/NotoSansArabic-Regular.ttf
     - assets/fonts/NotoSansArabic-Bold.ttf
+    - assets/images/welcome_ribbon_capsule.png
   fonts:
     - family: Vazirmatn
       fonts:
