@@ -28,7 +28,7 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('welcome-name-input')),
         '  امیر  ');
-    await tester.testTextInput.hide();
+    tester.testTextInput.hide();
     await tester.ensureVisible(find.text('شروع برای خودم'));
     await tester.tap(find.text('شروع برای خودم'));
     await tester.pump();
