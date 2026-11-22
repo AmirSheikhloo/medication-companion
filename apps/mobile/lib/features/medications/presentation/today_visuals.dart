@@ -11,7 +11,7 @@ import '../../../core/ui/app_design.dart';
 /// tabs or changing the meaning of the logged-outcome colors.
 abstract final class TodayPalette {
   static const page = Color(0xFFF1F8F8);
-  static const summary = Color(0xFFE9F5F6);
+  static const summary = Color(0xFFDFF5F6);
   static const dayPartHeader = Color(0xFFE1F4F3);
   static const bellHighlight = Color(0xFFFFFDF2);
   static const bellShadow = Color(0xFFFFF3C7);
