@@ -635,9 +635,14 @@ class _MedicationHomeState extends State<MedicationHome>
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
         children: [
           Row(children: [
+            const Expanded(child: Text('همراه دارو',
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 18,
+                fontWeight: FontWeight.bold, color: AppColors.primaryDark))),
+            const SizedBox(width: 10),
+            Flexible(child: _profileBar()),
+            const SizedBox(width: 8),
             _todayNotificationBell(dueAlerts),
-            const Spacer(),
-            _profileBar(),
           ]),
           const SizedBox(height: 16),
           TodaySkyGreeting(hour: now.hour, name: _active!.displayName),
