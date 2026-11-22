@@ -75,6 +75,10 @@ void main() {
     // choose the correct state immediately, without opening another sheet.
     expect(find.text('مصرف کردم'), findsOneWidget);
     await tester.ensureVisible(find.text('مصرف کردم، بدون کسر موجودی'));
+    await tester.pumpAndSettle();
+    // The fixed bottom navigation can overlay the button's lower edge.
+    await tester.drag(find.byType(ListView).first, const Offset(0, -220));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('مصرف کردم، بدون کسر موجودی'));
     await tester.pumpAndSettle();
     expect(find.text('مصرف شد'), findsOneWidget);
