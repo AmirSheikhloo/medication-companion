@@ -763,13 +763,19 @@ class _MedicationHomeState extends State<MedicationHome>
         .any((dose) => !_seenDueAlertKeys.contains(dose.occurrenceKey));
     return Stack(clipBehavior: Clip.none, children: [
       Material(
-        color: const Color(0xFFFFF4DC),
-        borderRadius: BorderRadius.circular(16),
+        key: const Key('today-bell-surface'),
+        color: Colors.white,
+        elevation: 1,
+        shadowColor: const Color(0x45B89109),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFF0E1B3)),
+        ),
         child: IconButton(
           key: const Key('today-notifications-button'),
           tooltip: 'اعلان‌های نوبت مصرف',
           icon: const Icon(Icons.notifications_none_rounded,
-            color: Color(0xFFC28A1B), size: 25),
+            color: Color(0xFFB38706), size: 25),
           onPressed: () => _showTodayNotifications(dueAlerts),
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
         ),
@@ -954,25 +960,8 @@ class _MedicationHomeState extends State<MedicationHome>
             )),
             const SizedBox(width: 6),
             if (dose.status == 'pending' && due)
-              Container(
+              TodayDueAttentionBadge(
                 key: Key('today-due-attention-${dose.occurrenceKey}'),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFE7EA),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF1B5BC)),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(width: 7, height: 7,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFD32F42), shape: BoxShape.circle)),
-                  const SizedBox(width: 5),
-                  const Text('ثبت وضعیت',
-                    style: TextStyle(fontFamily: 'Vazirmatn',
-                      fontSize: 11.5, fontWeight: FontWeight.bold,
-                      color: Color(0xFFAA2032))),
-                ]),
               )
             else if (dose.status != 'pending')
               AppStatusPill(
@@ -1005,13 +994,13 @@ class _MedicationHomeState extends State<MedicationHome>
   }
 
   Widget _inlineDoseActions(DailyDose dose) {
-    return Container(
+    return AnimatedContainer(
       key: Key('today-expanded-actions-${dose.occurrenceKey}'),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOutCubic,
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
-      color: dose.status == 'pending'
-          ? const Color(0xFFF2FAF9)
-          : todayDoseCardBackground(dose.status),
+      color: todayDoseCardBackground(dose.status),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Divider(height: 14, color: AppColors.outline),
         Text('ساعت برنامه: ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}  |  '
@@ -1083,13 +1072,18 @@ class _MedicationHomeState extends State<MedicationHome>
                 : const Color(0xFF996116),
           ),
           const SizedBox(height: 10),
-          OutlinedButton.icon(
+          FilledButton.icon(
             key: Key('today-undo-${dose.occurrenceKey}'),
             onPressed: _saving ? null : () => _mark(dose, 'undo'),
             icon: const Icon(Icons.restart_alt_rounded),
             label: const Text('بازگرداندن ثبت'),
-            style: OutlinedButton.styleFrom(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF006D70),
+              foregroundColor: Colors.white,
+              elevation: 1,
               minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(13)),
               textStyle: const TextStyle(fontFamily: 'Vazirmatn',
                 fontSize: 14, fontWeight: FontWeight.bold),
             ),
