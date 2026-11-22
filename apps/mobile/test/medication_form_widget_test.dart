@@ -71,7 +71,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('بازگرداندن ثبت'));
     await tester.pumpAndSettle();
-    expect(find.text('ثبت مصرف'), findsOneWidget);
+    // The inline action panel stays expanded after an undo so the user can
+    // choose the correct state immediately, without opening another sheet.
+    expect(find.text('مصرف کردم'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('managed profile dialog safely persists its entered name', (

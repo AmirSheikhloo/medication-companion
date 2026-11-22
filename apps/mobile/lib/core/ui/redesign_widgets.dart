@@ -189,8 +189,19 @@ class AppProgressRing extends StatelessWidget {
         color: AppColors.primary,
         backgroundColor: const Color(0xFFC5EAE8),
       )),
-      Text(center, style: const TextStyle(fontWeight: FontWeight.w800,
-        fontSize: 16, color: AppColors.primaryDark)),
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Text(center,
+          maxLines: 1,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            color: AppColors.primaryDark,
+          ),
+        ),
+      ),
     ]),
   );
 }

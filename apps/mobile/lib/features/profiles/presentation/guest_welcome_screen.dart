@@ -21,7 +21,6 @@ class GuestWelcomeScreen extends StatefulWidget {
 
 class _GuestWelcomeScreenState extends State<GuestWelcomeScreen> {
   static const _ink = Color(0xFF073C3D);
-  static const _muted = Color(0xFF68787C);
 
   final _name = TextEditingController();
   bool _showNameError = false;
@@ -56,9 +55,9 @@ class _GuestWelcomeScreenState extends State<GuestWelcomeScreen> {
               final textScale = MediaQuery.textScalerOf(context).scale(1.0);
               final extraForLargeText =
                   ((textScale - 1.0).clamp(0.0, 1.0) * 90.0);
-              final heroHeight = (constraints.maxHeight * 0.455 +
+              final heroHeight = (constraints.maxHeight * 0.47 +
                       extraForLargeText)
-                  .clamp(280.0, 450.0)
+                  .clamp(290.0, 460.0)
                   .toDouble();
               return SingleChildScrollView(
                 keyboardDismissBehavior:
@@ -71,7 +70,7 @@ class _GuestWelcomeScreenState extends State<GuestWelcomeScreen> {
                       children: [
                         _WelcomeHero(height: heroHeight, width: contentWidth),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 25),
+                          padding: const EdgeInsets.fromLTRB(20, 7, 20, 28),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -117,7 +116,7 @@ class _GuestWelcomeScreenState extends State<GuestWelcomeScreen> {
                                       const Color(0xFFD75D57), width: 1.8),
                                 ),
                               ),
-                              const SizedBox(height: 31),
+                              const SizedBox(height: 28),
                               _WelcomeAction(
                                 label: 'شروع برای خودم',
                                 onPressed: widget.onSelfNamed == null &&
@@ -150,12 +149,6 @@ class _GuestWelcomeScreenState extends State<GuestWelcomeScreen> {
                                     decorationColor: Color(0xFF00A89F),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                'بدون نیاز به ساخت حساب',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: _muted, fontSize: 12),
                               ),
                             ],
                           ),

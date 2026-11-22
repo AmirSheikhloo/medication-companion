@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +12,7 @@ import '../../profiles/presentation/guest_welcome_screen.dart';
 import '../../profiles/presentation/profile_name_dialog.dart';
 import 'medication_entry_sheet.dart';
 import 'medication_detail_screen.dart';
+import 'today_visuals.dart';
 import 'settings_screens.dart';
 import '../data/medication_repository.dart';
 import '../../reminders/data/reminder_coordinator.dart';
@@ -43,12 +46,15 @@ class MedicationHome extends StatefulWidget {
     required this.profileRepository,
     this.reminderCoordinator,
     this.careReminderCoordinator,
+    this.clock,
   });
 
   final MedicationRepository repository;
   final ProfileRepository profileRepository;
   final ReminderCoordinator? reminderCoordinator;
   final CareReminderCoordinator? careReminderCoordinator;
+  /// Injectable clock for daypart and notification widget tests.
+  final DateTime Function()? clock;
 
   @override
   State<MedicationHome> createState() => _MedicationHomeState();
@@ -70,6 +76,11 @@ class _MedicationHomeState extends State<MedicationHome>
   List<DailyDose> _doses = [];
   List<DailyDose> _nextDayDoses = [];
   Map<String, StockSummary> _stocks = {};
+  final Set<String> _expandedDoseKeys = {};
+  final Set<String> _seenDueAlertKeys = {};
+  Timer? _todayClockTicker;
+
+  DateTime get _now => widget.clock?.call() ?? DateTime.now();
 
   InventoryRepository get _inventory =>
       InventoryRepository(widget.repository.db);
@@ -82,6 +93,9 @@ class _MedicationHomeState extends State<MedicationHome>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _todayClockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted && _tab == 0) setState(() {});
+    });
     _reload();
     _syncReminders();
     _syncCareReminders();
@@ -90,6 +104,7 @@ class _MedicationHomeState extends State<MedicationHome>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _todayClockTicker?.cancel();
     _medicineSearch.dispose();
     super.dispose();
   }
@@ -167,7 +182,8 @@ class _MedicationHomeState extends State<MedicationHome>
   }
 
   Future<void> _reload() async {
-    if (mounted) setState(() => _loading = true);
+    // Keep the current list mounted during dose updates: its scroll position
+    // and expansion animation should survive the reordering of saved doses.
     try {
       final profile = await widget.profileRepository.activeProfile();
       final profiles = await widget.profileRepository.profiles();
@@ -177,7 +193,7 @@ class _MedicationHomeState extends State<MedicationHome>
       final archivedMeds = profile == null
           ? <Medication>[]
           : await widget.repository.medicationsFor(profile.id, archived: true);
-      final today = DateTime.now();
+      final today = _now;
       final tomorrow = DateTime(today.year, today.month, today.day + 1);
       final doses = profile == null
           ? <DailyDose>[]
@@ -490,280 +506,575 @@ class _MedicationHomeState extends State<MedicationHome>
   }
 
   Widget _profileBar() {
-    final active = _active!;
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 146),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppColors.lightMint,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.outline),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.person_rounded, color: _deepTeal, size: 19),
-          const SizedBox(width: 5),
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                value: active.id,
-                items: [
-                  for (final profile in _profiles)
-                    DropdownMenuItem(
-                      value: profile.id,
-                      child: Text(
-                        profile.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                ],
-                onChanged: _saving
-                    ? null
-                    : (id) {
-                        if (id != null) {
-                          _perform(
-                            () => widget.profileRepository.selectActiveProfile(
-                              id,
-                            ),
-                          );
-                        }
-                      },
-              ),
-            ),
+    return Material(
+      color: AppColors.lightMint,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        key: const Key('today-profile-selector'),
+        onTap: _saving ? null : _showProfilePicker,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 176, minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 11),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.outline),
           ),
-        ],
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.person_outline_rounded, color: _deepTeal, size: 21),
+            const SizedBox(width: 6),
+            Flexible(child: Text(
+              _active!.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontFamily: 'Vazirmatn',
+                fontSize: 14, fontWeight: FontWeight.bold,
+                color: AppColors.primaryDark),
+            )),
+            const SizedBox(width: 6),
+            const Icon(Icons.keyboard_arrow_down_rounded,
+              color: AppColors.primary, size: 20),
+          ]),
+        ),
       ),
     );
+  }
+
+  Future<void> _showProfilePicker() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
+          child: Column(mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text('انتخاب شخص', textAlign: TextAlign.right,
+                style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 21,
+                  fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+              const SizedBox(height: 5),
+              const Text('برنامه و اطلاعات هر شخص جدا نگه داشته می‌شود.',
+                style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 13,
+                  color: AppColors.muted)),
+              const SizedBox(height: 16),
+              for (final profile in _profiles) ...[
+                Material(
+                  color: profile.id == _active?.id
+                      ? AppColors.mint : AppColors.background,
+                  borderRadius: BorderRadius.circular(17),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(17),
+                    onTap: () => Navigator.pop(sheetContext, profile.id),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13, vertical: 12),
+                      child: Row(children: [
+                        CircleAvatar(radius: 20, backgroundColor: Colors.white,
+                          child: const Icon(Icons.person_outline,
+                            color: AppColors.primary)),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(profile.displayName,
+                          style: const TextStyle(fontFamily: 'Vazirmatn',
+                            fontSize: 16, fontWeight: FontWeight.bold,
+                            color: AppColors.primaryDark))),
+                        Icon(profile.id == _active?.id
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                          color: profile.id == _active?.id
+                            ? AppColors.primary : AppColors.muted),
+                      ]),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 9),
+              ],
+            ]),
+        ),
+      ),
+    );
+    if (!mounted || selected == null || selected == _active?.id) return;
+    setState(() => _expandedDoseKeys.clear());
+    await _perform(() => widget.profileRepository.selectActiveProfile(selected));
   }
 
   Widget _todayTab() {
     final taken = _doses.where((dose) => dose.status == 'taken').length;
     final pending = _doses.where((dose) => dose.status == 'pending').length;
     final other = _doses.length - taken - pending;
-    final now = DateTime.now();
-    final morning = _doses
+    final now = _now;
+    final waiting = _doses.where((dose) => dose.status == 'pending').toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    final finished = _doses.where((dose) => dose.status != 'pending').toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    final morning = waiting
         .where((dose) => dose.scheduledAt.hour >= 5 && dose.scheduledAt.hour < 11)
         .toList();
-    final afternoon = _doses
+    final afternoon = waiting
         .where((dose) => dose.scheduledAt.hour >= 11 && dose.scheduledAt.hour < 17)
         .toList();
-    final evening = _doses
+    final evening = waiting
         .where((dose) => dose.scheduledAt.hour >= 17 || dose.scheduledAt.hour < 5)
         .toList();
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(15, 12, 15, 30),
-      children: [
-        Row(children: [
-          const Expanded(child: Row(children: [
-            MedicineArtwork(seed: 'همراه دارو', size: 40),
-            SizedBox(width: 8),
-            Flexible(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('همراه دارو', style: TextStyle(fontSize: 18,
-                color: AppColors.primaryDark, fontWeight: FontWeight.w900)),
-              Text('مدیریت دارو و سلامت', style: TextStyle(color: AppColors.muted,
-                fontSize: 10)),
-            ])),
-          ])),
-          _profileBar(),
-        ]),
-        const SizedBox(height: 16),
-        AppWaveBanner(child: Row(children: [
-          const Icon(Icons.wb_sunny_rounded, color: Color(0xFFEAB62D), size: 40),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${now.hour < 12 ? 'صبح بخیر' : now.hour < 18 ? 'روز بخیر' : 'شب بخیر'}، '
-              '${_active!.displayName} 👋',
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900,
-                color: AppColors.primaryDark)),
-            const Text('امروز هم با آرامش داروهایت را ثبت کن.',
-              style: TextStyle(fontSize: 11, color: AppColors.muted)),
-          ])),
-        ])),
-        const SizedBox(height: 10),
-        AppSoftHeader(title: 'امروز', icon: Icons.calendar_month_rounded,
-          trailing: Flexible(child: Text(persianDateLabel(now),
-            maxLines: 2, textAlign: TextAlign.left,
-            style: const TextStyle(fontSize: 12, color: AppColors.primaryDark)))),
-        const SizedBox(height: 10),
-        AppPanel(padding: const EdgeInsets.all(12), child: Row(children: [
-          AppProgressRing(
-            progress: _doses.isEmpty ? 0 : taken / _doses.length,
-            center: PersianDate.persianDigits('$taken/${_doses.length}'), size: 67),
-          const SizedBox(width: 13),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('خلاصه امروز', style: TextStyle(fontWeight: FontWeight.w800,
-              color: AppColors.primaryDark)),
-            Text(PersianDate.persianDigits('$taken از ${_doses.length} نوبت ثبت شده'),
-              style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-            const SizedBox(height: 7),
-            Row(children: [
-              for (final dose in _doses) Expanded(child: Container(
-                margin: const EdgeInsetsDirectional.only(end: 3), height: 7,
-                decoration: BoxDecoration(
-                  color: dose.status == 'taken' ? AppColors.accent :
-                    dose.status == 'pending' ? const Color(0xFFD9E2E4) : AppColors.amber,
-                  borderRadius: BorderRadius.circular(7)))),
-            ]),
-            const SizedBox(height: 5),
-            Text(PersianDate.persianDigits('ثبت‌نشده: $pending  |  سایر وضعیت‌ها: $other'),
-              style: const TextStyle(color: AppColors.muted, fontSize: 10)),
-          ])),
-        ])),
-        if (_doses.isEmpty)
-          _emptyCard(
-            'هنوز دارویی ثبت نکرده‌اید.',
-            'برای شروع، دارو و زمان آن را طبق نسخه وارد کنید.',
-            'افزودن اولین دارو',
-            () => setState(() => _tab = 1),
-          ),
-        if (_doses.isNotEmpty) ...[
+    final dueAlerts = waiting
+        .where((dose) => !dose.scheduledAt.isAfter(now)).toList();
+    return DefaultTextStyle.merge(
+      style: const TextStyle(fontFamily: 'Vazirmatn'),
+      child: ListView(
+        key: const Key('today-scroll-list'),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+        children: [
+          Row(children: [
+            _todayNotificationBell(dueAlerts),
+            const Spacer(),
+            _profileBar(),
+          ]),
           const SizedBox(height: 16),
-          _sectionTitle('برنامهٔ مصرف امروز'),
-          const SizedBox(height: 7),
-          if (morning.isNotEmpty)
-            _todayDoseGroup('صبح', Icons.wb_sunny_outlined, morning),
-          if (afternoon.isNotEmpty)
-            _todayDoseGroup('ظهر', Icons.light_mode_outlined, afternoon),
-          if (evening.isNotEmpty)
-            _todayDoseGroup('عصر و شب', Icons.nightlight_outlined, evening),
-        ],
-        const SizedBox(height: 12),
-        AppGradientButton(label: 'افزودن داروی جدید', icon: Icons.add,
-          onPressed: _saving ? null : _addMedication, light: true),
-        const SizedBox(height: 12),
-        TextButton.icon(onPressed: _openCareHub,
-          icon: const Icon(Icons.event_note_outlined),
-          label: const Text('پیگیری‌ها و چک‌لیست ویزیت')),
-      ],
-    );
-  }
-
-  Widget _todayDoseGroup(String label, IconData icon, List<DailyDose> doses) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.mint, borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(icon, color: label == 'عصر و شب' ? AppColors.primary :
-                    const Color(0xFFDBA726), size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryDark,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    PersianDate.persianDigits('${doses.length} نوبت'),
-                    style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                  ),
-                ],
-              ),
+          TodaySkyGreeting(hour: now.hour, name: _active!.displayName),
+          const SizedBox(height: 14),
+          Container(
+            key: const Key('today-date-banner'),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(19),
+              color: AppColors.mint,
             ),
-            AppPanel(padding: const EdgeInsets.symmetric(horizontal: 10), child: Column(
-              children: [
-                for (var i = 0; i < doses.length; i++) ...[
-                  if (i != 0) const Divider(height: 1, color: AppColors.outline),
-                  _doseCard(doses[i]),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC4F1EC),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(Icons.calendar_month_outlined,
+                  color: AppColors.primary, size: 23),
+              ),
+              const SizedBox(width: 11),
+              const Text('امروز', style: TextStyle(fontFamily: 'Vazirmatn',
+                fontSize: 17, fontWeight: FontWeight.bold,
+                color: AppColors.primaryDark)),
+              const Spacer(),
+              Flexible(child: Text(persianDateLabel(now),
+                maxLines: 2, textAlign: TextAlign.left,
+                style: const TextStyle(fontFamily: 'Vazirmatn', fontSize: 14,
+                  fontWeight: FontWeight.w600, color: AppColors.ink))),
+            ]),
+          ),
+          const SizedBox(height: 13),
+          AppPanel(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 15),
+            child: Row(children: [
+              AppProgressRing(
+                progress: _doses.isEmpty ? 0 : taken / _doses.length,
+                center: PersianDate.persianDigits('$taken/${_doses.length}'),
+                size: 88,
+              ),
+              const SizedBox(width: 17),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('خلاصهٔ امروز', style: TextStyle(
+                    fontFamily: 'Vazirmatn', fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryDark)),
+                  const SizedBox(height: 3),
+                  Text(PersianDate.persianDigits(
+                    '$taken از ${_doses.length} نوبت مصرف شده'),
+                    style: const TextStyle(fontFamily: 'Vazirmatn',
+                      fontSize: 13, color: AppColors.ink)),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    for (final dose in _doses)
+                      Expanded(child: Container(
+                        height: 8,
+                        margin: const EdgeInsetsDirectional.only(end: 4),
+                        decoration: BoxDecoration(
+                          color: switch (dose.status) {
+                            'taken' => AppColors.success,
+                            'skipped' => const Color(0xFFD64A48),
+                            'unknown' => const Color(0xFFE2A33F),
+                            _ => const Color(0xFFD6E2E4),
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      )),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(PersianDate.persianDigits(
+                    '$pending ثبت‌نشده  •  $other وضعیت دیگر'),
+                    style: const TextStyle(fontFamily: 'Vazirmatn',
+                      fontSize: 12, color: AppColors.muted)),
                 ],
-              ],
-            )),
+              )),
+            ]),
+          ),
+          if (_doses.isEmpty) ...[
+            const SizedBox(height: 14),
+            _emptyCard(
+              'هنوز دارویی ثبت نکرده‌اید.',
+              'برای شروع، دارو و زمان آن را طبق نسخه وارد کنید.',
+              'افزودن اولین دارو',
+              () => setState(() => _tab = 1),
+            ),
+          ] else ...[
+            const SizedBox(height: 21),
+            const Text('برنامهٔ مصرف امروز',
+              style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 20,
+                fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+            const SizedBox(height: 12),
+            if (morning.isNotEmpty)
+              _todayDoseGroup('صبح', Icons.wb_sunny_rounded, morning),
+            if (afternoon.isNotEmpty)
+              _todayDoseGroup('ظهر', Icons.light_mode_rounded, afternoon),
+            if (evening.isNotEmpty)
+              _todayDoseGroup('عصر و شب', Icons.nightlight_round, evening),
+            if (finished.isNotEmpty)
+              _todayDoseGroup('ثبت‌شده‌ها', Icons.task_alt_rounded,
+                finished, recorded: true),
           ],
-        ),
-      );
-
-  Widget _doseCard(DailyDose dose) {
-    final status = switch (dose.status) {
-      'taken' => ('مصرف شد', Icons.check_circle, AppColors.success),
-      'skipped' => ('مصرف نکردم', Icons.cancel_outlined, Colors.deepOrange),
-      'unknown' => ('نامشخص', Icons.help_outline, AppColors.muted),
-      _ => ('ثبت مصرف', Icons.check, AppColors.primary),
-    };
-    return InkWell(
-      onTap: _saving ? null : () => _showDoseActions(dose),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Row(children: [
-          MedicineArtwork(seed: dose.medication.name, size: 45),
-          const SizedBox(width: 9),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(dose.medication.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-            Text('${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}  ·  '
-              '${PersianDate.persianDigits(dose.plan.doseText)}',
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppColors.muted, fontSize: 11)),
-          ])),
-          AppStatusPill(text: status.$1, icon: status.$2, color: status.$3),
-          const SizedBox(width: 3),
-          const Icon(Icons.chevron_left, color: AppColors.muted, size: 18),
-        ]),
+          const SizedBox(height: 7),
+          AppGradientButton(label: 'افزودن داروی جدید', icon: Icons.add_rounded,
+            onPressed: _saving ? null : _addMedication, light: false,
+            height: 52),
+          const SizedBox(height: 8),
+          TextButton.icon(onPressed: _openCareHub,
+            icon: const Icon(Icons.event_note_outlined),
+            label: const Text('پیگیری‌ها و چک‌لیست ویزیت')),
+        ],
       ),
     );
   }
 
-  Future<void> _showDoseActions(DailyDose dose) async {
-    final action = await showModalBottomSheet<String>(
+  Widget _todayNotificationBell(List<DailyDose> dueAlerts) {
+    final unread = dueAlerts
+        .any((dose) => !_seenDueAlertKeys.contains(dose.occurrenceKey));
+    return Stack(clipBehavior: Clip.none, children: [
+      Material(
+        color: AppColors.lightMint,
+        borderRadius: BorderRadius.circular(16),
+        child: IconButton(
+          key: const Key('today-notifications-button'),
+          tooltip: 'اعلان‌های نوبت مصرف',
+          icon: const Icon(Icons.notifications_none_rounded,
+            color: AppColors.primaryDark, size: 25),
+          onPressed: () => _showTodayNotifications(dueAlerts),
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        ),
+      ),
+      if (unread)
+        PositionedDirectional(
+          top: 6, start: 7,
+          child: Container(
+            key: const Key('today-unread-dot'),
+            width: 10, height: 10,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE94E55),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+          ),
+        ),
+    ]);
+  }
+
+  Future<void> _showTodayNotifications(List<DailyDose> dueAlerts) async {
+    setState(() {
+      _seenDueAlertKeys.addAll(dueAlerts.map((dose) => dose.occurrenceKey));
+    });
+    await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('ثبت مصرف دارو', style: TextStyle(fontWeight: FontWeight.w900,
-            fontSize: 19, color: AppColors.primaryDark)),
-          const SizedBox(height: 16),
-          Row(children: [
-            MedicineArtwork(seed: dose.medication.name, size: 58),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(dose.medication.name, style: const TextStyle(fontSize: 17,
-                fontWeight: FontWeight.w800)),
-              Text('نوبت امروز: ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}',
-                style: const TextStyle(color: AppColors.muted)),
-              Text('طبق ثبت شما: ${PersianDate.persianDigits(dose.plan.doseText)}',
-                style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-            ])),
-          ]),
-          const SizedBox(height: 24),
-          if (dose.status == 'pending') ...[
-            AppGradientButton(label: 'مصرف کردم', icon: Icons.check,
-              onPressed: () => Navigator.pop(sheetContext, 'taken'), light: true),
+        padding: const EdgeInsets.fromLTRB(22, 3, 22, 30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('اعلان‌های امروز', textAlign: TextAlign.right,
+              style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 21,
+                fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
             const SizedBox(height: 8),
-            OutlinedButton.icon(onPressed: () => Navigator.pop(sheetContext, 'skipped'),
-              icon: const Icon(Icons.close), label: const Text('مصرف نکردم')),
-            TextButton(onPressed: () => Navigator.pop(sheetContext, 'unknown'),
-              child: const Text('مطمئن نیستم')),
-          ] else ...[
-            AppStatusPill(text: 'وضعیت قبلاً ثبت شده است', color: AppColors.primary),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(onPressed: () => Navigator.pop(sheetContext, 'undo'),
-              icon: const Icon(Icons.undo), label: const Text('بازگرداندن ثبت')),
+            if (dueAlerts.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 22),
+                child: Text('فعلاً نوبت عقب‌افتاده‌ای نداری 🌿',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontFamily: 'Vazirmatn',
+                    fontSize: 15, color: AppColors.ink)),
+              ),
+            for (final dose in dueAlerts)
+              Padding(
+                padding: const EdgeInsets.only(top: 9),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.lightMint,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.notifications_active_outlined,
+                      color: AppColors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(
+                      '${dose.medication.name}  •  ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}',
+                      style: const TextStyle(fontFamily: 'Vazirmatn',
+                        fontSize: 14, fontWeight: FontWeight.w600,
+                        color: AppColors.ink),
+                    )),
+                  ]),
+                ),
+              ),
+            const SizedBox(height: 8),
           ],
-          const Text('کسر موجودی فقط با تأیید مقدار واقعی انجام می‌شود.',
-            style: TextStyle(color: AppColors.muted, fontSize: 11)),
+        ),
+      ),
+    );
+  }
+
+  Widget _todayDoseGroup(String label, IconData icon,
+    List<DailyDose> doses, {bool recorded = false}) {
+    final headerColor = recorded
+        ? const Color(0xFFE6F6EF)
+        : AppColors.mint;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(19),
+          side: const BorderSide(color: AppColors.outline),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            color: headerColor,
+            child: Row(children: [
+              Icon(icon, size: 22,
+                color: recorded ? AppColors.success
+                    : label == 'عصر و شب' ? AppColors.primary
+                    : const Color(0xFFBD871F)),
+              const SizedBox(width: 9),
+              Text(label, style: const TextStyle(fontFamily: 'Vazirmatn',
+                fontSize: 16, fontWeight: FontWeight.bold,
+                color: AppColors.primaryDark)),
+              const Spacer(),
+              Text(PersianDate.persianDigits('${doses.length} نوبت'),
+                style: const TextStyle(fontFamily: 'Vazirmatn',
+                  color: AppColors.ink, fontSize: 13)),
+            ]),
+          ),
+          for (var i = 0; i < doses.length; i++) ...[
+            if (i != 0) const Divider(
+              height: 1, indent: 13, endIndent: 13,
+              color: AppColors.outline),
+            _doseCard(doses[i]),
+          ],
         ]),
       ),
     );
-    if (!mounted || action == null) return;
-    await _mark(dose, action);
+  }
+
+  Widget _doseCard(DailyDose dose) {
+    final due = !dose.scheduledAt.isAfter(_now);
+    final expanded = _expandedDoseKeys.contains(dose.occurrenceKey);
+    final status = switch (dose.status) {
+      'taken' => ('مصرف شد', Icons.check_circle_rounded, AppColors.success),
+      'skipped' => ('مصرف نشد', Icons.cancel_rounded,
+          const Color(0xFFC23F43)),
+      'unknown' => ('مطمئن نیستم', Icons.help_rounded,
+          const Color(0xFF996116)),
+      _ when due => ('زمان مصرف رسیده', Icons.alarm_on_outlined,
+          AppColors.primary),
+      _ => ('در انتظار نوبت', Icons.schedule_rounded, AppColors.muted),
+    };
+    return Column(children: [
+      InkWell(
+        key: Key('today-dose-${dose.occurrenceKey}'),
+        onTap: _saving ? null : () => setState(() {
+          if (expanded) {
+            _expandedDoseKeys.remove(dose.occurrenceKey);
+          } else {
+            _expandedDoseKeys.add(dose.occurrenceKey);
+          }
+        }),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 13, 12, 12),
+          child: Row(children: [
+            MedicineArtwork(seed: dose.medication.name, size: 49),
+            const SizedBox(width: 11),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(dose.medication.name,
+                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontFamily: 'Vazirmatn',
+                    fontSize: 16, fontWeight: FontWeight.bold,
+                    height: 1.45, color: AppColors.ink)),
+                const SizedBox(height: 2),
+                Wrap(spacing: 5, crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Icon(Icons.access_time_rounded,
+                      size: 15, color: AppColors.muted),
+                    Text(_clock(TimeOfDay.fromDateTime(dose.scheduledAt)),
+                      textDirection: TextDirection.ltr,
+                      style: const TextStyle(fontFamily: 'Vazirmatn',
+                        fontSize: 14, fontWeight: FontWeight.w600,
+                        color: AppColors.ink)),
+                    Text('• ${PersianDate.persianDigits(dose.plan.doseText)}',
+                      style: const TextStyle(fontFamily: 'Vazirmatn',
+                        fontSize: 13, color: AppColors.muted)),
+                  ]),
+                const SizedBox(height: 7),
+                AppStatusPill(text: status.$1, icon: status.$2,
+                  color: status.$3,
+                  background: status.$3.withValues(alpha: .12)),
+              ],
+            )),
+            const SizedBox(width: 6),
+            AnimatedRotation(
+              turns: expanded ? .5 : 0,
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              child: const Icon(Icons.keyboard_arrow_down_rounded,
+                color: AppColors.primary, size: 27),
+            ),
+          ]),
+        ),
+      ),
+      if (dose.status == 'pending' && due && !expanded)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: FilledButton.icon(
+              key: Key('today-quick-take-${dose.occurrenceKey}'),
+              onPressed: _saving ? null : () => _mark(dose, 'taken'),
+              icon: const Icon(Icons.check_rounded, size: 20),
+              label: const Text('مصرف کردم', style: TextStyle(
+                fontFamily: 'Vazirmatn', fontSize: 14,
+                fontWeight: FontWeight.bold)),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13)),
+              ),
+            ),
+          ),
+        ),
+      AnimatedSize(
+        key: Key('today-dose-details-${dose.occurrenceKey}'),
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeInOutCubic,
+        alignment: Alignment.topCenter,
+        child: expanded
+            ? _inlineDoseActions(dose)
+            : const SizedBox(width: double.infinity),
+      ),
+    ]);
+  }
+
+  Widget _inlineDoseActions(DailyDose dose) {
+    return Container(
+      key: Key('today-expanded-actions-${dose.occurrenceKey}'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
+      color: const Color(0xFFF7FCFC),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Divider(height: 14, color: AppColors.outline),
+        Text('نوبت ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}  •  '
+          '${PersianDate.persianDigits(dose.plan.doseText)}',
+          style: const TextStyle(fontFamily: 'Vazirmatn', fontSize: 13,
+            color: AppColors.ink)),
+        const SizedBox(height: 11),
+        if (dose.status == 'pending') ...[
+          FilledButton.icon(
+            key: Key('today-taken-${dose.occurrenceKey}'),
+            onPressed: _saving ? null : () => _mark(dose, 'taken'),
+            icon: const Icon(Icons.check_circle_outline_rounded),
+            label: const Text('مصرف کردم'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.success,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(48),
+              textStyle: const TextStyle(fontFamily: 'Vazirmatn',
+                fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 9),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              key: Key('today-skipped-${dose.occurrenceKey}'),
+              onPressed: _saving ? null : () => _mark(dose, 'skipped'),
+              icon: const Icon(Icons.close_rounded, size: 18),
+              label: const Text('مصرف نکردم'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 48),
+                foregroundColor: const Color(0xFFB9343D),
+                backgroundColor: const Color(0xFFFFEEEF),
+                side: const BorderSide(color: Color(0xFFEAB8BD)),
+                textStyle: const TextStyle(fontFamily: 'Vazirmatn',
+                  fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: OutlinedButton.icon(
+              key: Key('today-unknown-${dose.occurrenceKey}'),
+              onPressed: _saving ? null : () => _mark(dose, 'unknown'),
+              icon: const Icon(Icons.help_outline_rounded, size: 18),
+              label: const Text('مطمئن نیستم'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 48),
+                foregroundColor: const Color(0xFF906016),
+                backgroundColor: const Color(0xFFFFF4DC),
+                side: const BorderSide(color: Color(0xFFECD9B1)),
+                textStyle: const TextStyle(fontFamily: 'Vazirmatn',
+                  fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            )),
+          ]),
+          const SizedBox(height: 8),
+          const Text('موجودی فقط با تأیید مقدار مصرف واقعی کم می‌شود.',
+            style: TextStyle(fontFamily: 'Vazirmatn',
+              fontSize: 12, color: AppColors.muted)),
+        ] else ...[
+          AppStatusPill(
+            text: switch (dose.status) {
+              'taken' => 'این نوبت مصرف شده است',
+              'skipped' => 'مصرف این نوبت ثبت نشده است',
+              _ => 'وضعیت این نوبت نامشخص ثبت شده است',
+            },
+            icon: dose.status == 'taken'
+                ? Icons.check_circle : Icons.info_outline,
+            color: dose.status == 'taken' ? AppColors.success
+                : dose.status == 'skipped' ? const Color(0xFFC23F43)
+                : const Color(0xFF996116),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            key: Key('today-undo-${dose.occurrenceKey}'),
+            onPressed: _saving ? null : () => _mark(dose, 'undo'),
+            icon: const Icon(Icons.restart_alt_rounded),
+            label: const Text('بازگرداندن ثبت'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              textStyle: const TextStyle(fontFamily: 'Vazirmatn',
+                fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ]),
+    );
   }
 
   Widget _medicinesTab() {
