@@ -763,13 +763,13 @@ class _MedicationHomeState extends State<MedicationHome>
         .any((dose) => !_seenDueAlertKeys.contains(dose.occurrenceKey));
     return Stack(clipBehavior: Clip.none, children: [
       Material(
-        color: AppColors.lightMint,
+        color: const Color(0xFFFFF4DC),
         borderRadius: BorderRadius.circular(16),
         child: IconButton(
           key: const Key('today-notifications-button'),
           tooltip: 'اعلان‌های نوبت مصرف',
           icon: const Icon(Icons.notifications_none_rounded,
-            color: AppColors.primaryDark, size: 25),
+            color: Color(0xFFC28A1B), size: 25),
           onPressed: () => _showTodayNotifications(dueAlerts),
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
         ),
@@ -948,9 +948,6 @@ class _MedicationHomeState extends State<MedicationHome>
                       style: const TextStyle(fontFamily: 'Vazirmatn',
                         fontSize: 14, fontWeight: FontWeight.w600,
                         color: AppColors.ink)),
-                    Text('• ${PersianDate.persianDigits(dose.plan.doseText)}',
-                      style: const TextStyle(fontFamily: 'Vazirmatn',
-                        fontSize: 13, color: AppColors.muted)),
                   ]),
                 const SizedBox(height: 7),
                 FittedBox(
@@ -1040,8 +1037,8 @@ class _MedicationHomeState extends State<MedicationHome>
           : todayDoseCardBackground(dose.status),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Divider(height: 14, color: AppColors.outline),
-        Text('نوبت ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}  •  '
-          '${PersianDate.persianDigits(dose.plan.doseText)}',
+        Text('ساعت برنامه: ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}  |  '
+           'مقدار طبق نسخه: ${PersianDate.persianDigits(dose.plan.doseText)}',
           style: const TextStyle(fontFamily: 'Vazirmatn', fontSize: 13,
             color: AppColors.ink)),
         const SizedBox(height: 11),
@@ -1083,8 +1080,8 @@ class _MedicationHomeState extends State<MedicationHome>
               label: const Text('مطمئن نیستم'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size(0, 48),
-                foregroundColor: const Color(0xFF392604),
-                backgroundColor: const Color(0xFFE6A23E),
+                foregroundColor: Colors.white,
+                backgroundColor: const Color(0xFFCF8517),
                 padding: const EdgeInsets.symmetric(horizontal: 5),
                 textStyle: const TextStyle(fontFamily: 'Vazirmatn',
                   fontSize: 13, fontWeight: FontWeight.bold),
