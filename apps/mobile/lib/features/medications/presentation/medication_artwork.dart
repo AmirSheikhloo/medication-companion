@@ -24,7 +24,7 @@ class MedicationArtwork extends StatelessWidget {
       borderRadius: BorderRadius.circular(size * .23),
       child: Image.file(File(path), width: size, height: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback),
+        errorBuilder: (_, _, _) => fallback),
     );
   }
 }

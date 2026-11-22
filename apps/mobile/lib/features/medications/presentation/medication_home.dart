@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide Column;
 
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/storage/app_database.dart';

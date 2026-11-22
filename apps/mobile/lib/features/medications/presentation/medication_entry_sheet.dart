@@ -366,7 +366,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         MedicationUnits.isLiquid(value)
           ? MedicationUnits.liquid : MedicationUnits.count;
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       items: [for (final unit in units)
         DropdownMenuItem(value: unit, child: Text(unit,
@@ -536,7 +536,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
               ClipRRect(borderRadius: BorderRadius.circular(18), child:
                 _imagePath != null ? Image.file(File(_imagePath!),
                   width: 74, height: 74, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => MedicineArtwork(
+                  errorBuilder: (_, _, _) => MedicineArtwork(
                     seed: _artwork, size: 74))
                 : MedicineArtwork(seed: _artwork, size: 74)),
               const Positioned(bottom: 0, left: 0, child: CircleAvatar(

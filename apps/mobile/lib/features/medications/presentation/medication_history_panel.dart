@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide Column;
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/calendar/persian_date.dart';
@@ -180,10 +180,12 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
       FutureBuilder<({List<DoseEvent> doses, List<StockMovement> movements})>(
         future: _future,
         builder: (context, snapshot) {
-          if (snapshot.hasError) return const Text(
-            'بارگذاری سوابق انجام نشد. دوباره وارد این صفحه شو.');
-          if (!snapshot.hasData) return const Center(
-            child: CircularProgressIndicator());
+          if (snapshot.hasError) {
+            return const Text('بارگذاری سوابق انجام نشد. دوباره وارد این صفحه شو.');
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
           final data = snapshot.requireData;
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
