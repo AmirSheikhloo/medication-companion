@@ -29,9 +29,9 @@ Color todayDoseStatusColor(String status) => switch (status) {
 };
 
 Color todayDoseCardBackground(String status) => switch (status) {
-  'taken' => const Color(0xFFE9F1EE), // Gray-green, not fully saturated.
-  'skipped' => const Color(0xFFF5EBED), // Gray-red.
-  'unknown' => const Color(0xFFF6F0E7), // Gray-amber.
+  'taken' => const Color(0xFFD9EFE4), // Distinct desaturated mint-green for taken.
+  'skipped' => const Color(0xFFF9DEE3), // Distinct desaturated rose for skipped.
+  'unknown' => const Color(0xFFFFE8CB), // Distinct desaturated amber for unsure.
   _ => Colors.white,
 };
 
