@@ -488,7 +488,7 @@ class _MedicationHomeState extends State<MedicationHome>
       );
     }
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _tab == 0 ? TodayPalette.page : AppColors.background,
       body: SafeArea(
         bottom: false,
         child: IndexedStack(index: _tab, children: [
@@ -649,6 +649,8 @@ class _MedicationHomeState extends State<MedicationHome>
           TodaySkyGreeting(hour: now.hour, name: _active!.displayName),
           const SizedBox(height: 14),
           AppPanel(
+            key: const Key('today-summary-panel'),
+            color: TodayPalette.summary,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 15),
             child: Column(children: [
               Row(key: const Key('today-date-heading'), children: [
@@ -764,20 +766,36 @@ class _MedicationHomeState extends State<MedicationHome>
     return Stack(clipBehavior: Clip.none, children: [
       Material(
         key: const Key('today-bell-surface'),
-        color: Colors.white,
-        elevation: 1,
-        shadowColor: const Color(0x45B89109),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFF0E1B3)),
-        ),
-        child: IconButton(
-          key: const Key('today-notifications-button'),
-          tooltip: 'اعلان‌های نوبت مصرف',
-          icon: const Icon(Icons.notifications_none_rounded,
-            color: Color(0xFFB38706), size: 25),
-          onPressed: () => _showTodayNotifications(dueAlerts),
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(17),
+        child: Ink(
+          key: const Key('today-bell-fill'),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [TodayPalette.bellHighlight, TodayPalette.bellShadow],
+            ),
+            borderRadius: BorderRadius.circular(17),
+          ),
+          child: IconButton(
+            key: const Key('today-notifications-button'),
+            tooltip: 'اعلان‌های نوبت مصرف',
+            icon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation, child: child),
+              child: Icon(
+                unread ? Icons.notifications_rounded
+                    : Icons.notifications_none_rounded,
+                key: ValueKey(unread),
+                color: TodayPalette.bellGold,
+                size: 25,
+              ),
+            ),
+            onPressed: () => _showTodayNotifications(dueAlerts),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          ),
         ),
       ),
       if (unread)
@@ -859,7 +877,7 @@ class _MedicationHomeState extends State<MedicationHome>
     List<DailyDose> doses, {bool recorded = false}) {
     final headerColor = recorded
         ? const Color(0xFFEAF0F1)
-        : AppColors.mint;
+        : TodayPalette.dayPartHeader;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
@@ -871,6 +889,7 @@ class _MedicationHomeState extends State<MedicationHome>
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
+            key: Key('today-group-header-$label'),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             color: headerColor,
             child: Row(children: [
