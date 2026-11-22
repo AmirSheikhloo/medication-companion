@@ -11,6 +11,13 @@ pluginManagement {
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
     repositories {
+        // Optional local workaround when Google's Maven host is blocked.
+        // CI and ordinary builds keep using the canonical repositories.
+        if (System.getenv("MEDICATION_USE_MAVEN_MIRROR") == "1") {
+            maven { url = uri("https://maven.aliyun.com/repository/google") }
+            maven { url = uri("https://maven.aliyun.com/repository/public") }
+            maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        }
         google()
         mavenCentral()
         gradlePluginPortal()
