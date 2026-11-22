@@ -79,7 +79,16 @@ void main() {
     await tester.drag(find.byKey(const Key('today-scroll-list')),
       const Offset(0, -120));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('قرص صبح'));
+    // No direct "taken" action on a collapsed card. Due doses must prompt
+    // the user to choose a status explicitly via the expandable time row.
+    expect(find.text('ثبت وضعیت'), findsOneWidget);
+    expect(find.textContaining('(یک عدد)'), findsOneWidget);
+    expect(find.text('مصرف کردم'), findsNothing);
+    expect(find.byWidgetPredicate((widget) =>
+      widget.key is ValueKey<String> &&
+      (widget.key! as ValueKey<String>).value.startsWith('today-quick-take-')),
+      findsNothing);
+    await tester.tap(find.text('۰۸:۰۰'));
     await tester.pumpAndSettle();
     expect(find.text('مصرف کردم'), findsOneWidget);
     expect(find.text('مصرف نکردم'), findsOneWidget);
@@ -130,6 +139,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('صبح بخیر'), findsOneWidget);
     expect(find.byKey(const Key('today-unread-dot')), findsNothing);
+    expect(find.text('ثبت وضعیت'), findsNothing);
     await tester.tap(find.byKey(const Key('today-profile-selector')));
     await tester.pumpAndSettle();
     expect(find.text('انتخاب شخص'), findsOneWidget);
