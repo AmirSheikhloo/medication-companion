@@ -14,9 +14,9 @@ void main() {
     expect(todayDoseStatusColor('taken'), const Color(0xFF16995E));
     expect(todayDoseStatusColor('skipped'), const Color(0xFFD34E58));
     expect(todayDoseStatusColor('unknown'), const Color(0xFFDD962E));
-    expect(todayDoseCardBackground('skipped'), const Color(0xFFF5EBED));
-    expect(todayDoseCardBackground('unknown'), const Color(0xFFF6F0E7));
-    expect(todayDoseCardBackground('taken'), const Color(0xFFE9F1EE));
+    expect(todayDoseCardBackground('skipped'), const Color(0xFFF9DEE3));
+    expect(todayDoseCardBackground('unknown'), const Color(0xFFFFE8CB));
+    expect(todayDoseCardBackground('taken'), const Color(0xFFD9EFE4));
     expect(todayDoseCardBackground('pending'), Colors.white);
   });
 
