@@ -428,6 +428,7 @@ class _MedicationHomeState extends State<MedicationHome>
   Future<void> _mark(DailyDose dose, String action) async {
     final profile = _active;
     if (profile == null || _saving) return;
+    final noStockDeduction = action == 'takenWithoutStock';
     DoseStockChoice? choice;
     if (action == 'taken') {
       final stock = await _inventory.summary(profile.id, dose.medication.id);
@@ -448,7 +449,7 @@ class _MedicationHomeState extends State<MedicationHome>
       () => widget.repository.recordDose(
         dose: dose,
         profileId: profile.id,
-        action: action,
+        action: noStockDeduction ? 'taken' : action,
         stockPackageId: choice?.packageId,
         stockQuantityMilliunits: choice?.quantityMilliunits,
       ),
@@ -1073,8 +1074,23 @@ class _MedicationHomeState extends State<MedicationHome>
               ),
             )),
           ]),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            onPressed: _saving ? null : () => _mark(dose, 'takenWithoutStock'),
+            icon: const Icon(Icons.inventory_2_outlined, size: 18),
+            label: const Text('مصرف کردم، بدون کسر موجودی'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+              backgroundColor: const Color(0xFFE7ECEE),
+              foregroundColor: const Color(0xFF38515A),
+              textStyle: const TextStyle(fontFamily: 'Vazirmatn',
+                fontSize: 13, fontWeight: FontWeight.bold),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
           const SizedBox(height: 8),
-          const Text('موجودی فقط با تأیید مقدار مصرف واقعی کم می‌شود.',
+          const Text('فقط با انتخاب «مصرف کردم» موجودی بسته کم می‌شود.',
             style: TextStyle(fontFamily: 'Vazirmatn',
               fontSize: 12, color: AppColors.muted)),
         ] else ...[
@@ -1116,19 +1132,25 @@ class _MedicationHomeState extends State<MedicationHome>
           children: [
             Expanded(child: Text('داروها', style: Theme.of(context).textTheme.headlineSmall
               ?.copyWith(color: AppColors.primaryDark, fontWeight: FontWeight.w900))),
-            IconButton(
+            SizedBox(width: 138, child: AppGradientButton(
+              label: 'افزودن دارو', icon: Icons.add, height: 44,
+              onPressed: _saving ? null : _addMedication)),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
               tooltip: _searchVisible ? 'بستن جست‌وجوی دارو' : 'جست‌وجوی دارو',
               icon: Icon(_searchVisible ? Icons.close : Icons.search),
-              color: _deepTeal,
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.mint,
+                foregroundColor: AppColors.primaryDark,
+                minimumSize: const Size(46, 46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+              ),
               onPressed: () => setState(() {
                 _searchVisible = !_searchVisible;
                 if (!_searchVisible) _medicineSearch.clear();
               }),
             ),
-            const SizedBox(width: 2),
-            SizedBox(width: 138, child: AppGradientButton(
-              label: 'افزودن دارو', icon: Icons.add, height: 42,
-              onPressed: _saving ? null : _addMedication)),
           ],
         ),
         const SizedBox(height: 14),
@@ -1139,7 +1161,7 @@ class _MedicationHomeState extends State<MedicationHome>
             onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(
               hintText: 'جست‌وجوی نام دارو...',
-              prefixIcon: Icon(Icons.search),
+              suffixIcon: Icon(Icons.search),
               border: OutlineInputBorder(),
             ),
           ),
@@ -1247,13 +1269,14 @@ class _MedicationHomeState extends State<MedicationHome>
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(med.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+              style: const TextStyle(fontSize: 16, height: 1.45,
+                color: AppColors.ink, fontWeight: FontWeight.w800)),
             const SizedBox(height: 3),
             Text(_showArchived ? 'بایگانی‌شده' : slots.isEmpty ? 'برنامه ثبت شده' :
               PersianDate.persianDigits('${slots.length} نوبت · '
                 '${slots.map((d) => '${_clock(TimeOfDay.fromDateTime(d.scheduledAt))} ${d.plan.doseText}').join('، ')}'),
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+              style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
             if (hasPendingSchedule)
               const Text('برنامه جدید — از فردا', style: TextStyle(
                 fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
@@ -1293,7 +1316,6 @@ class _MedicationHomeState extends State<MedicationHome>
                     PopupMenuItem(value: 'archive', child: Text('بایگانی')),
                   ],
           ),
-          const Icon(Icons.chevron_left, size: 16, color: AppColors.muted),
         ]),
       ),
     );
