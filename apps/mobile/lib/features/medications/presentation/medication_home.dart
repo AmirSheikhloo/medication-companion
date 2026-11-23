@@ -349,7 +349,8 @@ class _MedicationHomeState extends State<MedicationHome>
       profileName: profile.displayName,
       requestReminderPermission: _requestMedicationReminderPermission,
       suggestedMedicationNames: [
-        for (final med in [..._medications, ..._archivedMedications]) med.name,
+        for (final med in [..._medications, ..._archivedMedications,
+          ..._hiddenMedications]) med.name,
       ],
     );
     if (!mounted || draft == null) return;
@@ -1745,7 +1746,7 @@ class _MedicationHomeState extends State<MedicationHome>
         inventoryRepository: _inventory,
         pendingSchedule: pendingSchedule,
         archived: med.archived,
-        hidden: _showHidden,
+        hidden: _hiddenMedications.any((m) => m.id == med.id),
         onHide: () { Navigator.pop(detailContext); _hideMedication(med); },
         onUnhide: () { Navigator.pop(detailContext); _unhideMedication(med); },
         onOpenCourse: (related) {
