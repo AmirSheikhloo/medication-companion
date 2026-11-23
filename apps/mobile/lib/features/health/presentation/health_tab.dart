@@ -5,6 +5,7 @@ import '../../../core/calendar/persian_date.dart';
 import '../../../core/ui/english_digits_input_formatter.dart';
 import '../../../core/calendar/persian_date_picker.dart';
 import '../../../core/ui/app_design.dart';
+import '../../../core/ui/app_choice_field.dart';
 import '../../../core/ui/redesign_widgets.dart';
 import '../data/health_repository.dart';
 import '../domain/health_metric.dart';
@@ -531,12 +532,12 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
           ),
           const SizedBox(height: 12),
           if (widget.original == null)
-            DropdownButtonFormField<HealthMetric>(
-              initialValue: _metric,
-              decoration: const InputDecoration(labelText: 'نوع اندازه‌گیری'),
-              items: [
+            AppChoiceField<HealthMetric>(
+              value: _metric,
+              label: 'نوع اندازه‌گیری',
+              options: [
                 for (final metric in HealthMetric.values)
-                  DropdownMenuItem(value: metric, child: Text(metric.label)),
+                  AppChoiceOption(metric, metric.label),
               ],
               onChanged: (metric) {
                 if (metric != null) setState(() => _metric = metric);
@@ -572,14 +573,14 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
           ],
           if (_metric == HealthMetric.glucose) ...[
             const SizedBox(height: 10),
-            DropdownButton<String>(
+            AppChoiceField<String>(
               value: _glucoseContext,
-              isExpanded: true,
-              items: const [
-                DropdownMenuItem(value: 'fasting', child: Text('ناشتا')),
-                DropdownMenuItem(value: 'before_meal', child: Text('قبل غذا')),
-                DropdownMenuItem(value: 'after_meal', child: Text('بعد غذا')),
-                DropdownMenuItem(value: 'other', child: Text('سایر شرایط')),
+              label: 'شرایط اندازه‌گیری',
+              options: const [
+                AppChoiceOption('fasting', 'ناشتا'),
+                AppChoiceOption('before_meal', 'قبل غذا'),
+                AppChoiceOption('after_meal', 'بعد غذا'),
+                AppChoiceOption('other', 'سایر شرایط'),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _glucoseContext = value);

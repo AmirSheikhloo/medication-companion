@@ -4,6 +4,7 @@ import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
 import '../../../core/ui/app_design.dart';
+import '../../../core/ui/app_choice_field.dart';
 import '../../../core/ui/redesign_widgets.dart';
 import '../data/care_repository.dart';
 import '../data/care_reminder_coordinator.dart';
@@ -803,15 +804,14 @@ class _CareEditorState extends State<_CareEditor> {
             TextField(controller: _purpose, maxLength: 500, maxLines: 2,
                 decoration: const InputDecoration(labelText: 'هدف مراجعه (اختیاری)')),
             if (widget.medications.isNotEmpty)
-              DropdownButtonFormField<String>(
-                initialValue: _medicationId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'داروی مرتبط (اختیاری)'),
-                items: [
-                  const DropdownMenuItem<String>(value: null,
-                      child: Text('بدون ارتباط با دارو')),
+              AppChoiceField<String>(
+                value: _medicationId,
+                label: 'داروی مرتبط (اختیاری)',
+                options: [
+                  const AppChoiceOption<String>(null, 'بدون ارتباط با دارو'),
                   for (final med in widget.medications)
-                    DropdownMenuItem<String>(value: med.id, child: Text(med.name)),
+                    AppChoiceOption<String>(med.id,
+                      '${med.name} · ${persianDateLabel(med.createdAt)}'),
                 ],
                 onChanged: (id) => setState(() => _medicationId = id),
               ),
@@ -823,48 +823,49 @@ class _CareEditorState extends State<_CareEditor> {
               ),
           ] else if (widget.visits.isNotEmpty) ...[
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _visitId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'اتصال به ویزیت (اختیاری)'),
-              items: [
-                const DropdownMenuItem<String>(value: null, child: Text('بدون ویزیت')),
-                for (final item in widget.visits)
-                  DropdownMenuItem<String>(value: item.id, child: Text(item.title)),
+            AppChoiceField<String>(
+              value: _visitId,
+              label: 'اتصال به ویزیت (اختیاری)',
+              options: [
+                const AppChoiceOption<String>(null, 'بدون ویزیت'),
+                for (final visit in widget.visits)
+                  AppChoiceOption<String>(visit.id, visit.title),
               ],
               onChanged: (id) => setState(() => _visitId = id),
             ),
           ],
           if (!question) ...[
             const SizedBox(height: 8),
-            DropdownButtonFormField<int>(
-              initialValue: _reminderMinutesBefore,
-              decoration: const InputDecoration(labelText: 'زمان اعلان (اختیاری)'),
-              items: const [
-                DropdownMenuItem<int>(value: null, child: Text('بدون اعلان')),
-                DropdownMenuItem<int>(value: 0, child: Text('در موعد')),
-                DropdownMenuItem<int>(value: 5, child: Text('5 دقیقه قبل')),
-                DropdownMenuItem<int>(value: 15, child: Text('15 دقیقه قبل')),
-                DropdownMenuItem<int>(value: 30, child: Text('30 دقیقه قبل')),
-                DropdownMenuItem<int>(value: 60, child: Text('یک ساعت قبل')),
-                DropdownMenuItem<int>(value: 1440, child: Text('24 ساعت قبل')),
+            AppChoiceField<int>(
+              value: _reminderMinutesBefore,
+              label: 'زمان اعلان (اختیاری)',
+              options: const [
+                AppChoiceOption<int>(null, 'بدون اعلان'),
+                AppChoiceOption<int>(0, 'در موعد'),
+                AppChoiceOption<int>(5, '5 دقیقه قبل'),
+                AppChoiceOption<int>(15, '15 دقیقه قبل'),
+                AppChoiceOption<int>(30, '30 دقیقه قبل'),
+                AppChoiceOption<int>(60, 'یک ساعت قبل'),
+                AppChoiceOption<int>(1440, '24 ساعت قبل'),
               ],
-              onChanged: (value) => setState(() => _reminderMinutesBefore = value),
+              onChanged: (value) =>
+                  setState(() => _reminderMinutesBefore = value),
             ),
             const Text('اعلان فقط وقتی ارسال می‌شود که اعلان‌های پیگیری را فعال کرده باشید.'),
           ],
           if (!visit && !question) ...[
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _repeatRule,
-              decoration: const InputDecoration(labelText: 'تکرار کار'),
-              items: const [
-                DropdownMenuItem(value: 'none', child: Text('بدون تکرار')),
-                DropdownMenuItem(value: 'daily', child: Text('روزانه')),
-                DropdownMenuItem(value: 'weekly', child: Text('هفتگی')),
-                DropdownMenuItem(value: 'monthly', child: Text('ماهانه (میلادی)')),
+            AppChoiceField<String>(
+              value: _repeatRule,
+              label: 'تکرار کار',
+              options: const [
+                AppChoiceOption('none', 'بدون تکرار'),
+                AppChoiceOption('daily', 'روزانه'),
+                AppChoiceOption('weekly', 'هفتگی'),
+                AppChoiceOption('monthly', 'ماهانه (میلادی)'),
               ],
-              onChanged: (value) => setState(() => _repeatRule = value ?? 'none'),
+              onChanged: (value) =>
+                  setState(() => _repeatRule = value ?? 'none'),
             ),
           ],
         ],

@@ -5,6 +5,7 @@ import '../../../core/calendar/persian_date.dart';
 import '../../../core/ui/english_digits_input_formatter.dart';
 import '../../../core/calendar/persian_date_picker.dart';
 import '../../../core/ui/app_design.dart';
+import '../../../core/ui/app_choice_field.dart';
 import '../data/inventory_repository.dart';
 import '../domain/stock_quantity.dart';
 
@@ -420,25 +421,17 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   ],
                 ),
                 if (_expiry != null)
-                  DropdownButtonFormField<String>(
-                    initialValue: _precision,
-                    decoration: const InputDecoration(
-                      labelText: 'دقت تاریخ (ماه فقط میلادی)',
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'day', child: Text('روز دقیق')),
-                      DropdownMenuItem(
-                        value: 'month',
-                        child: Text('فقط ماه و سال'),
-                      ),
+                  AppChoiceField<String>(
+                    value: _precision,
+                    label: 'دقت تاریخ (ماه فقط میلادی)',
+                    enabled: !_busy,
+                    options: const [
+                      AppChoiceOption('day', 'روز دقیق'),
+                      AppChoiceOption('month', 'فقط ماه و سال'),
                     ],
-                    onChanged: _busy
-                        ? null
-                        : (value) {
-                            if (value != null) {
-                              setState(() => _precision = value);
-                            }
-                          },
+                    onChanged: (value) {
+                      if (value != null) setState(() => _precision = value);
+                    },
                   ),
                 if (_expiry != null && _precision == 'month')
                   const Text(
