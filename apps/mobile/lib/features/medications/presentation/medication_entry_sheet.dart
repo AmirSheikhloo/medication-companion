@@ -114,6 +114,18 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   final List<_PackageEditor> _retiredPackages = [];
   String _artwork = 'capsule';
   String? _imagePath;
+  int _currentStep = 0;
+  static const _stepLabels = <String>[
+    'اطلاعات دارو', 'برنامه مصرف', 'موجودی', 'هشدار کمبود', 'یادآور',
+  ];
+  bool _lowStockEnabled = false;
+  late final TextEditingController _lowStock;
+  int? _calculatorPackage;
+  final _strips = TextEditingController(text: '5');
+  final _tabletsPerStrip = TextEditingController(text: '10');
+  bool _notify = false;
+  bool _alarm = false;
+  bool _requestingPermission = false;
 
   bool get _editing => widget.initialName != null;
 
@@ -122,6 +134,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     super.initState();
     _name = TextEditingController(text: widget.initialName ?? '');
     _reminderNote = TextEditingController(text: widget.initialSetup?.reminderNote ?? '');
+    _lowStock = TextEditingController(text: '20');
     _artwork = widget.initialSetup?.artwork ?? 'capsule';
     _imagePath = widget.initialSetup?.localImagePath;
     final initial = widget.initialSlots;
@@ -140,6 +153,9 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   void dispose() {
     _name.dispose();
     _reminderNote.dispose();
+    _lowStock.dispose();
+    _strips.dispose();
+    _tabletsPerStrip.dispose();
     for (final slot in [..._slots, ..._retiredSlots]) { slot.dispose(); }
     for (final package in [..._packages, ..._retiredPackages]) {
       package.dispose();
@@ -381,7 +397,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   Widget _packageCard(int index) {
     final item = _packages[index];
     final liquid = MedicationUnits.isLiquid(item.unit);
-    return AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Container(padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.lightMint,
+        borderRadius: BorderRadius.circular(18)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(children: [
           Expanded(child: Text(PersianDate.displayDigits('بسته شماره ${index + 1}'),
@@ -461,7 +480,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         textDirection: TextDirection.ltr,
         keyboardType: TextInputType.number,
         maxLength: 2,
-        inputFormatters: [FilteringTextInputFormatter.allow(
+        inputFormatters: [const EnglishDigitsInputFormatter(),
+          FilteringTextInputFormatter.allow(
             RegExp(r'[0-9۰-۹٠-٩]')),
           LengthLimitingTextInputFormatter(2)],
         onChanged: (value) {
@@ -498,11 +518,14 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         const SizedBox(width: 12),
         const Expanded(child: Text('ساعت مصرف', style: TextStyle(
           fontWeight: FontWeight.bold))),
-        _timeField(slot.hour, 'ساعت', 24),
-        const Padding(padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Text(':', style: TextStyle(fontSize: 20,
-            color: AppColors.primaryDark))),
-        _timeField(slot.minute, 'دقیقه', 59),
+        Directionality(textDirection: TextDirection.ltr,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            _timeField(slot.hour, 'ساعت', 24),
+            const Padding(padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Text(':', style: TextStyle(fontSize: 20,
+                color: AppColors.primaryDark))),
+            _timeField(slot.minute, 'دقیقه', 59),
+          ])),
       ]),
       const SizedBox(height: 10),
       Row(children: [
@@ -516,6 +539,248 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     ]));
   }
 
+
+  bool _validateCurrent() {
+    if (_currentStep == 0 && _name.text.trim().isEmpty) {
+      _showError('نام دارو را وارد کن.');
+      return false;
+    }
+    if (_currentStep == 1) {
+      final unique = <int>{};
+      for (final slot in _slots) {
+        _normalizeClock(slot.hour, 24);
+        _normalizeClock(slot.minute, 59);
+        final time = _clockOf(slot);
+        if (time == null || !unique.add(time)) {
+          _showError('ساعت تکراری یا نامعتبر است.');
+          return false;
+        }
+        try { StockQuantity.parsePositive(slot.amount.text); }
+        catch (_) {
+          _showError('مقدار مصرف هر نوبت باید عددی مثبت باشد.');
+          return false;
+        }
+      }
+    }
+    if (_currentStep == 2 && !_editing) {
+      for (final pack in _packages) {
+        try { StockQuantity.parsePositive(pack.quantity.text); }
+        catch (_) {
+          _showError('موجودی بسته باید عددی مثبت باشد.');
+          return false;
+        }
+        if (pack.expiry != null && StockQuantity.isExpired(
+          StockQuantity.isoDate(pack.expiry!), 'day', DateTime.now())) {
+          _showError('تاریخ انقضا گذشته؛ از مصرف داروی منقضی خودداری کن.');
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  void _nextStep() {
+    if (!_validateCurrent()) return;
+    FocusScope.of(context).unfocus();
+    if (_currentStep == 4) { _submit(); return; }
+    setState(() => _currentStep++);
+  }
+
+  Widget _wizardProgress() {
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    return SingleChildScrollView(
+      key: const Key('medication-wizard-progress'),
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        for (var index = 0; index < _stepLabels.length; index++)
+          SizedBox(width: scale > 1.4 ? 105 : 70,
+            child: InkWell(
+              onTap: index < _currentStep
+                  ? () => setState(() => _currentStep = index) : null,
+              borderRadius: BorderRadius.circular(14),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                AnimatedContainer(duration: const Duration(milliseconds: 240),
+                  height: 42, width: 42,
+                  decoration: BoxDecoration(shape: BoxShape.circle,
+                    color: index == _currentStep ? AppColors.primary
+                      : index < _currentStep ? AppColors.mint
+                      : const Color(0xFFE8F0F1)),
+                  alignment: Alignment.center,
+                  child: index < _currentStep
+                    ? const Icon(Icons.check, color: AppColors.primary)
+                    : Text('${index + 1}', style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: index == _currentStep
+                        ? Colors.white : AppColors.primaryDark))),
+                const SizedBox(height: 5),
+                Text(_stepLabels[index], maxLines: 2,
+                  textAlign: TextAlign.center, style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: index == _currentStep
+                        ? FontWeight.bold : FontWeight.normal,
+                    color: index == _currentStep
+                        ? AppColors.primaryDark : AppColors.muted)),
+              ]),
+            )),
+      ]),
+    );
+  }
+
+  Widget _nameStep() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const AppSectionHeading('اطلاعات دارو', icon: Icons.medication_outlined),
+      const SizedBox(height: 9),
+      const Text('نام دارو را مانند نسخه وارد کن؛ تصویر اختیاری است.',
+        style: TextStyle(color: AppColors.muted)),
+      const SizedBox(height: 20),
+      Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        InkWell(onTap: _chooseArtwork,
+          key: const Key('medication-image-picker'),
+          borderRadius: BorderRadius.circular(18),
+          child: Stack(children: [
+            ClipRRect(borderRadius: BorderRadius.circular(18),
+              child: _imagePath == null
+                ? MedicineArtwork(seed: _artwork, size: 76)
+                : Image.file(File(_imagePath!), width: 76, height: 76,
+                  fit: BoxFit.cover, errorBuilder: (_, _, _) =>
+                    MedicineArtwork(seed: _artwork, size: 76))),
+            const Positioned(left: 0, bottom: 0,
+              child: CircleAvatar(radius: 13,
+                backgroundColor: AppColors.primary,
+                child: Icon(Icons.add, color: Colors.white, size: 18))),
+          ])),
+        const SizedBox(width: 12),
+        Expanded(child: SizedBox(height: 76, child: TextField(
+          key: const Key('medication-name-field'),
+          controller: _name,
+          maxLength: 160,
+          inputFormatters: const [EnglishDigitsInputFormatter()],
+          textAlignVertical: TextAlignVertical.center,
+          decoration: InputDecoration(
+            filled: true, fillColor: AppColors.mint,
+            labelText: 'نام دارو *', hintText: 'مثلاً استامینوفن 500',
+            counterText: '',
+            border: OutlineInputBorder(borderRadius:
+              BorderRadius.circular(18), borderSide: BorderSide.none),
+            enabledBorder: OutlineInputBorder(borderRadius:
+              BorderRadius.circular(18), borderSide: BorderSide.none),
+          ),
+        ))),
+      ]),
+    ],
+  );
+
+  Widget _scheduleStep() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const AppSectionHeading('برنامه مصرف', icon: Icons.schedule_outlined),
+      const SizedBox(height: 8),
+      const Text('زمان و مقدار هر نوبت را مشخص کن.',
+        maxLines: 2, style: TextStyle(color: AppColors.muted)),
+      const SizedBox(height: 14),
+      for (var i = 0; i < _slots.length; i++) ...[
+        _slotCard(i), const SizedBox(height: 10),
+      ],
+      FilledButton.tonalIcon(onPressed: _addSlot,
+        icon: const Icon(Icons.add_alarm),
+        label: const Text('افزودن ساعت مصرف')),
+    ],
+  );
+
+  Widget _stockStep() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const AppSectionHeading('موجودی', icon: Icons.inventory_2_outlined),
+      const SizedBox(height: 9),
+      const Text('ورق و بسته فقط برای محاسبه هستند؛ '
+        'کسر موجودی همیشه با تعداد یا حجم انجام می‌شود.',
+        style: TextStyle(color: AppColors.muted)),
+      const SizedBox(height: 16),
+      if (_editing)
+        const Text('برای حفظ سوابق موجودی، بسته‌های قبلی را از صفحهٔ '
+          'جزئیات دارو مدیریت کن.')
+      else ...[
+        for (var i = 0; i < _packages.length; i++) ...[
+          _packageCard(i), const SizedBox(height: 9),
+        ],
+        OutlinedButton.icon(onPressed: _addPackage,
+          icon: const Icon(Icons.add_circle_outline),
+          label: const Text('افزودن بسته جدید')),
+      ],
+    ],
+  );
+
+  Widget _lowStockStep() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const AppSectionHeading('هشدار کمبود', icon: Icons.inventory_outlined),
+      const SizedBox(height: 10),
+      const Text('اگر موجودی بسته انتخابی به حد تعیین‌شده برسد، '
+        'در برنامه با نشان کمبود مشخص می‌شود.',
+        style: TextStyle(color: AppColors.muted)),
+      const SizedBox(height: 13),
+      SwitchListTile.adaptive(contentPadding: EdgeInsets.zero,
+        title: const Text('فعال‌سازی هشدار کمبود'),
+        value: _lowStockEnabled,
+        onChanged: (value) => setState(() => _lowStockEnabled = value)),
+      if (_lowStockEnabled) ...[
+        const SizedBox(height: 10),
+        _numberField(_lowStock, label: 'حد هشدار',
+          hint: 'مثلاً 20', keyName: 'medication-low-stock-threshold'),
+      ],
+    ],
+  );
+
+  Widget _reminderStep() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const AppSectionHeading('یادآور', icon: Icons.notifications_active_outlined),
+      const SizedBox(height: 10),
+      const Text('اعلان و هشدار تمام‌صفحه اختیاری هستند؛ '
+        'می‌توانی مصرف را فقط داخل برنامه ثبت کنی.',
+        style: TextStyle(color: AppColors.muted)),
+      const SizedBox(height: 15),
+      SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('اعلان یادآوری'),
+        value: _notify,
+        onChanged: _requestingPermission ? null
+            : (v) => setState(() {
+                _notify = v;
+                if (!v) _alarm = false;
+              })),
+      const Divider(color: AppColors.outline),
+      SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('هشدار تمام‌صفحه'),
+        subtitle: const Text('در صورت پشتیبانی گوشی و داشتن مجوز'),
+        value: _alarm,
+        onChanged: _requestingPermission ? null
+            : (v) => setState(() {
+                _alarm = v;
+                if (v) _notify = true;
+              })),
+      if (_alarm) ...[
+        const SizedBox(height: 12),
+        const Text('توضیح اختیاری زیر هنگام نمایش هشدار نشان داده می‌شود.',
+          style: TextStyle(color: AppColors.muted)),
+        TextField(controller: _reminderNote, maxLines: 3, maxLength: 500,
+          decoration: const InputDecoration(
+            labelText: 'متن هشدار (اختیاری)',
+            hintText: 'مثلاً با آب فراوان مصرف شود')),
+      ],
+    ],
+  );
+
+  Widget _stepBody() => switch (_currentStep) {
+    0 => _nameStep(),
+    1 => _scheduleStep(),
+    2 => _stockStep(),
+    3 => _lowStockStep(),
+    _ => _reminderStep(),
+  };
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.background,
@@ -526,107 +791,48 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     ),
     bottomNavigationBar: SafeArea(top: false, child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 9, 16, 12),
-      child: AppGradientButton(
-        label: _editing ? 'ذخیره تغییرات' : 'ثبت دارو',
-        icon: Icons.check_circle_outline,
-        onPressed: _submit, light: true),
-    )),
-    body: ListView(padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-      children: [
-        AppSoftHeader(
-          title: _editing ? 'ویرایش برنامهٔ مصرف' : 'داروی جدید',
-          subtitle: 'اطلاعات را مطابق نسخه وارد کن؛ همهٔ بخش‌ها قابل بررسی هستند.',
-          icon: Icons.medication_outlined),
-        const SizedBox(height: 18),
-        const AppSectionHeading('1. اطلاعات دارو', icon: Icons.medication_outlined),
-        const SizedBox(height: 10),
-        AppPanel(child: Row(crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-          InkWell(
-            onTap: _chooseArtwork,
-            borderRadius: BorderRadius.circular(19),
-            child: Stack(children: [
-              ClipRRect(borderRadius: BorderRadius.circular(18), child:
-                _imagePath != null ? Image.file(File(_imagePath!),
-                  width: 74, height: 74, fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => MedicineArtwork(
-                    seed: _artwork, size: 74))
-                : MedicineArtwork(seed: _artwork, size: 74)),
-              const Positioned(bottom: 0, left: 0, child: CircleAvatar(
-                radius: 13, backgroundColor: AppColors.primary,
-                child: Icon(Icons.add, size: 17, color: Colors.white))),
-            ]),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: TextField(
-            key: const Key('medication-name-field'),
-            controller: _name,
-            maxLength: 160,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(labelText: 'نام دارو *',
-              hintText: 'مثلاً استامینوفن 500', counterText: '',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14))),
+      child: Row(children: [
+        if (_currentStep != 0) ...[
+          Expanded(child: OutlinedButton.icon(
+            key: const Key('medication-step-back'),
+            onPressed: () => setState(() => _currentStep--),
+            icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            label: const Text('قبلی'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              backgroundColor: AppColors.mint),
           )),
-        ])),
-        const SizedBox(height: 17),
-        const AppSectionHeading('2. برنامهٔ مصرف', icon: Icons.calendar_month_outlined),
-        const SizedBox(height: 8),
-        const Text('برای هر ساعت می‌توانی مقدار متفاوتی تعیین کنی. ساعت تکراری پذیرفته نمی‌شود.',
-          style: TextStyle(fontSize: 12, color: AppColors.muted)),
-        const SizedBox(height: 9),
-        for (var i = 0; i < _slots.length; i++) ...[
-          _slotCard(i),
-          const SizedBox(height: 9),
+          const SizedBox(width: 9),
         ],
-        OutlinedButton.icon(
-          onPressed: _addSlot, icon: const Icon(Icons.add_alarm),
-          label: const Text('افزودن ساعت مصرف'),
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48))),
-        const SizedBox(height: 18),
-        const AppSectionHeading('3. موجودی', icon: Icons.inventory_2_outlined),
-        const SizedBox(height: 8),
-        if (_editing)
-          const AppPanel(child: Text('موجودی بسته‌ها را از صفحهٔ جزئیات دارو مدیریت کن. '
-            'تغییر ساعت‌ها، بسته‌های موجود را دوباره ایجاد نمی‌کند.'))
-        else ...[
-          for (var i = 0; i < _packages.length; i++) ...[
-            _packageCard(i), const SizedBox(height: 9),
-          ],
-          OutlinedButton.icon(
-            onPressed: _addPackage,
-            icon: const Icon(Icons.add_circle_outline),
-            label: const Text('افزودن بستهٔ جدید'),
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48))),
-          const SizedBox(height: 8),
-          const Text('پس از ثبت، بستهٔ دارای نزدیک‌ترین تاریخ انقضای معتبر برای مصرف انتخاب می‌شود؛ می‌توانی بعداً آن را تغییر بدهی.',
-            style: TextStyle(fontSize: 11, color: AppColors.muted)),
-        ],
-        const SizedBox(height: 18),
-        const AppSectionHeading('4. سوابق مصرف', icon: Icons.history_rounded),
-        const SizedBox(height: 8),
-        AppPanel(child: Row(children: [
-          const Icon(Icons.receipt_long_outlined, color: AppColors.primary),
-          const SizedBox(width: 10),
-          Expanded(child: Text(_editing
-            ? 'سوابق قبلی محفوظ می‌مانند؛ از صفحهٔ جزئیات دارو قابل مشاهده‌اند.'
-            : 'سوابق مصرف پس از اولین ثبت وضعیت در بخش جزئیات دارو نمایش داده می‌شوند.',
-            style: const TextStyle(fontSize: 12))),
-        ])),
-        const SizedBox(height: 18),
-        const AppSectionHeading('5. یادآور', icon: Icons.notifications_active_outlined),
-        const SizedBox(height: 9),
-        AppPanel(child: TextField(
-          controller: _reminderNote,
-          maxLines: 3, minLines: 2, maxLength: 500,
-          decoration: const InputDecoration(
-            labelText: 'توضیح همراه یادآوری (اختیاری)',
-            hintText: 'مثلاً با آب کافی مصرف شود؛ فقط طبق دستور پزشک',
-            border: OutlineInputBorder(),
-          ),
+        Expanded(flex: 2, child: AppGradientButton(
+          label: _currentStep == 4
+              ? (_editing ? 'ذخیره تغییرات' : 'ثبت دارو')
+              : 'مرحله بعد',
+          icon: _currentStep == 4
+            ? Icons.check_circle_outline : Icons.arrow_back_rounded,
+          onPressed: _nextStep, light: true, height: 50,
         )),
-        const SizedBox(height: 12),
-      ],
-    ),
+      ]),
+    )),
+    body: Column(children: [
+      Padding(padding: const EdgeInsets.only(top: 10, bottom: 12),
+        child: _wizardProgress()),
+      const Divider(color: AppColors.outline, height: 1),
+      Expanded(child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.08, 0), end: Offset.zero)
+                .animate(animation),
+            child: child)),
+        child: SingleChildScrollView(
+          key: ValueKey<int>(_currentStep),
+          padding: const EdgeInsets.fromLTRB(17, 22, 17, 32),
+          child: _stepBody(),
+        ),
+      )),
+    ]),
   );
 }
