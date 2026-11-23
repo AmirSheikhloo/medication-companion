@@ -294,12 +294,20 @@ class _MedicationHomeState extends State<MedicationHome>
     }
   }
 
+  Future<bool> _requestMedicationReminderPermission(
+      {bool fullScreen = false}) async {
+    final coordinator = widget.reminderCoordinator;
+    if (coordinator == null) return false;
+    return coordinator.requestPermissionsForDraft(fullScreen: fullScreen);
+  }
+
   Future<void> _addMedication() async {
     final profile = _active;
     if (profile == null || _saving) return;
     final draft = await showMedicationEntrySheet(
       context,
       profileName: profile.displayName,
+      requestReminderPermission: _requestMedicationReminderPermission,
     );
     if (!mounted || draft == null) return;
     await _perform(() async {
@@ -347,6 +355,11 @@ class _MedicationHomeState extends State<MedicationHome>
         }
         await _saveSetupForPlan(profile.id, medicationId, draft,
           const MedicationSetup(), localPhotoPath: photoPath);
+        if (draft.lowStockThresholdMilliunits != null) {
+          await _inventory.setLowStockThreshold(profileId: profile.id,
+            medicationId: medicationId,
+            thresholdMilliunits: draft.lowStockThresholdMilliunits);
+        }
       });
     });
   }
@@ -386,6 +399,8 @@ class _MedicationHomeState extends State<MedicationHome>
         artwork: draft.artwork,
         localImagePath: localPhotoPath ?? previous.localImagePath,
         reminderNote: draft.reminderNote,
+        notificationsEnabled: draft.notificationsEnabled,
+        fullScreenAlert: draft.fullScreenAlert,
       ));
   }
 
@@ -404,8 +419,10 @@ class _MedicationHomeState extends State<MedicationHome>
     final draft = await showMedicationEntrySheet(
       context,
       profileName: profile.displayName,
+      requestReminderPermission: _requestMedicationReminderPermission,
       initialName: medication.name,
       initialSetup: previous,
+      initialThresholdMilliunits: _stocks[medication.id]?.thresholdMilliunits,
       initialSlots: [
         for (final dose in doses)
           MedicationSlotDraft(
@@ -428,6 +445,9 @@ class _MedicationHomeState extends State<MedicationHome>
         );
         await _saveSetupForPlan(profile.id, medication.id, draft,
           previous, localPhotoPath: photoPath);
+        await _inventory.setLowStockThreshold(profileId: profile.id,
+          medicationId: medication.id,
+          thresholdMilliunits: draft.lowStockThresholdMilliunits);
       });
     });
   }
