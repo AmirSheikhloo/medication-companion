@@ -12,6 +12,7 @@ import 'medication_artwork.dart';
 import 'medication_history_panel.dart';
 import 'medication_package_editor_screen.dart';
 import 'medication_course_timeline.dart';
+import 'medication_plan_history_panel.dart';
 import '../data/medication_course_repository.dart';
 import '../../../core/ui/medication_controls.dart';
 
@@ -241,6 +242,9 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             ])),
           const SizedBox(height: 12),
         ],
+        MedicationPlanHistoryPanel(
+          medication: medication, db: medicationRepository.db),
+        const SizedBox(height: 16),
         MedicationHistoryPanel(medication: medication,
           medicationRepository: medicationRepository,
           inventoryRepository: inventoryRepository,
