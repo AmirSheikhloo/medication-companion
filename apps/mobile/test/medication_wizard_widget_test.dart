@@ -30,9 +30,12 @@ void main() {
     expect(find.byKey(const Key('medication-wizard-progress')), findsOneWidget);
     expect(find.text('سوابق مصرف'), findsNothing);
     await tester.enterText(find.byKey(const Key('medication-name-field')), 'استامینوفن 500');
+    expect(find.text('واحد پایه دارو'), findsOneWidget);
     await next(tester); // schedule
+    expect(find.text('واحد مصرف'), findsNothing);
     await tester.enterText(find.byKey(const Key('med-dose-1')), '2');
     await next(tester); // stock
+    expect(find.text('حجمی / مایع'), findsNothing);
     await tester.enterText(find.byKey(const Key('med-stock-1')), '40');
     await tester.ensureVisible(find.text('محاسبه تعداد از روی ورق قرص'));
     await tester.tap(find.text('محاسبه تعداد از روی ورق قرص'));

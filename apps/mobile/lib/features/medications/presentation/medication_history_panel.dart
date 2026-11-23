@@ -47,7 +47,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
       _HistoryRange.week => DateTimeRange(
         start: end.subtract(const Duration(days: 6)), end: end),
       _HistoryRange.month => DateTimeRange(
-        start: DateTime(end.year, end.month, 1), end: end),
+        start: end.subtract(const Duration(days: 29)), end: end),
       _HistoryRange.year => DateTimeRange(
         start: DateTime(end.year, 1, 1), end: end),
       _HistoryRange.custom => _custom ?? DateTimeRange(start: end, end: end),
@@ -152,25 +152,28 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
       children: [
       const SizedBox(height: 2),
       const SizedBox(height: 9),
-      SingleChildScrollView(scrollDirection: Axis.horizontal,
-        child: Row(children: [
-          for (final item in const [
-            (_HistoryRange.today, 'امروز'),
-            (_HistoryRange.week, 'هفتگی'),
-            (_HistoryRange.month, 'ماهانه'),
-            (_HistoryRange.year, 'سالانه'),
-          ]) Padding(padding: const EdgeInsets.only(left: 6),
-            child: ChoiceChip(label: Text(item.$2),
-              selected: _range == item.$1,
-              onSelected: (_) => _setRange(item.$1))),
-          ActionChip(
-            avatar: const Icon(Icons.date_range_outlined, size: 17),
-            backgroundColor: _range == _HistoryRange.custom
-              ? AppColors.mint : Colors.white,
-            side: const BorderSide(color: AppColors.outline),
-            label: const Text('بازه دلخواه'),
-            onPressed: _chooseRange),
-        ])),
+      Wrap(spacing: 5, runSpacing: 5, children: [
+        for (final item in const [
+          (_HistoryRange.today, 'امروز'),
+          (_HistoryRange.week, '۷ روز'),
+          (_HistoryRange.month, '۳۰ روز'),
+          (_HistoryRange.year, 'سال'),
+        ])
+          ChoiceChip(
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            label: Text(item.$2, style: const TextStyle(fontSize: 11)),
+            selected: _range == item.$1,
+            onSelected: (_) => _setRange(item.$1)),
+        ActionChip(
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          backgroundColor: _range == _HistoryRange.custom
+            ? AppColors.mint : Colors.white,
+          side: const BorderSide(color: AppColors.outline),
+          label: const Text('بازه', style: TextStyle(fontSize: 11)),
+          onPressed: _chooseRange),
+      ]),
       const SizedBox(height: 6),
       Text(PersianDate.displayDigits(
         '${persianDateLabel(_selectedRange().start)} تا '
@@ -191,7 +194,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               data.movements.length > _visibleLimit;
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            Text('تاریخچهٔ مصرف (${PersianDate.displayDigits('${data.doses.length}')})',
+            Text('تاریخچهٔ مصرف (${PersianDate.displayDigits('${data.doses.take(_visibleLimit).length}')}${data.doses.length > _visibleLimit ? '+' : ''})',
               style: const TextStyle(fontWeight: FontWeight.w800,
                 color: AppColors.primaryDark)),
             if (data.doses.isEmpty) const Padding(
@@ -205,7 +208,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               icon: dose.action == 'taken' ? Icons.check_circle_outline
                   : Icons.info_outline),
             const Divider(height: 22),
-            Text('تاریخچهٔ موجودی (${PersianDate.displayDigits('${data.movements.length}')})',
+            Text('تاریخچهٔ موجودی (${PersianDate.displayDigits('${data.movements.take(_visibleLimit).length}')}${data.movements.length > _visibleLimit ? '+' : ''})',
               style: const TextStyle(fontWeight: FontWeight.w800,
                 color: AppColors.primaryDark)),
             if (data.movements.isEmpty) const Padding(

@@ -23,13 +23,13 @@ void main() {
     expect(find.text('انتخاب بازه گزارش'), findsOneWidget);
     expect(find.text('از تاریخ'), findsOneWidget);
     expect(find.text('تا تاریخ'), findsOneWidget);
-    await tester.tap(find.text('Gregorian'));
+    await tester.tap(find.text('میلادی'));
     await tester.pumpAndSettle();
-    expect(find.text('From'), findsOneWidget);
-    expect(find.text('To'), findsOneWidget);
-    await tester.tap(find.text('Last 6 months'));
+    expect(find.text('از تاریخ'), findsOneWidget);
+    expect(find.text('تا تاریخ'), findsOneWidget);
+    await tester.tap(find.text('۶ ماه اخیر'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Apply range'));
+    await tester.tap(find.text('نمایش گزارش'));
     await tester.pumpAndSettle();
     expect(selected, isNotNull);
     expect(selected!.start.isBefore(selected!.end), isTrue);
