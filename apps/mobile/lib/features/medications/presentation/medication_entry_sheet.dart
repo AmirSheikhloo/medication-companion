@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/ui/english_digits_input_formatter.dart';
 import '../../../core/ui/app_design.dart';
+import '../../../core/ui/medication_controls.dart';
 import '../../../core/ui/redesign_widgets.dart';
 import '../../inventory/domain/stock_quantity.dart';
 import '../data/medication_setup_repository.dart';
@@ -132,6 +133,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   String _artwork = 'capsule';
   String? _imagePath;
   int _currentStep = 0;
+  bool _movingForward = true;
   static const _stepLabels = <String>[
     'اطلاعات دارو', 'برنامه مصرف', 'موجودی', 'هشدار کمبود', 'یادآور',
   ];
@@ -139,8 +141,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   late final TextEditingController _lowStock;
   int? _calculatorPackage;
   String _calculatorVolumeUnit = 'میلی‌لیتر';
-  final _strips = TextEditingController(text: '5');
-  final _tabletsPerStrip = TextEditingController(text: '10');
+  final _strips = TextEditingController();
+  final _tabletsPerStrip = TextEditingController();
   bool _notify = false;
   bool _alarm = false;
   bool _requestingPermission = false;
@@ -423,15 +425,11 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     final units = showGroup ? const ['عدد', 'میلی‌لیتر', 'سی‌سی', 'لیتر'] :
         MedicationUnits.isLiquid(value)
           ? const ['میلی‌لیتر'] : const ['عدد'];
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      isExpanded: true,
-      items: [for (final unit in units)
-        DropdownMenuItem(value: unit, child: Text(unit,
-          style: const TextStyle(fontSize: 13)))],
-      onChanged: (unit) { if (unit != null) onChanged(unit); },
-      decoration: InputDecoration(labelText: 'واحد',
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
+    return MedicationChoiceField(
+      value: value,
+      options: units,
+      onChanged: onChanged,
+      label: 'واحد مصرف',
     );
   }
 
@@ -462,10 +460,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           Expanded(child: Text(PersianDate.displayDigits('بسته شماره ${index + 1}'),
             style: const TextStyle(color: AppColors.primaryDark,
               fontWeight: FontWeight.w900, fontSize: 16))),
-          if (_packages.length > 1) IconButton(
-            tooltip: 'حذف این بسته',
+          if (_packages.length > 1) MedicationActionIcon(
+            tooltip: 'حذف این بسته', destructive: true,
             onPressed: () => _removePackage(index),
-            icon: const Icon(Icons.delete_outline, color: Color(0xFFBD4355))),
+            icon: Icons.delete_outline_rounded),
         ]),
         const SizedBox(height: 9),
         if (index == 0) SegmentedButton<bool>(
@@ -511,26 +509,22 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             const SizedBox(height: 9),
             Row(children: [
               Expanded(child: _numberField(_strips,
-                label: liquid ? 'تعداد ظرف' : 'تعداد ورق', hint: '5',
+                label: liquid ? 'تعداد ظرف' : 'تعداد ورق',
+                hint: liquid ? 'تعداد ظرف را وارد کنید' : 'تعداد ورق را وارد کنید',
                 rebuildOnChange: true)),
               const SizedBox(width: 9),
               Expanded(child: _numberField(_tabletsPerStrip,
                 label: liquid ? 'حجم هر ظرف' : 'تعداد در هر ورق',
-                hint: '10', rebuildOnChange: true)),
+                hint: liquid ? 'حجم هر ظرف را وارد کنید' : 'تعداد در هر ورق را وارد کنید',
+                rebuildOnChange: true)),
             ]),
             if (liquid) ...[
               const SizedBox(height: 9),
-              DropdownButtonFormField<String>(
-                initialValue: _calculatorVolumeUnit,
-                decoration: const InputDecoration(labelText: 'واحد حجم ظرف'),
-                items: const [
-                  DropdownMenuItem(value: 'میلی‌لیتر', child: Text('میلی‌لیتر')),
-                  DropdownMenuItem(value: 'سی‌سی', child: Text('سی‌سی')),
-                  DropdownMenuItem(value: 'لیتر', child: Text('لیتر')),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _calculatorVolumeUnit = v);
-                },
+              MedicationChoiceField(
+                value: _calculatorVolumeUnit,
+                label: 'واحد حجم ظرف',
+                options: const ['میلی‌لیتر', 'سی‌سی', 'لیتر'],
+                onChanged: (v) => setState(() => _calculatorVolumeUnit = v),
               ),
             ],
             const SizedBox(height: 8),
@@ -544,6 +538,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           ],
         ],
         const SizedBox(height: 8),
+        const Padding(padding: EdgeInsets.only(bottom: 6),
+          child: Text('می‌توانی تاریخ انقضا را به شمسی یا میلادی وارد کنی.',
+            maxLines: 2, style: TextStyle(
+              color: AppColors.muted, fontSize: 11.5))),
         if (item.expiry == null)
           Align(alignment: Alignment.centerRight, child: TextButton.icon(
             onPressed: () => _chooseExpiry(item),
@@ -556,10 +554,14 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           const SizedBox(width: 8),
           Expanded(child: Text('انقضا: ${persianDateLabel(item.expiry!)}',
             style: const TextStyle(fontWeight: FontWeight.bold))),
-          IconButton(onPressed: () => _chooseExpiry(item),
-            tooltip: 'تغییر تاریخ', icon: const Icon(Icons.edit_outlined)),
-          IconButton(onPressed: () => setState(() => item.expiry = null),
-            tooltip: 'حذف تاریخ', icon: const Icon(Icons.close)),
+          MedicationActionIcon(
+            onPressed: () => _chooseExpiry(item),
+            tooltip: 'تغییر تاریخ', icon: Icons.edit_outlined),
+          const SizedBox(width: 6),
+          MedicationActionIcon(
+            onPressed: () => setState(() => item.expiry = null),
+            tooltip: 'حذف تاریخ', destructive: true,
+            icon: Icons.close_rounded),
         ]),
       ],
     ));
@@ -594,15 +596,20 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
 
   Widget _slotCard(int index) {
     final slot = _slots[index];
-    return AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.lightMint,
+        borderRadius: BorderRadius.circular(18)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
       Row(children: [
         Expanded(child: Text(PersianDate.displayDigits('نوبت ${index + 1}'),
           style: const TextStyle(color: AppColors.primaryDark,
             fontWeight: FontWeight.w900))),
-        if (_slots.length > 1) IconButton(
-          tooltip: 'حذف نوبت', onPressed: () => _removeSlot(index),
-          icon: const Icon(Icons.remove_circle_outline, color: Color(0xFFBD4355))),
+        if (_slots.length > 1) MedicationActionIcon(
+          tooltip: 'حذف نوبت', destructive: true,
+          onPressed: () => _removeSlot(index),
+          icon: Icons.remove_circle_outline),
       ]),
       const SizedBox(height: 7),
       Row(children: [
@@ -671,11 +678,19 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     return true;
   }
 
+  void _goToStep(int next) {
+    if (next < 0 || next >= _stepLabels.length || next == _currentStep) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _movingForward = next > _currentStep;
+      _currentStep = next;
+    });
+  }
+
   void _nextStep() {
     if (!_validateCurrent()) return;
-    FocusScope.of(context).unfocus();
     if (_currentStep == 4) { _submit(); return; }
-    setState(() => _currentStep++);
+    _goToStep(_currentStep + 1);
   }
 
   Widget _wizardProgress() {
@@ -683,37 +698,60 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     return SingleChildScrollView(
       key: const Key('medication-wizard-progress'),
       scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Row(children: [
-        for (var index = 0; index < _stepLabels.length; index++)
-          SizedBox(width: scale > 1.4 ? 105 : 70,
+        for (var index = 0; index < _stepLabels.length; index++) ...[
+          if (index > 0) AnimatedContainer(
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeInOutCubic,
+            width: scale > 1.4 ? 24 : 12,
+            height: 3,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              color: index <= _currentStep
+                ? AppColors.primary : AppColors.outline)),
+          SizedBox(width: scale > 1.4 ? 102 : 64,
             child: InkWell(
-              onTap: index < _currentStep
-                  ? () => setState(() => _currentStep = index) : null,
+              onTap: index <= _currentStep
+                ? () => _goToStep(index) : null,
               borderRadius: BorderRadius.circular(14),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                AnimatedContainer(duration: const Duration(milliseconds: 240),
-                  height: 42, width: 42,
-                  decoration: BoxDecoration(shape: BoxShape.circle,
-                    color: index == _currentStep ? AppColors.primary
-                      : index < _currentStep ? AppColors.mint
-                      : const Color(0xFFE8F0F1)),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeOutCubic,
+                  height: index == _currentStep ? 44 : 40,
+                  width: index == _currentStep ? 44 : 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: index == _currentStep ? AppColors.primary :
+                      index < _currentStep ? const Color(0xFFCAF2E9)
+                      : const Color(0xFFE6EFF0),
+                    boxShadow: index == _currentStep ? [
+                      BoxShadow(color: AppColors.primary.withValues(alpha:.18),
+                        blurRadius: 10, offset: const Offset(0,4))] : null),
                   alignment: Alignment.center,
-                  child: index < _currentStep
-                    ? const Icon(Icons.check, color: AppColors.primary)
-                    : Text('${index + 1}', style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: index == _currentStep
-                        ? Colors.white : AppColors.primaryDark))),
-                const SizedBox(height: 5),
-                Text(_stepLabels[index], maxLines: 2,
-                  textAlign: TextAlign.center, style: TextStyle(
-                    fontSize: 10,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 210),
+                    child: index < _currentStep
+                      ? const Icon(Icons.check_rounded,
+                        key: ValueKey('done'), color: AppColors.primaryDark)
+                      : Text('${index + 1}', key: ValueKey(index),
+                        style: TextStyle(fontWeight: FontWeight.w900,
+                          color: index == _currentStep
+                            ? Colors.white : AppColors.primaryDark)))),
+                const SizedBox(height: 6),
+                Text(_stepLabels[index],
+                  textAlign: TextAlign.center, maxLines: 2,
+                  style: TextStyle(
+                    fontSize: scale > 1.4 ? 11 : 10,
                     fontWeight: index == _currentStep
-                        ? FontWeight.bold : FontWeight.normal,
+                      ? FontWeight.w900 : FontWeight.w500,
                     color: index == _currentStep
-                        ? AppColors.primaryDark : AppColors.muted)),
+                      ? AppColors.primaryDark : AppColors.muted)),
               ]),
             )),
+        ],
       ]),
     );
   }
@@ -741,7 +779,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                 : Image.file(File(_imagePath!), width: _nameControlHeight,
                   height: _nameControlHeight,
                   fit: BoxFit.cover, errorBuilder: (_, _, _) =>
-                    MedicineArtwork(seed: _artwork, size: 76))),
+                    MedicineArtwork(seed: _artwork, size: _nameControlHeight))),
             const Positioned(left: 0, bottom: 0,
               child: CircleAvatar(radius: 13,
                 backgroundColor: AppColors.primary,
@@ -752,6 +790,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           key: const Key('medication-name-field'),
           controller: _name,
           maxLength: 160,
+          expands: true, minLines: null, maxLines: null,
           inputFormatters: const [EnglishDigitsInputFormatter()],
           textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
@@ -915,8 +954,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         if (_currentStep != 0) ...[
           Expanded(child: OutlinedButton.icon(
             key: const Key('medication-step-back'),
-            onPressed: () => setState(() => _currentStep--),
-            icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            onPressed: () => _goToStep(_currentStep - 1),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
             label: const Text('قبلی'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(50),
@@ -929,7 +968,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
               ? (_editing ? 'ذخیره تغییرات' : 'ثبت دارو')
               : 'مرحله بعد',
           icon: _currentStep == 4
-            ? Icons.check_circle_outline : Icons.arrow_back_rounded,
+            ? Icons.check_circle_outline : Icons.arrow_forward_rounded,
           onPressed: _nextStep, light: true, height: 50,
         )),
       ]),
@@ -939,18 +978,27 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         child: _wizardProgress()),
       const Divider(color: AppColors.outline, height: 1),
       Expanded(child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
+        duration: MediaQuery.of(context).disableAnimations
+          ? Duration.zero : const Duration(milliseconds: 290),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (current, previous) => Stack(
+          alignment: Alignment.topCenter,
+          children: [...previous, if (current != null) current]),
         transitionBuilder: (child, animation) => FadeTransition(
           opacity: animation,
           child: SlideTransition(
             position: Tween<Offset>(
-              begin: const Offset(0.08, 0), end: Offset.zero)
-                .animate(animation),
+              begin: Offset(_movingForward ? -.085 : .085, 0),
+              end: Offset.zero).animate(animation),
             child: child)),
-        child: SingleChildScrollView(
+        child: Align(
           key: ValueKey<int>(_currentStep),
-          padding: const EdgeInsets.fromLTRB(17, 22, 17, 32),
-          child: _stepBody(),
+          alignment: Alignment.topCenter,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(17, 24, 17, 32),
+            child: _stepBody(),
+          ),
         ),
       )),
     ]),
