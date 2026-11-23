@@ -138,6 +138,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   bool _lowStockEnabled = false;
   late final TextEditingController _lowStock;
   int? _calculatorPackage;
+  String _calculatorVolumeUnit = 'میلی‌لیتر';
   final _strips = TextEditingController(text: '5');
   final _tabletsPerStrip = TextEditingController(text: '10');
   bool _notify = false;
@@ -403,7 +404,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
 
   Widget _numberField(TextEditingController controller,
       {required String label, required String hint, int? maxLength,
-      String? keyName}) =>
+      String? keyName, bool rebuildOnChange = false}) =>
     TextField(
       controller: controller,
       key: keyName == null ? ValueKey(controller) : ValueKey(keyName),
@@ -411,6 +412,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [const EnglishDigitsInputFormatter(), FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩.٫]'))],
       maxLength: maxLength,
+      onChanged: rebuildOnChange ? (_) => setState(() {}) : null,
       decoration: InputDecoration(labelText: label, hintText: hint,
         counterText: '', border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14))),
@@ -438,8 +440,19 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     final liquid = MedicationUnits.isLiquid(item.unit);
     final calc = _calculatorPackage == index;
     final stripCount = int.tryParse(PersianDate.latinDigits(_strips.text));
-    final perStrip = int.tryParse(PersianDate.latinDigits(_tabletsPerStrip.text));
-    final total = stripCount == null || perStrip == null ? 0 : stripCount * perStrip;
+    int totalMilliunits = 0;
+    try {
+      final perUnit = StockQuantity.parsePositive(_tabletsPerStrip.text);
+      if (stripCount != null && stripCount > 0) {
+        totalMilliunits = stripCount * perUnit *
+          (liquid && _calculatorVolumeUnit == 'لیتر' ? 1000 : 1);
+      }
+    } catch (_) {
+      totalMilliunits = 0;
+    }
+    final calculatorValid = totalMilliunits > 0 &&
+      totalMilliunits <= StockQuantity.maxMilliunits &&
+      (liquid || totalMilliunits % 1000 == 0);
     return Container(padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: AppColors.lightMint,
         borderRadius: BorderRadius.circular(18)),
@@ -487,27 +500,47 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             (value) => setState(() => item.unit = value),
             showGroup: false)),
         ]),
-        if (!liquid) ...[
+        ...[
           const SizedBox(height: 9),
           FilledButton.tonalIcon(onPressed: () =>
               setState(() => _calculatorPackage = calc ? null : index),
             icon: const Icon(Icons.calculate_outlined),
-            label: const Text('محاسبه تعداد از روی ورق قرص')),
+            label: Text(liquid ? 'محاسبه از روی ظرف‌های مایع'
+              : 'محاسبه تعداد از روی ورق قرص')),
           if (calc) ...[
             const SizedBox(height: 9),
             Row(children: [
               Expanded(child: _numberField(_strips,
-                label: 'تعداد ورق', hint: '5')),
+                label: liquid ? 'تعداد ظرف' : 'تعداد ورق', hint: '5',
+                rebuildOnChange: true)),
               const SizedBox(width: 9),
               Expanded(child: _numberField(_tabletsPerStrip,
-                label: 'تعداد قرص در هر ورق', hint: '10')),
+                label: liquid ? 'حجم هر ظرف' : 'تعداد در هر ورق',
+                hint: '10', rebuildOnChange: true)),
             ]),
+            if (liquid) ...[
+              const SizedBox(height: 9),
+              DropdownButtonFormField<String>(
+                initialValue: _calculatorVolumeUnit,
+                decoration: const InputDecoration(labelText: 'واحد حجم ظرف'),
+                items: const [
+                  DropdownMenuItem(value: 'میلی‌لیتر', child: Text('میلی‌لیتر')),
+                  DropdownMenuItem(value: 'سی‌سی', child: Text('سی‌سی')),
+                  DropdownMenuItem(value: 'لیتر', child: Text('لیتر')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _calculatorVolumeUnit = v);
+                },
+              ),
+            ],
             const SizedBox(height: 8),
-            FilledButton(onPressed: total <= 0 || total > 999999 ? null : () {
-              item.quantity.text = total.toString();
+            FilledButton(onPressed: calculatorValid ? () {
+              item.quantity.text = StockQuantity.format(totalMilliunits);
               setState(() => _calculatorPackage = null);
-            }, child: Text(total <= 0 || total > 999999
-              ? 'تعداد معتبر وارد کن' : 'اعمال $total عدد')),
+            } : null, child: Text(!calculatorValid
+              ? 'مقدار معتبر وارد کن'
+              : 'اعمال ${StockQuantity.format(totalMilliunits)} '
+                '${liquid ? 'میلی‌لیتر' : 'عدد'}')),
           ],
         ],
         const SizedBox(height: 8),
