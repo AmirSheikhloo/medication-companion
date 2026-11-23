@@ -68,10 +68,21 @@ class MedicationHome extends StatefulWidget {
 }
 
 class _MedicationHomeState extends State<MedicationHome>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   bool _loading = true;
   bool _saving = false;
   int _tab = 0;
+  late final AnimationController _tabMotion;
+  int _tabMotionDirection = 1;
+
+  void _selectTab(int next) {
+    if (_tab == next) return;
+    setState(() {
+      _tabMotionDirection = next > _tab ? 1 : -1;
+      _tab = next;
+    });
+    _tabMotion.forward(from: 0);
+  }
   Profile? _active;
   List<Profile> _profiles = [];
   List<Medication> _medications = [];
@@ -102,6 +113,9 @@ class _MedicationHomeState extends State<MedicationHome>
   @override
   void initState() {
     super.initState();
+    _tabMotion = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 260),
+      value: 1);
     WidgetsBinding.instance.addObserver(this);
     _todayClockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted && _tab == 0) setState(() {});
@@ -115,6 +129,7 @@ class _MedicationHomeState extends State<MedicationHome>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _todayClockTicker?.cancel();
+    _tabMotion.dispose();
     _medicineSearch.dispose();
     super.dispose();
   }
@@ -815,21 +830,34 @@ class _MedicationHomeState extends State<MedicationHome>
       backgroundColor: _tab == 0 ? TodayPalette.page : AppColors.background,
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: _tab, children: [
-          _todayTab(),
-          _medicinesTab(),
-          HealthTab(
-            key: ValueKey(_active!.id),
-            profile: _active!,
-            repository: HealthRepository(widget.repository.db),
-            onOpenCareHub: _openCareHub,
-          ),
-          _moreTabRedesigned(),
-        ]),
+        child: AnimatedBuilder(
+          animation: _tabMotion,
+          builder: (context, child) {
+            if (MediaQuery.of(context).disableAnimations) return child!;
+            final progress = Curves.easeOutCubic.transform(_tabMotion.value);
+            return Opacity(
+              opacity: .4 + .6 * progress,
+              child: Transform.translate(
+                offset: Offset((1 - progress) * 14 * _tabMotionDirection, 0),
+                child: child),
+            );
+          },
+          child: IndexedStack(index: _tab, children: [
+            _todayTab(),
+            _medicinesTab(),
+            HealthTab(
+              key: ValueKey(_active!.id),
+              profile: _active!,
+              repository: HealthRepository(widget.repository.db),
+              onOpenCareHub: _openCareHub,
+            ),
+            _moreTabRedesigned(),
+          ]),
+        ),
       ),
       bottomNavigationBar: AppBottomNav(
         selectedIndex: _tab,
-        onSelected: (index) => setState(() => _tab = index),
+        onSelected: _selectTab,
       ),
     );
   }
