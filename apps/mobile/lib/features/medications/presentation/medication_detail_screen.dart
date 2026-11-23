@@ -89,7 +89,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
 
   Future<void> _selectPackage(PackageBalance balance) async {
     if (balance.archived || balance.expired ||
-        balance.balanceMilliunits <= 0) return;
+        balance.balanceMilliunits <= 0) { return; }
     try {
       await inventoryRepository.selectPackage(
         profileId: medication.profileId,

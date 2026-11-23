@@ -278,6 +278,7 @@ void main() {
   });
 
   test('eligible package auto-selection never overrides a current choice', () async {
+    final (profileId, medId) = await setupMedication();
     final first = await inventory.addPackage(profileId: profileId,
       medicationId: medId, label: 'اول', unit: 'عدد',
       initialMilliunits: 3000);

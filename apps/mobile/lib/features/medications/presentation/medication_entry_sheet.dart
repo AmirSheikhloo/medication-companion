@@ -195,8 +195,9 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       (initial != null && initial.isNotEmpty
         ? initial.first.quantity?.unit : null) ?? 'عدد';
     for (final slot in _slots) { slot.unit = _baseUnit; }
-    if (!_editing) _packages.add(
-      _PackageEditor(number: 1, unit: _baseUnit));
+    if (!_editing) {
+      _packages.add(_PackageEditor(number: 1, unit: _baseUnit));
+    }
   }
 
   @override
