@@ -87,6 +87,8 @@ class _MedicationHomeState extends State<MedicationHome>
   List<Profile> _profiles = [];
   List<Medication> _medications = [];
   List<Medication> _archivedMedications = [];
+  List<Medication> _hiddenMedications = [];
+  bool _showHidden = false;
   bool _showArchived = false;
   bool _searchVisible = false;
   bool _lowStockOnly = false;
@@ -218,6 +220,9 @@ class _MedicationHomeState extends State<MedicationHome>
       final archivedMeds = profile == null
           ? <Medication>[]
           : await widget.repository.medicationsFor(profile.id, archived: true);
+      final hiddenMeds = profile == null
+          ? <Medication>[] : await widget.repository.hiddenMedicationsFor(
+              profile.id);
       final today = _now;
       final tomorrow = DateTime(today.year, today.month, today.day + 1);
       final doses = profile == null
@@ -233,7 +238,7 @@ class _MedicationHomeState extends State<MedicationHome>
           stocks[med.id] = await _inventory.summary(profile.id, med.id);
           setups[med.id] = await _setupRepository.read(profile.id, med.id);
         }
-        for (final med in archivedMeds) {
+        for (final med in [...archivedMeds, ...hiddenMeds]) {
           stocks[med.id] = await _inventory.summary(profile.id, med.id);
           setups[med.id] = await _setupRepository.read(profile.id, med.id);
         }
@@ -246,11 +251,14 @@ class _MedicationHomeState extends State<MedicationHome>
           _medicineSearch.clear();
           _searchVisible = false;
           _lowStockOnly = false;
+          _showHidden = false;
+          _showArchived = false;
         }
         _active = profile;
         _profiles = profiles;
         _medications = meds;
         _archivedMedications = archivedMeds;
+        _hiddenMedications = hiddenMeds;
         _doses = doses;
         _nextDayDoses = nextDayDoses;
         _stocks = stocks;
@@ -595,6 +603,48 @@ class _MedicationHomeState extends State<MedicationHome>
     );
   }
 
+  Future<void> _hideMedication(Medication medication) async {
+    final profile = _active;
+    if (profile == null || _saving) return;
+    final allowed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.background,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24)),
+        title: const Text('حذف دارو از فهرست'),
+        content: Text('«${medication.name}» از فهرست فعال و پایان‌یافته '
+          'پنهان می‌شود، اما سوابق مصرف، بسته‌ها و گزارش پزشک محفوظ می‌مانند. '
+          'هر زمان می‌توانی از بخش حذف‌شده‌ها آن را بازیابی کنی.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('انصراف')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFB6374C),
+              foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف از فهرست')),
+        ],
+      ),
+    );
+    if (!mounted || allowed != true) return;
+    await _perform(() => widget.repository.setHidden(
+      profileId: profile.id,
+      medicationId: medication.id, hidden: true));
+  }
+
+  Future<void> _unhideMedication(Medication medication) async {
+    final profile = _active;
+    if (profile == null || _saving) return;
+    await _perform(() => widget.repository.setHidden(
+      profileId: profile.id, medicationId: medication.id, hidden: false));
+    if (mounted) setState(() {
+      _showHidden = false;
+      _showArchived = true;
+    });
+  }
+
   Future<void> _restoreMedication(Medication medication) async {
     final profile = _active;
     if (profile == null || _saving) return;
@@ -605,7 +655,7 @@ class _MedicationHomeState extends State<MedicationHome>
         archived: false,
       ),
     );
-    if (mounted) setState(() => _showArchived = false);
+    if (mounted) setState(() { _showArchived = false; _showHidden = false; });
   }
 
   Future<void> _enableReminders() async {
@@ -1471,7 +1521,8 @@ class _MedicationHomeState extends State<MedicationHome>
 
   Widget _medicinesTab() {
     final query = _normalizeMedicineSearch(_medicineSearch.text);
-    final source = _showArchived ? _archivedMedications : _medications;
+    final source = _showHidden ? _hiddenMedications :
+        _showArchived ? _archivedMedications : _medications;
     final visible = source
         .where((med) =>
             _normalizeMedicineSearch(med.name).contains(query) &&
@@ -1524,10 +1575,11 @@ class _MedicationHomeState extends State<MedicationHome>
             border: Border.all(color: AppColors.outline),
             borderRadius: BorderRadius.circular(13)),
           child: Row(children: [
-            for (final filter in ['همه', 'کم‌موجودی', 'بایگانی'])
+            for (final filter in ['همه', 'کم‌موجودی', 'بایگانی', 'حذف‌شده‌ها'])
               Expanded(child: InkWell(
                 onTap: () => setState(() {
                   _showArchived = filter == 'بایگانی';
+                  _showHidden = filter == 'حذف‌شده‌ها';
                   _lowStockOnly = filter == 'کم‌موجودی';
                 }),
                 borderRadius: BorderRadius.circular(12),
@@ -1536,24 +1588,28 @@ class _MedicationHomeState extends State<MedicationHome>
                   margin: const EdgeInsets.all(3),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: (_showArchived ? filter == 'بایگانی' :
+                    gradient: (_showHidden ? filter == 'حذف‌شده‌ها' :
+                        _showArchived ? filter == 'بایگانی' :
                         _lowStockOnly ? filter == 'کم‌موجودی' : filter == 'همه')
                       ? const LinearGradient(colors: [AppColors.accent, Color(0xFF89E7E1)])
                       : null,
                     borderRadius: BorderRadius.circular(10)),
-                  child: Text(filter, style: const TextStyle(fontWeight: FontWeight.w700,
-                    color: AppColors.primaryDark, fontSize: 12)),
+                  child: Text(filter, maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700,
+                    color: AppColors.primaryDark, fontSize: 11)),
                 ),
               )),
           ]),
         ),
         const SizedBox(height: 13),
         Text(PersianDate.displayDigits(
-          _showArchived ? '${_archivedMedications.length} داروی بایگانی‌شده' :
+          _showHidden ? '${_hiddenMedications.length} داروی حذف‌شده از فهرست' :
+          _showArchived ? '${_archivedMedications.length} دورهٔ پایان‌یافته' :
             '${_medications.length} داروی فعال'),
           style: const TextStyle(fontSize: 12, color: AppColors.muted)),
         const SizedBox(height: 9),
-        if (source.isEmpty && !_showArchived)
+        if (source.isEmpty && !_showArchived && !_showHidden)
           _emptyCard(
             'فهرست دارو خالی است.',
             'نام دارو و ساعت‌های روزانه را طبق نسخه وارد کنید.',
@@ -1564,7 +1620,8 @@ class _MedicationHomeState extends State<MedicationHome>
           AppPanel(child: Column(children: [
             const Icon(Icons.search_off, size: 55, color: AppColors.primary),
             const SizedBox(height: 9),
-            Text(_showArchived ? 'هنوز دارویی بایگانی نشده است.' :
+            Text(_showHidden ? 'داروی حذف‌شده‌ای وجود ندارد.' :
+              _showArchived ? 'هنوز دوره‌ای پایان نیافته است.' :
               'دارویی با این نام پیدا نشد.',
               style: const TextStyle(fontWeight: FontWeight.w700)),
           ]))
@@ -1577,11 +1634,11 @@ class _MedicationHomeState extends State<MedicationHome>
               ],
             ])),
         const SizedBox(height: 18),
-        if (!_showArchived) AppSoftHeader(
+        if (!_showArchived && !_showHidden) AppSoftHeader(
           title: 'موجودی هوشمند داروها', icon: Icons.inventory_2_outlined,
           subtitle: 'مقدار ثبت‌شده، بدون تخمین خودکار یا توصیهٔ مصرف.'),
         const SizedBox(height: 11),
-        if (!_showArchived) OutlinedButton.icon(
+        if (!_showArchived && !_showHidden) OutlinedButton.icon(
           onPressed: () => setState(() => _showArchived = true),
           icon: const Icon(Icons.inventory_2_outlined),
           label: Text(PersianDate.displayDigits(
@@ -1686,6 +1743,9 @@ class _MedicationHomeState extends State<MedicationHome>
         inventoryRepository: _inventory,
         pendingSchedule: pendingSchedule,
         archived: med.archived,
+        hidden: _showHidden,
+        onHide: () { Navigator.pop(detailContext); _hideMedication(med); },
+        onUnhide: () { Navigator.pop(detailContext); _unhideMedication(med); },
         onOpenCourse: (related) {
           Navigator.of(detailContext).pop();
           _openMedicationDetail(related, const [], const [],
