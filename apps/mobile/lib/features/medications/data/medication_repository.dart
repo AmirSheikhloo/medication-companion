@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/storage/app_database.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../domain/occurrence.dart';
+import 'medication_course_repository.dart';
 
 class DailyDose {
   const DailyDose({
@@ -144,6 +145,14 @@ class MedicationRepository {
             ..where((t) =>
                 t.id.equals(medicationId) & t.profileId.equals(profileId)))
           .write(MedicationsCompanion(archived: Value(archived)));
+      if (archived && !medication.archived) {
+        await db.into(db.appSettings).insertOnConflictUpdate(
+          AppSettingsCompanion.insert(
+            key: MedicationCourseRepository.endKey(profileId, medicationId),
+            value: DateTime.now().toUtc().toIso8601String(),
+          ),
+        );
+      }
     });
   }
 
