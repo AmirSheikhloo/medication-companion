@@ -18,7 +18,7 @@ void main() {
       ),
     );
     final theme = tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!;
-    expect(theme.fontFamily, 'Vazirmatn');
+    expect(theme.textTheme.bodyMedium?.fontFamily, 'Vazirmatn');
     expect(theme.appBarTheme.titleTextStyle?.fontFamily, 'Vazirmatn');
     expect(theme.colorScheme.primary, AppColors.primary);
     expect(theme.scaffoldBackgroundColor, AppColors.background);
