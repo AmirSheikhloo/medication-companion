@@ -20,6 +20,9 @@ class WidgetReminderPort implements ReminderNotificationPort {
   Future<bool> requestPermissions() async => true;
 
   @override
+  Future<bool> requestFullScreenPermission() async => true;
+
+  @override
   Future<bool> hasPermissions() async => true;
 
   @override
