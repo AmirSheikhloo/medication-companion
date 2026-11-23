@@ -59,23 +59,31 @@ class MedicationSetup {
     this.artwork = 'capsule',
     this.localImagePath,
     this.doses = const {},
+    this.notificationsEnabled = true,
+    this.fullScreenAlert = false,
   });
 
   final String reminderNote;
   final String artwork;
   final String? localImagePath;
   final Map<String, ScheduledQuantity> doses;
+  final bool notificationsEnabled;
+  final bool fullScreenAlert;
 
   MedicationSetup copyWith({
     String? reminderNote,
     String? artwork,
     String? localImagePath,
     Map<String, ScheduledQuantity>? doses,
+    bool? notificationsEnabled,
+    bool? fullScreenAlert,
   }) => MedicationSetup(
     reminderNote: reminderNote ?? this.reminderNote,
     artwork: artwork ?? this.artwork,
     localImagePath: localImagePath ?? this.localImagePath,
     doses: doses ?? this.doses,
+    notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+    fullScreenAlert: fullScreenAlert ?? this.fullScreenAlert,
   );
 }
 
@@ -121,6 +129,8 @@ class MedicationSetupRepository {
         localImagePath: data['imagePath'] is String
             ? data['imagePath'] as String : null,
         doses: doses,
+        notificationsEnabled: data['notificationsEnabled'] != false,
+        fullScreenAlert: data['fullScreenAlert'] == true,
       );
     } on FormatException {
       return const MedicationSetup();
@@ -144,6 +154,8 @@ class MedicationSetupRepository {
           'note': setup.reminderNote,
           'artwork': setup.artwork,
           'imagePath': setup.localImagePath,
+          'notificationsEnabled': setup.notificationsEnabled,
+          'fullScreenAlert': setup.fullScreenAlert,
           'doses': {for (final e in setup.doses.entries) e.key: e.value.toJson()},
         }),
       ),

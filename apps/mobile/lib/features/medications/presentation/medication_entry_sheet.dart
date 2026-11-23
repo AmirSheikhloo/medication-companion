@@ -36,7 +36,10 @@ class MedicationPackageDraft {
 class MedicationDraft {
   const MedicationDraft({required this.name, required this.slots,
     required this.packages, required this.reminderNote,
-    required this.artwork, this.imagePath});
+    required this.artwork, this.imagePath,
+    this.lowStockThresholdMilliunits,
+    this.notificationsEnabled = false,
+    this.fullScreenAlert = false});
 
   final String name;
   final List<MedicationSlotDraft> slots;
@@ -44,6 +47,9 @@ class MedicationDraft {
   final String reminderNote;
   final String artwork;
   final String? imagePath;
+  final int? lowStockThresholdMilliunits;
+  final bool notificationsEnabled;
+  final bool fullScreenAlert;
 }
 
 Future<MedicationDraft?> showMedicationEntrySheet(
@@ -52,12 +58,16 @@ Future<MedicationDraft?> showMedicationEntrySheet(
   String? initialName,
   List<MedicationSlotDraft>? initialSlots,
   MedicationSetup? initialSetup,
+  int? initialThresholdMilliunits,
+  Future<bool> Function({bool fullScreen})? requestReminderPermission,
 }) => Navigator.of(context).push<MedicationDraft>(MaterialPageRoute(
   builder: (_) => _MedicationEntryScreen(
     profileName: profileName,
     initialName: initialName,
     initialSlots: initialSlots,
     initialSetup: initialSetup,
+    initialThresholdMilliunits: initialThresholdMilliunits,
+    requestReminderPermission: requestReminderPermission,
   ),
 ));
 
@@ -94,12 +104,15 @@ class _PackageEditor {
 
 class _MedicationEntryScreen extends StatefulWidget {
   const _MedicationEntryScreen({required this.profileName,
-    this.initialName, this.initialSlots, this.initialSetup});
+    this.initialName, this.initialSlots, this.initialSetup,
+    this.initialThresholdMilliunits, this.requestReminderPermission});
 
   final String profileName;
   final String? initialName;
   final List<MedicationSlotDraft>? initialSlots;
   final MedicationSetup? initialSetup;
+  final int? initialThresholdMilliunits;
+  final Future<bool> Function({bool fullScreen})? requestReminderPermission;
 
   @override
   State<_MedicationEntryScreen> createState() => _MedicationEntryScreenState();
@@ -134,7 +147,12 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     super.initState();
     _name = TextEditingController(text: widget.initialName ?? '');
     _reminderNote = TextEditingController(text: widget.initialSetup?.reminderNote ?? '');
-    _lowStock = TextEditingController(text: '20');
+    _lowStockEnabled = widget.initialThresholdMilliunits != null;
+    _lowStock = TextEditingController(text:
+      widget.initialThresholdMilliunits == null ? '20' :
+      StockQuantity.format(widget.initialThresholdMilliunits!));
+    _notify = widget.initialSetup?.notificationsEnabled ?? false;
+    _alarm = widget.initialSetup?.fullScreenAlert ?? false;
     _artwork = widget.initialSetup?.artwork ?? 'capsule';
     _imagePath = widget.initialSetup?.localImagePath;
     final initial = widget.initialSlots;
@@ -355,10 +373,21 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       _showError('توضیح یادآور باید حداکثر 500 نویسه باشد.');
       return;
     }
+    int? threshold;
+    if (_lowStockEnabled) {
+      try { threshold = StockQuantity.parseNonNegative(_lowStock.text); }
+      catch (_) {
+        _showError('حد هشدار کمبود معتبر نیست.');
+        return;
+      }
+    }
     Navigator.of(context).pop(MedicationDraft(
       name: name, slots: slots, packages: packages,
       reminderNote: _reminderNote.text.trim(),
       artwork: _artwork, imagePath: _imagePath,
+      lowStockThresholdMilliunits: threshold,
+      notificationsEnabled: _notify,
+      fullScreenAlert: _alarm,
     ));
   }
 
@@ -379,9 +408,9 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
 
   Widget _unitSelector(String value, ValueChanged<String> onChanged,
       {bool showGroup = true}) {
-    final units = showGroup ? MedicationUnits.supported :
+    final units = showGroup ? const ['عدد', 'میلی‌لیتر', 'سی‌سی', 'لیتر'] :
         MedicationUnits.isLiquid(value)
-          ? MedicationUnits.liquid : MedicationUnits.count;
+          ? const ['میلی‌لیتر'] : const ['عدد'];
     return DropdownButtonFormField<String>(
       initialValue: value,
       isExpanded: true,
@@ -397,6 +426,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   Widget _packageCard(int index) {
     final item = _packages[index];
     final liquid = MedicationUnits.isLiquid(item.unit);
+    final calc = _calculatorPackage == index;
+    final stripCount = int.tryParse(PersianDate.latinDigits(_strips.text));
+    final perStrip = int.tryParse(PersianDate.latinDigits(_tabletsPerStrip.text));
+    final total = stripCount == null || perStrip == null ? 0 : stripCount * perStrip;
     return Container(padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: AppColors.lightMint,
         borderRadius: BorderRadius.circular(18)),
@@ -412,7 +445,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             icon: const Icon(Icons.delete_outline, color: Color(0xFFBD4355))),
         ]),
         const SizedBox(height: 9),
-        SegmentedButton<bool>(
+        if (index == 0) SegmentedButton<bool>(
           showSelectedIcon: false,
           segments: const [
             ButtonSegment(value: false, label: Text('تعدادی')),
@@ -428,9 +461,12 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                   if (slot.unit == before) slot.unit = item.unit;
                 }
               }
+              for (final pack in _packages) { pack.unit = item.unit; }
             });
           },
         ),
+        if (index > 0) const Text('واحد همهٔ بسته‌ها یکسان است.',
+          style: TextStyle(color: AppColors.muted)),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(flex: 3, child: _numberField(item.quantity,
@@ -438,19 +474,32 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             keyName: 'med-stock-${index + 1}')),
           const SizedBox(width: 8),
           Expanded(flex: 2, child: _unitSelector(item.unit,
-            (value) {
-              final previous = item.unit;
-              setState(() {
-                item.unit = value;
-                if (index == 0) {
-                  for (final slot in _slots) {
-                    if (slot.unit == previous) slot.unit = value;
-                  }
-                }
-              });
-            },
+            (value) => setState(() => item.unit = value),
             showGroup: false)),
         ]),
+        if (!liquid) ...[
+          const SizedBox(height: 9),
+          FilledButton.tonalIcon(onPressed: () =>
+              setState(() => _calculatorPackage = calc ? null : index),
+            icon: const Icon(Icons.calculate_outlined),
+            label: const Text('محاسبه تعداد از روی ورق قرص')),
+          if (calc) ...[
+            const SizedBox(height: 9),
+            Row(children: [
+              Expanded(child: _numberField(_strips,
+                label: 'تعداد ورق', hint: '5')),
+              const SizedBox(width: 9),
+              Expanded(child: _numberField(_tabletsPerStrip,
+                label: 'تعداد قرص در هر ورق', hint: '10')),
+            ]),
+            const SizedBox(height: 8),
+            FilledButton(onPressed: total <= 0 || total > 999999 ? null : () {
+              item.quantity.text = total.toString();
+              setState(() => _calculatorPackage = null);
+            }, child: Text(total <= 0 || total > 999999
+              ? 'تعداد معتبر وارد کن' : 'اعمال $total عدد')),
+          ],
+        ],
         const SizedBox(height: 8),
         if (item.expiry == null)
           Align(alignment: Alignment.centerRight, child: TextButton.icon(
@@ -732,6 +781,34 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     ],
   );
 
+  Future<void> _changeReminder(bool value, {required bool fullScreen}) async {
+    if (!value) {
+      setState(() {
+        if (fullScreen) { _alarm = false; }
+        else { _notify = false; _alarm = false; }
+      });
+      return;
+    }
+    if (_requestingPermission) return;
+    setState(() => _requestingPermission = true);
+    bool granted = false;
+    try {
+      granted = await (widget.requestReminderPermission?.call(
+          fullScreen: fullScreen) ?? Future<bool>.value(false));
+    } catch (_) { granted = false; }
+    if (!mounted) return;
+    setState(() {
+      _requestingPermission = false;
+      if (granted) {
+        _notify = true;
+        if (fullScreen) _alarm = true;
+      }
+    });
+    if (!granted) {
+      _showError('مجوز یادآوری فعال نشد؛ گزینه خاموش باقی ماند.');
+    }
+  }
+
   Widget _reminderStep() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
@@ -746,10 +823,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         title: const Text('اعلان یادآوری'),
         value: _notify,
         onChanged: _requestingPermission ? null
-            : (v) => setState(() {
-                _notify = v;
-                if (!v) _alarm = false;
-              })),
+            : (v) => _changeReminder(v, fullScreen: false)),
       const Divider(color: AppColors.outline),
       SwitchListTile.adaptive(
         contentPadding: EdgeInsets.zero,
@@ -757,10 +831,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         subtitle: const Text('در صورت پشتیبانی گوشی و داشتن مجوز'),
         value: _alarm,
         onChanged: _requestingPermission ? null
-            : (v) => setState(() {
-                _alarm = v;
-                if (v) _notify = true;
-              })),
+            : (v) => _changeReminder(v, fullScreen: true)),
       if (_alarm) ...[
         const SizedBox(height: 12),
         const Text('توضیح اختیاری زیر هنگام نمایش هشدار نشان داده می‌شود.',
