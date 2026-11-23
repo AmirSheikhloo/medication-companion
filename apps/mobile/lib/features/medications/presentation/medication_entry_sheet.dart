@@ -11,6 +11,7 @@ import '../../../core/ui/medication_controls.dart';
 import '../../../core/ui/redesign_widgets.dart';
 import '../../inventory/domain/stock_quantity.dart';
 import '../data/medication_setup_repository.dart';
+import '../data/medication_course_repository.dart';
 import 'medication_expiry_dialog.dart';
 
 /// Each slot is an exact user-entered quantity; historical free-text slots
@@ -61,6 +62,7 @@ Future<MedicationDraft?> showMedicationEntrySheet(
   MedicationSetup? initialSetup,
   int? initialThresholdMilliunits,
   String? initialBaseUnit,
+  List<String> suggestedMedicationNames = const [],
   Future<bool> Function({bool fullScreen})? requestReminderPermission,
 }) => Navigator.of(context).push<MedicationDraft>(MaterialPageRoute(
   builder: (_) => _MedicationEntryScreen(
@@ -70,6 +72,7 @@ Future<MedicationDraft?> showMedicationEntrySheet(
     initialSetup: initialSetup,
     initialThresholdMilliunits: initialThresholdMilliunits,
     initialBaseUnit: initialBaseUnit,
+    suggestedMedicationNames: suggestedMedicationNames,
     requestReminderPermission: requestReminderPermission,
   ),
 ));
@@ -109,7 +112,8 @@ class _MedicationEntryScreen extends StatefulWidget {
   const _MedicationEntryScreen({required this.profileName,
     this.initialName, this.initialSlots, this.initialSetup,
     this.initialThresholdMilliunits, this.initialBaseUnit,
-    this.requestReminderPermission});
+    this.requestReminderPermission,
+    this.suggestedMedicationNames = const []});
 
   final String profileName;
   final String? initialName;
@@ -117,6 +121,7 @@ class _MedicationEntryScreen extends StatefulWidget {
   final MedicationSetup? initialSetup;
   final int? initialThresholdMilliunits;
   final String? initialBaseUnit;
+  final List<String> suggestedMedicationNames;
   final Future<bool> Function({bool fullScreen})? requestReminderPermission;
 
   @override
@@ -760,6 +765,60 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   double get _nameControlHeight =>
       MediaQuery.textScalerOf(context).scale(76).clamp(76.0, 126.0);
 
+  Widget _nameSuggestions() => AnimatedBuilder(
+    animation: _name,
+    builder: (context, _) {
+      final typed = MedicationCourseRepository.normalizeName(_name.text);
+      if (typed.length < 2) return const SizedBox.shrink();
+      final shown = <String>[];
+      final distinct = <String>{};
+      for (final candidate in widget.suggestedMedicationNames) {
+        final key = MedicationCourseRepository.normalizeName(candidate);
+        if (key.contains(typed) && distinct.add(key)) shown.add(candidate);
+        if (shown.length >= 5) break;
+      }
+      if (shown.isEmpty) return const SizedBox.shrink();
+      final exact = shown.any((name) =>
+        MedicationCourseRepository.normalizeName(name) == typed);
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Material(
+          borderRadius: BorderRadius.circular(18),
+          color: AppColors.mint,
+          child: Padding(
+            padding: const EdgeInsets.all(11),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('پیشنهاد از داروهای قبلی شما',
+                  style: TextStyle(color: AppColors.primaryDark,
+                    fontWeight: FontWeight.w800)),
+                for (final value in shown)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: const Icon(Icons.history_rounded,
+                      color: AppColors.primary),
+                    title: Text(value),
+                    onTap: () {
+                      _name.text = value;
+                      _name.selection = TextSelection.collapsed(
+                        offset: value.length);
+                      FocusScope.of(context).unfocus();
+                    },
+                  ),
+                if (exact) const Text(
+                  'با ثبت این نام، دورهٔ جدیدی می‌سازی؛ '
+                  'سوابق قبلی جدا و محفوظ می‌مانند.',
+                  style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
   Widget _nameStep() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
@@ -804,6 +863,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           ),
         ))),
       ]),
+      _nameSuggestions(),
     ],
   );
 

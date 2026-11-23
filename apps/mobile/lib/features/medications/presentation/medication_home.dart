@@ -325,6 +325,9 @@ class _MedicationHomeState extends State<MedicationHome>
       context,
       profileName: profile.displayName,
       requestReminderPermission: _requestMedicationReminderPermission,
+      suggestedMedicationNames: [
+        for (final med in [..._medications, ..._archivedMedications]) med.name,
+      ],
     );
     if (!mounted || draft == null) return;
     await _perform(() async {
