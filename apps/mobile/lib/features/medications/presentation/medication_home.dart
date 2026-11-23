@@ -301,6 +301,21 @@ class _MedicationHomeState extends State<MedicationHome>
     return coordinator.requestPermissionsForDraft(fullScreen: fullScreen);
   }
 
+  /// Saving a medication is authoritative; OS reminder permission errors must
+  /// not turn an already committed medication into a misleading save failure.
+  Future<void> _activateSavedMedicationReminders() async {
+    try {
+      await widget.reminderCoordinator?.enable();
+      if (mounted) setState(() => _reminderError = null);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _reminderError = '$error');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('دارو ذخیره شد؛ اما یادآور فعال نشد: $error'),
+      ));
+    }
+  }
+
   Future<void> _addMedication() async {
     final profile = _active;
     if (profile == null || _saving) return;
@@ -361,10 +376,10 @@ class _MedicationHomeState extends State<MedicationHome>
             thresholdMilliunits: draft.lowStockThresholdMilliunits);
         }
       });
-      if (draft.notificationsEnabled) {
-        await widget.reminderCoordinator?.enable();
-      }
     });
+    if (draft.notificationsEnabled) {
+      await _activateSavedMedicationReminders();
+    }
   }
 
   List<DoseSlotInput> _slotInputs(MedicationDraft draft) => [
@@ -453,10 +468,10 @@ class _MedicationHomeState extends State<MedicationHome>
           medicationId: medication.id,
           thresholdMilliunits: draft.lowStockThresholdMilliunits);
       });
-      if (draft.notificationsEnabled) {
-        await widget.reminderCoordinator?.enable();
-      }
     });
+    if (draft.notificationsEnabled) {
+      await _activateSavedMedicationReminders();
+    }
   }
 
   Future<void> _archiveMedication(Medication medication) async {

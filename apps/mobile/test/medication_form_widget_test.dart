@@ -238,7 +238,7 @@ void main() {
     // Target the popup action, not the archive filter behind the overlay.
     await tester.tap(find.text('بایگانی').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('بایگانی شود'));
+    await tester.tap(find.text('پایان مصرف'));
     await tester.pumpAndSettle();
     expect(await medications.medicationsFor(profile.id), isEmpty);
     await tester.tap(find.text('نمایش بایگانی (1)'));
