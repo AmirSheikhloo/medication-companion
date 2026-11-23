@@ -126,7 +126,16 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
           decoration: InputDecoration(
             labelText: name,
             counterText: '',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(13)),
+            filled: true, fillColor: AppColors.mint,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide.none),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
         ),
       );
@@ -140,6 +149,7 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
             ? 'میلادی: ${gregorianDateLabel(converted)}'
             : 'شمسی: ${persianDateLabel(converted)}';
     return AlertDialog(
+      backgroundColor: AppColors.background,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: const Text('تاریخ انقضای بسته', style: TextStyle(
           color: AppColors.primaryDark, fontWeight: FontWeight.w900)),
@@ -157,19 +167,29 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
             onSelectionChanged: (values) => _toggle(values.first),
           ),
           const SizedBox(height: 18),
+          // Right-to-left: day (right), month (middle), year (left).
           Row(children: [
-            _numberField('سال', _year, length: 4),
+            _numberField('روز', _day, length: 2),
             const Padding(padding: EdgeInsets.symmetric(horizontal: 5),
               child: Text('/')),
             _numberField('ماه', _month, length: 2),
             const Padding(padding: EdgeInsets.symmetric(horizontal: 5),
               child: Text('/')),
-            _numberField('روز', _day, length: 2),
+            _numberField('سال', _year, length: 4),
           ]),
           const SizedBox(height: 12),
           AnimatedSwitcher(duration: const Duration(milliseconds: 200),
-            child: Text(helper, key: ValueKey(helper),
-              style: const TextStyle(color: AppColors.primary, fontSize: 12))),
+            child: Container(key: ValueKey(helper),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: AppColors.mint,
+                borderRadius: BorderRadius.circular(13)),
+              child: Row(children: [
+                const Icon(Icons.sync_alt, color: AppColors.primary, size: 19),
+                const SizedBox(width: 8),
+                Expanded(child: Text(helper, style: const TextStyle(
+                  color: AppColors.primaryDark, fontSize: 14,
+                  fontWeight: FontWeight.w800))),
+              ]))),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(_error!, style: const TextStyle(
