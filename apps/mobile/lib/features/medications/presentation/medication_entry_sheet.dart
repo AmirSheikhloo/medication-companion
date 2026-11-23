@@ -675,6 +675,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     );
   }
 
+  // Match image and name-field heights even at larger accessibility font sizes.
+  double get _nameControlHeight =>
+      MediaQuery.textScalerOf(context).scale(76).clamp(76.0, 126.0);
+
   Widget _nameStep() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
@@ -690,8 +694,9 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           child: Stack(children: [
             ClipRRect(borderRadius: BorderRadius.circular(18),
               child: _imagePath == null
-                ? MedicineArtwork(seed: _artwork, size: 76)
-                : Image.file(File(_imagePath!), width: 76, height: 76,
+                ? MedicineArtwork(seed: _artwork, size: _nameControlHeight)
+                : Image.file(File(_imagePath!), width: _nameControlHeight,
+                  height: _nameControlHeight,
                   fit: BoxFit.cover, errorBuilder: (_, _, _) =>
                     MedicineArtwork(seed: _artwork, size: 76))),
             const Positioned(left: 0, bottom: 0,
@@ -700,7 +705,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                 child: Icon(Icons.add, color: Colors.white, size: 18))),
           ])),
         const SizedBox(width: 12),
-        Expanded(child: SizedBox(height: 76, child: TextField(
+        Expanded(child: SizedBox(height: _nameControlHeight, child: TextField(
           key: const Key('medication-name-field'),
           controller: _name,
           maxLength: 160,
