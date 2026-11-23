@@ -66,9 +66,9 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         medicationId: medication.id,
         packageNumber: (summary?.packages.length ?? 0) + 1,
         unit: package?.package.unit ??
-            summary?.selected?.package.unit ?? 'عدد',
+            summary?.selected?.package.unit ?? medication.unit,
         existing: package,
-        selected: package != null &&
+        selected: package == null ? summary?.selectedPackageId == null :
             package.package.id == summary?.selectedPackageId,
       )));
     if (!mounted || result != true) return;

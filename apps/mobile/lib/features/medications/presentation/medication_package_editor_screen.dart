@@ -47,7 +47,7 @@ class _MedicationPackageEditorScreenState
         StockQuantity.format(widget.existing!.balanceMilliunits));
     final rawExpiry = widget.existing?.package.expiryIso;
     _expiry = rawExpiry == null ? null : StockQuantity.parseIso(rawExpiry);
-    _selectForUse = widget.selected || widget.existing == null;
+    _selectForUse = widget.selected;
   }
 
   @override
@@ -122,6 +122,10 @@ class _MedicationPackageEditorScreenState
             profileId: widget.profileId, medicationId: widget.medicationId,
             packageId: existing.package.id, deltaMilliunits: delta,
             reason: _reason.text.trim());
+        }
+        if (!_selectForUse && widget.selected) {
+          await widget.repository.clearSelection(profileId: widget.profileId,
+            medicationId: widget.medicationId);
         }
         if (_selectForUse && !widget.selected && !existing.archived) {
           await widget.repository.selectPackage(
