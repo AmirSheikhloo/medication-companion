@@ -2,7 +2,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/calendar/persian_date.dart';
-import '../../../core/calendar/persian_date_picker.dart';
+import 'medication_history_range_dialog.dart';
 import '../../../core/storage/app_database.dart';
 import '../../../core/ui/app_design.dart';
 import '../../inventory/data/inventory_repository.dart';
@@ -90,19 +90,11 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
   }
 
   Future<void> _chooseRange() async {
-    final today = DateTime.now();
-    final first = await showPersianDatePicker(context: context,
-      initialDate: _custom?.start ?? today.subtract(const Duration(days: 7)),
-      firstDate: DateTime(2000), lastDate: today,
-      title: 'ابتدای بازهٔ گزارش');
-    if (first == null || !mounted) return;
-    final last = await showPersianDatePicker(context: context,
-      initialDate: _custom?.end ?? today,
-      firstDate: first, lastDate: today,
-      title: 'پایان بازهٔ گزارش');
-    if (last == null || !mounted) return;
+    final custom = await showMedicationHistoryRangeDialog(
+      context: context, initial: _custom);
+    if (!mounted || custom == null) return;
     setState(() {
-      _custom = DateTimeRange(start: first, end: last);
+      _custom = custom;
       _range = _HistoryRange.custom;
       _future = _load();
     });
@@ -174,8 +166,12 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
             child: ChoiceChip(label: Text(item.$2),
               selected: _range == item.$1,
               onSelected: (_) => _setRange(item.$1))),
-          ActionChip(avatar: const Icon(Icons.date_range_outlined, size: 17),
-            label: const Text('انتخاب تاریخ'),
+          ActionChip(
+            avatar: const Icon(Icons.date_range_outlined, size: 17),
+            backgroundColor: _range == _HistoryRange.custom
+              ? AppColors.mint : Colors.white,
+            side: const BorderSide(color: AppColors.outline),
+            label: const Text('بازه دلخواه'),
             onPressed: _chooseRange),
         ])),
       const SizedBox(height: 6),
