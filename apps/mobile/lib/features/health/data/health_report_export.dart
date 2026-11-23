@@ -74,7 +74,7 @@ class HealthReportExport {
   }) async {
     if (records.length > 2000) {
       throw StateError(
-        'برای گزارش بیش از ۲۰۰۰ ثبت، بازه کوتاه‌تری انتخاب کنید.',
+        'برای گزارش بیش از 2000 ثبت، بازه کوتاه‌تری انتخاب کنید.',
       );
     }
     final regular = pw.Font.ttf(

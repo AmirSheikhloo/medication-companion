@@ -241,4 +241,49 @@ void main() {
     expect((await inventory.summary(profileId, medId))
         .packages.single.balanceMilliunits, 1000);
   });
+
+  test('package edit has audit history, archive blocks stock use, restore works', () async {
+    final (profileId, medId) = await setupMedication();
+    final packId = await inventory.addPackage(profileId: profileId,
+      medicationId: medId, label: 'بسته یک', unit: 'عدد',
+      initialMilliunits: 5000, selectForUse: true);
+    await inventory.editPackage(profileId: profileId,
+      medicationId: medId, packageId: packId,
+      label: 'بسته اصلاح‌شده', expiryIso: '2099-05-10',
+      expiryPrecision: 'day');
+    var state = await inventory.summary(profileId, medId);
+    expect(state.selected?.package.label, 'بسته اصلاح‌شده');
+    expect(state.selected?.package.expiryIso, '2099-05-10');
+
+    await inventory.archivePackage(profileId: profileId,
+      medicationId: medId, packageId: packId);
+    state = await inventory.summary(profileId, medId);
+    expect(state.packages.single.archived, isTrue);
+    expect(state.selected, isNull);
+    expect(state.packages.single.balanceMilliunits, 5000);
+    await expectLater(inventory.selectPackage(profileId: profileId,
+      medicationId: medId, packageId: packId), throwsStateError);
+    await expectLater(inventory.deleteUnusedPackage(profileId: profileId,
+      medicationId: medId, packageId: packId), throwsStateError);
+    await inventory.restorePackage(profileId: profileId,
+      medicationId: medId, packageId: packId);
+    state = await inventory.summary(profileId, medId);
+    expect(state.packages.single.archived, isFalse);
+    await inventory.selectPackage(profileId: profileId,
+      medicationId: medId, packageId: packId);
+    expect((await inventory.summary(profileId, medId)).selected?.package.id, packId);
+    final movements = await inventory.movementsForPackage(profileId: profileId,
+      medicationId: medId, packageId: packId);
+    expect(movements.where((m) => m.kind == 'metadata'), hasLength(3));
+  });
+
+  test('empty package without movements can be deleted', () async {
+    final (profileId, medId) = await setupMedication();
+    final packId = await inventory.addPackage(profileId: profileId,
+      medicationId: medId, label: 'بسته خالی', unit: 'عدد',
+      initialMilliunits: 0);
+    await inventory.deleteUnusedPackage(profileId: profileId,
+      medicationId: medId, packageId: packId);
+    expect((await inventory.summary(profileId, medId)).packages, isEmpty);
+  });
 }

@@ -52,7 +52,7 @@ class HealthRepository {
       throw ArgumentError('شرایط ثبت با شاخص انتخاب‌شده سازگار نیست.');
     }
     if ((draft.note ?? '').trim().length > 500) {
-      throw ArgumentError('یادداشت نمی‌تواند بیشتر از ۵۰۰ نویسه باشد.');
+      throw ArgumentError('یادداشت نمی‌تواند بیشتر از 500 نویسه باشد.');
     }
   }
 

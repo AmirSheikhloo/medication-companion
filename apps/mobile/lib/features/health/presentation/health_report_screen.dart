@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../../../core/ui/app_design.dart';
 import '../data/health_repository.dart';
 import '../data/health_report_export.dart';
 import '../domain/health_metric.dart';
@@ -163,8 +164,8 @@ class _HealthReportScreenState extends State<HealthReportScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('پروفایل: ${widget.profile.displayName}',
-              style: Theme.of(context).textTheme.titleLarge),
+          AppSectionHeading('پروفایل: ${widget.profile.displayName}',
+              icon: Icons.assignment_ind_outlined),
           const SizedBox(height: 6),
           const Text(
             'اطلاعات ثبت‌شده توسط کاربر/مراقب؛ تأیید پزشکی نشده.',

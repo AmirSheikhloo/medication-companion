@@ -38,8 +38,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('خلاصه امروز'), findsOneWidget);
-    expect(find.text('ثبت‌نشده: ۲'), findsOneWidget);
+    expect(find.text('خلاصهٔ امروز'), findsOneWidget);
+    expect(find.textContaining('2 ثبت‌نشده'), findsOneWidget);
 
     await tester.tap(find.text('داروها'));
     await tester.pumpAndSettle();
@@ -69,11 +69,13 @@ void main() {
     expect(find.text('استامینوفن'), findsOneWidget);
     await tester.tap(find.text('بیشتر'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('بازکردن تنظیمات زبان کیبورد'),
-      350,
-      scrollable: find.byType(Scrollable).last,
-    );
+    await tester.scrollUntilVisible(find.text('تنظیمات زبان و صفحه‌کلید'), 160,
+      scrollable: find.byType(Scrollable).last);
+    // On a 600px test viewport this tile otherwise sits behind the fixed
+    // bottom navigation bar, even though it is within the scroll viewport.
+    await tester.drag(find.byType(ListView).last, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تنظیمات زبان و صفحه‌کلید'));
     await tester.pumpAndSettle();
     expect(find.text('بازکردن تنظیمات زبان کیبورد'), findsOneWidget);
     expect(tester.takeException(), isNull);

@@ -15,6 +15,16 @@ class _ProfileNameDialog extends StatefulWidget {
 
 class _ProfileNameDialogState extends State<_ProfileNameDialog> {
   final _name = TextEditingController();
+  bool _showNameError = false;
+
+  void _continue() {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      setState(() => _showNameError = true);
+      return;
+    }
+    Navigator.of(context).pop(name);
+  }
 
   @override
   void dispose() {
@@ -24,21 +34,32 @@ class _ProfileNameDialogState extends State<_ProfileNameDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('پروفایل عزیزتان'),
+        title: const Text('برای یکی از عزیزانم'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('نام دلخواه؛ می‌توانید از نام مستعار استفاده کنید.'),
+            const Text('دوست داری چطور صداش کنیم؟ می‌تونی نام مستعار بنویسی.'),
             const SizedBox(height: 16),
             TextField(
               controller: _name,
               maxLength: 80,
+              onChanged: (_) {
+                if (_showNameError) setState(() => _showNameError = false);
+              },
+              onSubmitted: (_) => _continue(),
               decoration: const InputDecoration(
-                labelText: 'نام نمایشی',
+                labelText: 'نام عزیزت',
                 hintText: 'مثلاً مادر',
               ),
+              // Validation feedback stays next to the field, never as a card.
             ),
+            if (_showNameError)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text('برای ادامه، نام عزیزت رو بنویس.',
+                    style: TextStyle(color: Color(0xFFD75D57), fontSize: 12)),
+              ),
           ],
         ),
         actions: [
@@ -47,7 +68,7 @@ class _ProfileNameDialogState extends State<_ProfileNameDialog> {
             child: const Text('انصراف'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(_name.text),
+            onPressed: _continue,
             child: const Text('ادامه'),
           ),
         ],

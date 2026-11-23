@@ -9,6 +9,8 @@ class ReminderSlot {
     required this.doseText,
     required this.scheduledAt,
     required this.status,
+    this.reminderNote = '',
+    this.fullScreenAlert = false,
   });
 
   final String occurrenceKey;
@@ -18,6 +20,8 @@ class ReminderSlot {
   final String doseText;
   final DateTime scheduledAt;
   final String status;
+  final String reminderNote;
+  final bool fullScreenAlert;
 }
 
 class ReminderJob {
@@ -27,6 +31,7 @@ class ReminderJob {
     required this.title,
     required this.body,
     required this.daily,
+    this.fullScreenAlert = false,
   });
 
   final int id;
@@ -34,6 +39,7 @@ class ReminderJob {
   final String title;
   final String body;
   final bool daily;
+  final bool fullScreenAlert;
 }
 
 /// M0 uses IDs 101 and 202; M2 reserves an entirely different range.
@@ -74,8 +80,10 @@ class ReminderPlanner {
         localAt: date ?? slot.scheduledAt,
         title: 'یادآور دارو',
         body: 'برای ${slot.profileName}: ${slot.medicationName} — '
-            '${slot.doseText}',
+            '${slot.doseText}'
+            '${slot.reminderNote.isEmpty ? '' : '\n${slot.reminderNote}'}',
         daily: daily,
+        fullScreenAlert: slot.fullScreenAlert,
       ));
     }
 

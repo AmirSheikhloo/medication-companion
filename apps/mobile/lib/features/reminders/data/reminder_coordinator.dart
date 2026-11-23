@@ -1,5 +1,6 @@
 import '../../../core/storage/app_database.dart';
 import '../../medications/data/medication_repository.dart';
+import '../../medications/data/medication_setup_repository.dart';
 import '../../profiles/data/profile_repository.dart';
 import '../domain/reminder_plan.dart';
 import 'android_reminder_port.dart';
@@ -37,6 +38,13 @@ class ReminderCoordinator {
             value: enabled ? 'true' : 'false',
           ),
         );
+  }
+
+  Future<bool> requestPermissionsForDraft({bool fullScreen = false}) async {
+    await notifications.initialize();
+    if (!await notifications.requestPermissions()) return false;
+    if (fullScreen) return notifications.requestFullScreenPermission();
+    return true;
   }
 
   Future<int> enable() async {
@@ -87,11 +95,20 @@ class ReminderCoordinator {
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
     final todaySlots = <ReminderSlot>[];
     final tomorrowSlots = <ReminderSlot>[];
+    final setupRepository = MedicationSetupRepository(database);
     for (final profile in await profiles.profiles()) {
       final todayDoses = await medications.dosesForDay(profile.id, today);
       final tomorrowDoses = await medications.dosesForDay(profile.id, tomorrow);
+      final setups = <String, MedicationSetup>{};
+      for (final dose in [...todayDoses, ...tomorrowDoses]) {
+        final id = dose.medication.id;
+        if (!setups.containsKey(id)) {
+          setups[id] = await setupRepository.read(profile.id, id);
+        }
+      }
       todaySlots.addAll([
         for (final dose in todayDoses)
+          if (setups[dose.medication.id]?.notificationsEnabled != false)
           ReminderSlot(
             occurrenceKey: dose.occurrenceKey,
             planId: dose.plan.id,
@@ -100,10 +117,13 @@ class ReminderCoordinator {
             doseText: dose.plan.doseText,
             scheduledAt: dose.scheduledAt,
             status: dose.status,
+            reminderNote: setups[dose.medication.id]?.reminderNote ?? '',
+            fullScreenAlert: setups[dose.medication.id]?.fullScreenAlert == true,
           ),
       ]);
       tomorrowSlots.addAll([
         for (final dose in tomorrowDoses)
+          if (setups[dose.medication.id]?.notificationsEnabled != false)
           ReminderSlot(
             occurrenceKey: dose.occurrenceKey,
             planId: dose.plan.id,
@@ -112,6 +132,8 @@ class ReminderCoordinator {
             doseText: dose.plan.doseText,
             scheduledAt: dose.scheduledAt,
             status: dose.status,
+            reminderNote: setups[dose.medication.id]?.reminderNote ?? '',
+            fullScreenAlert: setups[dose.medication.id]?.fullScreenAlert == true,
           ),
       ]);
     }

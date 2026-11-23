@@ -23,10 +23,11 @@ void main() {
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), '۱۲۵');
     await tester.enterText(fields.at(1), '۸۱');
+    await tester.ensureVisible(find.text('ذخیره اندازه‌گیری'));
     await tester.tap(find.text('ذخیره اندازه‌گیری'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.textContaining('۱۲۵/۸۱'), 160);
-    expect(find.textContaining('۱۲۵/۸۱'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('125/81').last, 160);
+    expect(find.textContaining('125/81'), findsWidgets);
     expect(find.text('اندازه‌گیری ذخیره شد.'), findsOneWidget);
     expect((await health.measurementsFor(profileId: profile.id)), hasLength(1));
   });

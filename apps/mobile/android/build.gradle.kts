@@ -1,5 +1,19 @@
 allprojects {
+    if (System.getenv("MEDICATION_USE_MAVEN_MIRROR") == "1") {
+        // Flutter plugins such as path_provider_android can declare their
+        // Android Gradle plugin through buildscript, separately from settings.
+        buildscript.repositories {
+            maven { url = uri("https://maven.aliyun.com/repository/google") }
+            maven { url = uri("https://maven.aliyun.com/repository/public") }
+            maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        }
+    }
     repositories {
+        if (System.getenv("MEDICATION_USE_MAVEN_MIRROR") == "1") {
+            maven { url = uri("https://maven.aliyun.com/repository/google") }
+            maven { url = uri("https://maven.aliyun.com/repository/public") }
+            maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        }
         google()
         mavenCentral()
     }

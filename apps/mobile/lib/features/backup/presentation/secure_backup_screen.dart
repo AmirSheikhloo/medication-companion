@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
+import '../../../core/ui/app_design.dart';
+import '../../../core/ui/redesign_widgets.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -110,7 +112,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
           _importCounts = backupCounts;
           _currentCounts = currentCounts;
           _phase = '';
-          _result = 'رمز و اصالت فایل، یکپارچگی SQLite و ساختار نسخه ۵ تأیید شد. '
+          _result = 'رمز و اصالت فایل، یکپارچگی SQLite و ساختار نسخه 5 تأیید شد. '
               'این فقط پیش‌نمایش است و هیچ اطلاعاتی بازیابی یا جایگزین نشده است.';
           _importPassword.clear();
         });
@@ -263,15 +265,19 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('پشتیبان رمزگذاری‌شده')),
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('پشتیبان‌گیری'),
+          backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+          titleTextStyle: AppTypography.onPrimaryAppBar),
         body: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
           children: [
-            const Icon(Icons.enhanced_encryption_outlined,
-                size: 56, color: Color(0xff008f87)),
+            const AppSoftHeader(title: 'محلی و آفلاین',
+              subtitle: 'پشتیبان فقط با رمز انتخابی شما ساخته می‌شود.',
+              icon: Icons.wifi_off_outlined),
             const SizedBox(height: 16),
-            Text('ساخت فایل پشتیبان آفلاین',
-                style: Theme.of(context).textTheme.titleLarge),
+            const AppSectionHeading('ساخت فایل پشتیبان',
+              icon: Icons.lock_outline_rounded),
             const SizedBox(height: 12),
             const Text(
               'از تمام پروفایل‌ها، برنامه‌های دارویی، رویدادهای مصرف، موجودی، '
@@ -280,7 +286,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
             ),
             const SizedBox(height: 12),
             const Card(
-              color: Color(0xfffff4df),
+              color: AppColors.amberLight,
               child: Padding(
                 padding: EdgeInsets.all(14),
                 child: Text(
@@ -299,7 +305,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
               enableSuggestions: false,
               autocorrect: false,
               decoration: InputDecoration(
-                labelText: 'رمز پشتیبان (حداقل ۱۲ نویسه)',
+                labelText: 'رمز پشتیبان (حداقل 12 نویسه)',
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   tooltip: _showPassword ? 'پنهان‌کردن رمز' : 'نمایش رمز',
@@ -321,16 +327,15 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: _busy ? null : _startExport,
-              icon: const Icon(Icons.save_alt),
-              label: const Text('انتخاب محل و ساخت پشتیبان'),
-            ),
+            AppGradientButton(label: 'انتخاب محل و ساخت پشتیبان',
+              icon: Icons.folder_open_outlined,
+              onPressed: _busy ? null : _startExport),
             const SizedBox(height: 30),
             const Divider(),
             const SizedBox(height: 12),
-            Text('بررسی فایل پشتیبان (فقط خواندنی)',
-                style: Theme.of(context).textTheme.titleLarge),
+            const AppSoftHeader(title: 'بررسی فایل پشتیبان موجود',
+              subtitle: 'پیش‌نمایش امن و فقط‌خواندنی؛ بدون جایگزینی اطلاعات.',
+              icon: Icons.fact_check_outlined),
             const SizedBox(height: 8),
             const Text('فایل را انتخاب کنید و رمز همان فایل را وارد کنید. '
                 'پس از تأیید اصالت رمزنگاری، فقط تعداد رکوردها با اطلاعات فعلی '
@@ -375,7 +380,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
             ],
             if (_result != null) ...[
               const SizedBox(height: 12),
-              SelectableText(_result!, style: const TextStyle(color: Color(0xff007b66))),
+              SelectableText(_result!, style: const TextStyle(color: AppColors.primary)),
             ],
             if (_importCounts != null && _currentCounts != null) ...[
               const SizedBox(height: 16),

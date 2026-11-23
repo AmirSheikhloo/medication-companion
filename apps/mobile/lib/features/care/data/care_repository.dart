@@ -42,7 +42,7 @@ class CareRepository {
   String _title(String text, {int max = 160}) {
     final result = text.trim();
     if (result.isEmpty || result.length > max) {
-      throw ArgumentError('عنوان باید بین ۱ تا $max نویسه باشد.');
+      throw ArgumentError('عنوان باید بین 1 تا $max نویسه باشد.');
     }
     return result;
   }

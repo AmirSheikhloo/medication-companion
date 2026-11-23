@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/storage/app_database.dart';
 import '../../inventory/data/inventory_repository.dart';
 import '../domain/occurrence.dart';
+import 'medication_course_repository.dart';
 
 class DailyDose {
   const DailyDose({
@@ -40,13 +41,63 @@ class MedicationRepository {
   final AppDatabase db;
   final Uuid _uuid = Uuid();
 
+  String _hiddenKey(String profileId, String medicationId) =>
+    'medication-hidden:v1:$profileId:$medicationId';
+
+  Future<Set<String>> _hiddenIds(String profileId) async {
+    final prefix = 'medication-hidden:v1:$profileId:';
+    final rows = await (db.select(db.appSettings)
+      ..where((t) => t.key.like('$prefix%'))).get();
+    return rows.where((r) => r.value == 'true')
+      .map((r) => r.key.substring(prefix.length)).toSet();
+  }
+
   Future<List<Medication>> medicationsFor(String profileId,
-      {bool archived = false}) =>
-      (db.select(db.medications)
-            ..where((t) =>
-                t.profileId.equals(profileId) & t.archived.equals(archived))
-            ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
-          .get();
+      {bool archived = false, bool includeHidden = false}) async {
+    final rows = await (db.select(db.medications)
+      ..where((t) =>
+        t.profileId.equals(profileId) & t.archived.equals(archived))
+      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).get();
+    if (includeHidden) return rows;
+    final hidden = await _hiddenIds(profileId);
+    return rows.where((m) => !hidden.contains(m.id)).toList();
+  }
+
+  Future<List<Medication>> hiddenMedicationsFor(String profileId) async {
+    final hidden = await _hiddenIds(profileId);
+    if (hidden.isEmpty) return [];
+    return (db.select(db.medications)
+      ..where((t) =>
+        t.profileId.equals(profileId) & t.id.isIn(hidden.toList()))
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).get();
+  }
+
+  /// "Delete from list" is reversible. Historical events and reports remain.
+  Future<void> setHidden({
+    required String profileId,
+    required String medicationId,
+    required bool hidden,
+  }) async {
+    await db.transaction(() async {
+      final med = await _ownedMedication(profileId, medicationId);
+      if (med == null) {
+        throw StateError('این دارو متعلق به پروفایل فعال نیست.');
+      }
+      if (hidden) {
+        if (!med.archived) {
+          await setArchived(profileId: profileId,
+            medicationId: medicationId, archived: true);
+        }
+        await db.into(db.appSettings).insertOnConflictUpdate(
+          AppSettingsCompanion.insert(
+            key: _hiddenKey(profileId, medicationId), value: 'true'));
+      } else {
+        await (db.delete(db.appSettings)
+          ..where((t) => t.key.equals(
+            _hiddenKey(profileId, medicationId)))).go();
+      }
+    });
+  }
 
   Future<String> addDailyMedication({
     required String profileId,
@@ -144,6 +195,14 @@ class MedicationRepository {
             ..where((t) =>
                 t.id.equals(medicationId) & t.profileId.equals(profileId)))
           .write(MedicationsCompanion(archived: Value(archived)));
+      if (archived && !medication.archived) {
+        await db.into(db.appSettings).insertOnConflictUpdate(
+          AppSettingsCompanion.insert(
+            key: MedicationCourseRepository.endKey(profileId, medicationId),
+            value: DateTime.now().toUtc().toIso8601String(),
+          ),
+        );
+      }
     });
   }
 
@@ -157,21 +216,21 @@ class MedicationRepository {
   String _validateName(String name) {
     final cleaned = name.trim();
     if (cleaned.isEmpty || cleaned.length > 160) {
-      throw ArgumentError('نام دارو باید بین ۱ تا ۱۶۰ نویسه باشد.');
+      throw ArgumentError('نام دارو باید بین 1 تا 160 نویسه باشد.');
     }
     return cleaned;
   }
 
   List<DoseSlotInput> _validateSlots(List<DoseSlotInput> slots) {
-    if (slots.isEmpty || slots.length > 12) {
-      throw ArgumentError('بین ۱ تا ۱۲ نوبت روزانه وارد کنید.');
+    if (slots.isEmpty || slots.length > 24 * 60) {
+      throw ArgumentError('دست‌کم یک نوبت و حداکثر یک نوبت در هر دقیقه مجاز است.');
     }
     final clockKeys = <int>{};
     final validated = <DoseSlotInput>[];
     for (final slot in slots) {
       final dose = slot.doseText.trim();
       if (dose.isEmpty || dose.length > 120) {
-        throw ArgumentError('شرح هر نوبت باید بین ۱ تا ۱۲۰ نویسه باشد.');
+        throw ArgumentError('شرح هر نوبت باید بین 1 تا 120 نویسه باشد.');
       }
       final hour = slot.time.hour;
       final minute = slot.time.minute;

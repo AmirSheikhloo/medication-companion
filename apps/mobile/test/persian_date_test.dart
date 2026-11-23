@@ -59,15 +59,15 @@ void main() {
       expect(PersianDate.parse('۱۴۰۵/۰۸/۲۶').toString(), '1405/08/26');
       expect(PersianDate.parse('١٤٠٥/٠٨/٢٦').toString(), '1405/08/26');
       expect(PersianDate.parse(' 1405-8-26 ').toString(), '1405/08/26');
-      expect(PersianDate.persianDigits('1405/08/26'), '۱۴۰۵/۰۸/۲۶');
+      expect(PersianDate.displayDigits('1405/08/26'), '1405/08/26');
       expect(() => PersianDate.parse('abc'), throwsFormatException);
     });
 
     test('display conversion handles doses, times and counts without altering values', () {
-      expect(PersianDate.persianDigits('08:05 — 2.5 mg'), '۰۸:۰۵ — ۲.۵ mg');
-      expect(PersianDate.persianDigits('۱۲ قرص'), '۱۲ قرص');
+      expect(PersianDate.displayDigits('08:05 — 2.5 mg'), '08:05 — 2.5 mg');
+      expect(PersianDate.displayDigits('۱۲ قرص'), '12 قرص');
       expect(PersianDate.latinDigits('۲.۵'), '2.5');
-      expect(PersianDate.persianDigits('CI118'), 'CI۱۱۸');
+      expect(PersianDate.displayDigits('CI118'), 'CI118');
     });
 
     test('round-trip across the entire product date range at month edges', () {
@@ -92,7 +92,7 @@ void main() {
     test('display explicitly distinguishes Jalali date from time', () {
       expect(
         persianDateLabel(DateTime(2026, 3, 21, 9, 5), showTime: true),
-        '۱۴۰۵/۰۱/۰۱  ۰۹:۰۵',
+        '1405/01/01  09:05',
       );
       expect(gregorianDateLabel(DateTime(2026, 3, 21)), '2026/03/21');
     });

@@ -2,7 +2,10 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
+import '../../../core/ui/english_digits_input_formatter.dart';
 import '../../../core/calendar/persian_date_picker.dart';
+import '../../../core/ui/app_design.dart';
+import '../../../core/ui/app_choice_field.dart';
 import '../data/inventory_repository.dart';
 import '../domain/stock_quantity.dart';
 
@@ -11,16 +14,13 @@ Future<void> showStockManagementSheet(
   required InventoryRepository repository,
   required Medication medication,
   required String profileId,
-}) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
+}) => Navigator.of(context).push<void>(MaterialPageRoute(
   builder: (_) => _StockManagementSheet(
     repository: repository,
     medication: medication,
     profileId: profileId,
   ),
-);
+));
 
 class _StockManagementSheet extends StatefulWidget {
   const _StockManagementSheet({
@@ -151,6 +151,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
     'taken' => 'کسر بابت مصرف ثبت‌شده',
     'undo' => 'جبران کسر هنگام بازگرداندن مصرف',
     'adjustment' => 'اصلاح دستی',
+    'metadata' => 'تغییر مشخصات یا وضعیت بسته',
     _ => 'تغییر موجودی',
   };
 
@@ -168,6 +169,17 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   Future<void> _add() async {
     await _run(() async {
       final initial = StockQuantity.parseNonNegative(_initial.text);
+      // A past expiry should be reported explicitly before the user saves.
+      // Month-only dates remain valid through their last calendar day.
+      if (_expiry != null && StockQuantity.isExpired(
+        StockQuantity.isoDate(_precision == 'month'
+            ? DateTime(_expiry!.year, _expiry!.month) : _expiry!),
+        _precision,
+        DateTime.now(),
+      )) {
+        throw StateError('تاریخ انقضای واردشده گذشته است. '
+            'اگر تاریخ را درست وارد کرده‌اید، از مصرف این دارو خودداری کنید.');
+      }
       await widget.repository.addPackage(
         profileId: widget.profileId,
         medicationId: widget.medication.id,
@@ -227,24 +239,23 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   @override
   Widget build(BuildContext context) {
     final summary = _summary;
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.82,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 32),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('موجودی دارو'),
+        backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+        titleTextStyle: AppTypography.onPrimaryAppBar),
+      body: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
-              Text(
+              AppSectionHeading(
                 'موجودی: ${widget.medication.name}',
-                style: Theme.of(context).textTheme.titleLarge,
+                icon: Icons.inventory_2_outlined,
               ),
               const SizedBox(height: 8),
               const Text(
                 'موجودی هر بسته جداست؛ مقدار مصرف را خودتان اعلام می‌کنید. '
                 'این بخش توصیه دارویی یا کنترل اصالت تاریخ انقضا نیست.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
               ),
               if (_error != null)
                 Text(_error!, style: const TextStyle(color: Colors.deepOrange)),
@@ -257,19 +268,59 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               if (summary == null)
                 const Center(child: CircularProgressIndicator())
               else ...[
+                AppPanel(
+                  color: AppColors.mint,
+                  child: Row(
+                    children: [
+                      const AppIconTile(Icons.inventory_2_outlined),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'موجودی بستهٔ منتخب',
+                              style: TextStyle(color: AppColors.primaryDark),
+                            ),
+                            Text(
+                              summary.selected == null
+                                  ? 'بسته‌ای انتخاب نشده است'
+                                  : PersianDate.displayDigits(
+                                      '${StockQuantity.format(summary.selected!.balanceMilliunits)} '
+                                      '${summary.selected!.package.unit}',
+                                    ),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryDark,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (summary.lowStock)
+                        const Icon(Icons.warning_amber_rounded,
+                            color: Colors.deepOrange),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const AppSectionHeading('بسته‌های دارو', icon: Icons.widgets_outlined),
+                const SizedBox(height: 7),
                 if (summary.packages.isEmpty)
                   const ListTile(title: Text('هنوز بسته‌ای ثبت نشده است.')),
                 for (final item in summary.packages)
                   _packageCard(item, summary),
                 const SizedBox(height: 16),
-                Text(
+                AppSectionHeading(
                   'هشدار کمبود بسته انتخاب‌شده'
                   '${summary.selected == null ? '' : ' (${summary.selected!.package.unit})'}',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  icon: Icons.notification_important_outlined,
                 ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _threshold,
+                inputFormatters: const [EnglishDigitsInputFormatter()],
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -287,7 +338,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                 if (summary.thresholdMilliunits != null &&
                     summary.selected != null)
                   Text(
-                    PersianDate.persianDigits(
+                    PersianDate.displayDigits(
                       'حد فعال: ${StockQuantity.format(summary.thresholdMilliunits!)} '
                       '${summary.selected!.package.unit} — '
                       '${summary.lowStock ? 'موجودی در محدودهٔ هشدار است.' : 'موجودی فعلی بالاتر از حد هشدار است.'}',
@@ -304,9 +355,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     style: TextStyle(color: Colors.green),
                   ),
                 const Divider(height: 32),
-                Text(
+                const AppSectionHeading(
                   'افزودن بسته جدید',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  icon: Icons.add_box_outlined,
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -323,6 +374,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     Expanded(
                       child: TextField(
                         controller: _initial,
+                inputFormatters: const [EnglishDigitsInputFormatter()],
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
@@ -369,25 +421,17 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   ],
                 ),
                 if (_expiry != null)
-                  DropdownButtonFormField<String>(
-                    initialValue: _precision,
-                    decoration: const InputDecoration(
-                      labelText: 'دقت تاریخ (ماه فقط میلادی)',
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'day', child: Text('روز دقیق')),
-                      DropdownMenuItem(
-                        value: 'month',
-                        child: Text('فقط ماه و سال'),
-                      ),
+                  AppChoiceField<String>(
+                    value: _precision,
+                    label: 'دقت تاریخ (ماه فقط میلادی)',
+                    enabled: !_busy,
+                    options: const [
+                      AppChoiceOption('day', 'روز دقیق'),
+                      AppChoiceOption('month', 'فقط ماه و سال'),
                     ],
-                    onChanged: _busy
-                        ? null
-                        : (value) {
-                            if (value != null) {
-                              setState(() => _precision = value);
-                            }
-                          },
+                    onChanged: (value) {
+                      if (value != null) setState(() => _precision = value);
+                    },
                   ),
                 if (_expiry != null && _precision == 'month')
                   const Text(
@@ -410,8 +454,6 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               ],
             ],
           ),
-        ),
-      ),
     );
   }
 
@@ -427,22 +469,27 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
           children: [
             Row(
               children: [
+                const AppIconTile(Icons.inventory_2_outlined),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Text(
                     pack.label,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 if (selected) const Chip(label: Text('انتخاب‌شده')),
+                if (item.archived) const Chip(label: Text('بایگانی‌شده')),
               ],
             ),
             Text(
-              PersianDate.persianDigits(
+              PersianDate.displayDigits(
                 'باقی‌مانده: ${StockQuantity.format(item.balanceMilliunits)} ${pack.unit}',
               ),
             ),
             Text(
-              PersianDate.persianDigits(
+              PersianDate.displayDigits(
                 pack.expiryIso == null
                     ? 'انقضا ثبت نشده'
                     : 'انقضا (میلادی): ${pack.expiryIso} '
@@ -462,7 +509,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
             Wrap(
               spacing: 8,
               children: [
-                if (!selected && !expired)
+                if (!selected && !expired && !item.archived)
                   TextButton(
                     onPressed: _busy
                         ? null
@@ -487,7 +534,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                           ),
                     child: const Text('لغو انتخاب'),
                   ),
-                TextButton(
+                if (!item.archived) TextButton(
                   onPressed: _busy
                       ? null
                       : () => setState(() {
@@ -498,6 +545,13 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                           _adjustReason.clear();
                         }),
                   child: const Text('اصلاح موجودی'),
+                ),
+                if (item.archived) TextButton.icon(
+                  onPressed: _busy ? null : () => _run(() =>
+                    widget.repository.restorePackage(profileId: widget.profileId,
+                      medicationId: widget.medication.id, packageId: pack.id)),
+                  icon: const Icon(Icons.unarchive_outlined),
+                  label: const Text('بازیابی بسته'),
                 ),
                 TextButton.icon(
                   onPressed: _busy ? null : () => _toggleHistory(pack.id),
@@ -530,13 +584,13 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(_movementName(entry)),
                     subtitle: Text(
-                      PersianDate.persianDigits(
+                      PersianDate.displayDigits(
                         '${entry.createdAt.toLocal().toString().substring(0, 16)}'
                         '${entry.note == null ? '' : ' — ${entry.note}'}',
                       ),
                     ),
                     trailing: Text(
-                      PersianDate.persianDigits(
+                      PersianDate.displayDigits(
                         '${entry.deltaMilliunits > 0 ? '+' : ''}'
                         '${StockQuantity.format(entry.deltaMilliunits)} ${pack.unit}',
                       ),
@@ -563,6 +617,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               const SizedBox(height: 8),
               TextField(
                 controller: _adjustQuantity,
+                inputFormatters: const [EnglishDigitsInputFormatter()],
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),

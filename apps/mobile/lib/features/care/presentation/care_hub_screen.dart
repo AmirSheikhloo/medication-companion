@@ -3,6 +3,9 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
 import '../../../core/calendar/persian_date_picker.dart';
+import '../../../core/ui/app_design.dart';
+import '../../../core/ui/app_choice_field.dart';
+import '../../../core/ui/redesign_widgets.dart';
 import '../data/care_repository.dart';
 import '../data/care_reminder_coordinator.dart';
 
@@ -121,7 +124,7 @@ class _CareHubScreenState extends State<CareHubScreen>
       await widget.reminderCoordinator!.demoInFiveSeconds();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('اعلان آزمایشی ۵ ثانیه دیگر نمایش داده می‌شود.')));
+            const SnackBar(content: Text('اعلان آزمایشی 5 ثانیه دیگر نمایش داده می‌شود.')));
       }
     } catch (e) {
       if (mounted) setState(() => _reminderError = '$e');
@@ -290,18 +293,42 @@ class _CareHubScreenState extends State<CareHubScreen>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text('پیگیری‌های ${widget.profile.displayName}')),
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('پیگیری‌ها و ویزیت‌ها'),
+          backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+          titleTextStyle: AppTypography.onPrimaryAppBar),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
                 ? Center(child: Text('خطا: $_error'))
                 : Column(
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Text('این فهرست برای ثبت برنامه‌های شخصی است؛ '
-                            'تغییری در نسخه یا مصرف دارو ایجاد نمی‌کند.'),
-                      ),
+                      const Padding(padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
+                        child: AppSoftHeader(title: 'پیگیری‌های مراقبتی',
+                          subtitle: 'کارهای پزشکی، ویزیت‌ها و سؤال‌های پزشک',
+                          icon: Icons.fact_check_outlined)),
+                      Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Container(
+                          decoration: BoxDecoration(color: AppColors.mint,
+                            borderRadius: BorderRadius.circular(13)),
+                          child: Row(children: [
+                            for (var i = 0; i < 3; i++)
+                              Expanded(child: InkWell(
+                                onTap: () => setState(() => _tab = i),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  margin: const EdgeInsets.all(4),
+                                  padding: const EdgeInsets.symmetric(vertical: 9),
+                                  decoration: BoxDecoration(
+                                    color: _tab == i ? AppColors.accent : null,
+                                    borderRadius: BorderRadius.circular(10)),
+                                  child: Text(['کارها', 'ویزیت‌ها', 'سؤال‌ها'][i],
+                                    style: const TextStyle(fontWeight: FontWeight.bold,
+                                      fontSize: 12, color: AppColors.primaryDark)),
+                                ),
+                              )),
+                          ]))),
+                      const SizedBox(height: 10),
                       if (widget.reminderCoordinator != null) _reminderCard(),
                       if (_tab == 1)
                         Padding(
@@ -312,27 +339,14 @@ class _CareHubScreenState extends State<CareHubScreen>
                             label: const Text('پیگیری سه ماه پس از تاریخ انتخابی'),
                           ),
                         ),
+                      Padding(padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                        child: AppGradientButton(label: ['کار جدید', 'ویزیت جدید', 'سؤال جدید'][_tab],
+                          icon: Icons.add, onPressed: _add, light: true)),
                       Expanded(child: IndexedStack(index: _tab, children: [
                         _taskList(), _visitList(), _questionList(),
                       ])),
                     ],
                   ),
-        floatingActionButton: _loading || _error != null
-            ? null
-            : FloatingActionButton.extended(
-                onPressed: _add,
-                icon: const Icon(Icons.add),
-                label: Text(['کار جدید', 'ویزیت جدید', 'سؤال جدید'][_tab]),
-              ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _tab,
-          onDestinationSelected: (index) => setState(() => _tab = index),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.task_alt), label: 'کارها'),
-            NavigationDestination(icon: Icon(Icons.event), label: 'ویزیت‌ها'),
-            NavigationDestination(icon: Icon(Icons.question_answer_outlined), label: 'سؤال‌ها'),
-          ],
-        ),
       );
 
   Widget _reminderCard() => Card(
@@ -376,9 +390,12 @@ class _CareHubScreenState extends State<CareHubScreen>
         final task = tasks[i];
         final visit = _visits.where((v) => v.id == task.visitId).firstOrNull;
         return Card(child: ListTile(
-          leading: Icon(task.status == 'done'
-              ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: task.status == 'done' ? Colors.green : null),
+          leading: AppIconTile(
+            task.status == 'done'
+                ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: task.status == 'done'
+                ? AppColors.success : AppColors.primary,
+          ),
           title: Text(task.title),
           subtitle: Text('${_dateLabel(task.dueAt)} · ${_taskStatus(task.status)}'
               '${visit == null ? '' : ' · ${visit.title}'}'
@@ -421,7 +438,7 @@ class _CareHubScreenState extends State<CareHubScreen>
       itemBuilder: (context, i) {
         final visit = _visits[i];
         return Card(child: ListTile(
-          leading: const Icon(Icons.event_note_outlined),
+          leading: const AppIconTile(Icons.event_note_outlined),
           title: Text(visit.title),
           subtitle: Text('${_dateLabel(visit.scheduledAt)} · ${_visitStatus(visit.status)}'
               '${visit.doctor == null ? '' : ' · ${visit.doctor}'}'
@@ -787,15 +804,14 @@ class _CareEditorState extends State<_CareEditor> {
             TextField(controller: _purpose, maxLength: 500, maxLines: 2,
                 decoration: const InputDecoration(labelText: 'هدف مراجعه (اختیاری)')),
             if (widget.medications.isNotEmpty)
-              DropdownButtonFormField<String>(
-                initialValue: _medicationId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'داروی مرتبط (اختیاری)'),
-                items: [
-                  const DropdownMenuItem<String>(value: null,
-                      child: Text('بدون ارتباط با دارو')),
+              AppChoiceField<String>(
+                value: _medicationId,
+                label: 'داروی مرتبط (اختیاری)',
+                options: [
+                  const AppChoiceOption<String>(null, 'بدون ارتباط با دارو'),
                   for (final med in widget.medications)
-                    DropdownMenuItem<String>(value: med.id, child: Text(med.name)),
+                    AppChoiceOption<String>(med.id,
+                      '${med.name} · ${persianDateLabel(med.createdAt)}'),
                 ],
                 onChanged: (id) => setState(() => _medicationId = id),
               ),
@@ -807,48 +823,49 @@ class _CareEditorState extends State<_CareEditor> {
               ),
           ] else if (widget.visits.isNotEmpty) ...[
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _visitId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'اتصال به ویزیت (اختیاری)'),
-              items: [
-                const DropdownMenuItem<String>(value: null, child: Text('بدون ویزیت')),
-                for (final item in widget.visits)
-                  DropdownMenuItem<String>(value: item.id, child: Text(item.title)),
+            AppChoiceField<String>(
+              value: _visitId,
+              label: 'اتصال به ویزیت (اختیاری)',
+              options: [
+                const AppChoiceOption<String>(null, 'بدون ویزیت'),
+                for (final visit in widget.visits)
+                  AppChoiceOption<String>(visit.id, visit.title),
               ],
               onChanged: (id) => setState(() => _visitId = id),
             ),
           ],
           if (!question) ...[
             const SizedBox(height: 8),
-            DropdownButtonFormField<int>(
-              initialValue: _reminderMinutesBefore,
-              decoration: const InputDecoration(labelText: 'زمان اعلان (اختیاری)'),
-              items: const [
-                DropdownMenuItem<int>(value: null, child: Text('بدون اعلان')),
-                DropdownMenuItem<int>(value: 0, child: Text('در موعد')),
-                DropdownMenuItem<int>(value: 5, child: Text('۵ دقیقه قبل')),
-                DropdownMenuItem<int>(value: 15, child: Text('۱۵ دقیقه قبل')),
-                DropdownMenuItem<int>(value: 30, child: Text('۳۰ دقیقه قبل')),
-                DropdownMenuItem<int>(value: 60, child: Text('یک ساعت قبل')),
-                DropdownMenuItem<int>(value: 1440, child: Text('۲۴ ساعت قبل')),
+            AppChoiceField<int>(
+              value: _reminderMinutesBefore,
+              label: 'زمان اعلان (اختیاری)',
+              options: const [
+                AppChoiceOption<int>(null, 'بدون اعلان'),
+                AppChoiceOption<int>(0, 'در موعد'),
+                AppChoiceOption<int>(5, '5 دقیقه قبل'),
+                AppChoiceOption<int>(15, '15 دقیقه قبل'),
+                AppChoiceOption<int>(30, '30 دقیقه قبل'),
+                AppChoiceOption<int>(60, 'یک ساعت قبل'),
+                AppChoiceOption<int>(1440, '24 ساعت قبل'),
               ],
-              onChanged: (value) => setState(() => _reminderMinutesBefore = value),
+              onChanged: (value) =>
+                  setState(() => _reminderMinutesBefore = value),
             ),
             const Text('اعلان فقط وقتی ارسال می‌شود که اعلان‌های پیگیری را فعال کرده باشید.'),
           ],
           if (!visit && !question) ...[
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _repeatRule,
-              decoration: const InputDecoration(labelText: 'تکرار کار'),
-              items: const [
-                DropdownMenuItem(value: 'none', child: Text('بدون تکرار')),
-                DropdownMenuItem(value: 'daily', child: Text('روزانه')),
-                DropdownMenuItem(value: 'weekly', child: Text('هفتگی')),
-                DropdownMenuItem(value: 'monthly', child: Text('ماهانه (میلادی)')),
+            AppChoiceField<String>(
+              value: _repeatRule,
+              label: 'تکرار کار',
+              options: const [
+                AppChoiceOption('none', 'بدون تکرار'),
+                AppChoiceOption('daily', 'روزانه'),
+                AppChoiceOption('weekly', 'هفتگی'),
+                AppChoiceOption('monthly', 'ماهانه (میلادی)'),
               ],
-              onChanged: (value) => setState(() => _repeatRule = value ?? 'none'),
+              onChanged: (value) =>
+                  setState(() => _repeatRule = value ?? 'none'),
             ),
           ],
         ],

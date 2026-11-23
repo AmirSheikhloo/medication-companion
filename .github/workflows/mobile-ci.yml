@@ -65,6 +65,15 @@ jobs:
       - name: Widget and unit tests
         run: flutter test --reporter expanded
 
+      - name: Upload rendered UI review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medication-companion-ui-review
+          path: apps/mobile/build/ui-previews/*.png
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Test preview installer safety rules
         run: pwsh -NoProfile -File ../../.github/scripts/Install_Medication_Companion_CI_Preview.ps1 -SelfTest
 

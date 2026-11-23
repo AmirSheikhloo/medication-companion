@@ -20,6 +20,9 @@ class WidgetReminderPort implements ReminderNotificationPort {
   Future<bool> requestPermissions() async => true;
 
   @override
+  Future<bool> requestFullScreenPermission() async => true;
+
+  @override
   Future<bool> hasPermissions() async => true;
 
   @override
@@ -63,19 +66,21 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('برای خودم'));
+    await tester.ensureVisible(find.text('ورود به عنوان مهمان'));
+    await tester.tap(find.text('ورود به عنوان مهمان'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('بیشتر'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('یادآوری‌ها'));
+    await tester.pumpAndSettle();
 
     expect(await reminder.isEnabled(), isFalse);
-    await tester.ensureVisible(find.text('فعال‌سازی یادآوری دارو'));
-    await tester.tap(find.text('فعال‌سازی یادآوری دارو'));
+    await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
     expect(await reminder.isEnabled(), isTrue);
-    expect(find.text('تست اعلان — ۵ ثانیه دیگر'), findsOneWidget);
-    await tester.ensureVisible(find.text('تست اعلان — ۵ ثانیه دیگر'));
-    await tester.tap(find.text('تست اعلان — ۵ ثانیه دیگر'));
+    expect(find.text('تست اعلان — 5 ثانیه دیگر'), findsOneWidget);
+    await tester.ensureVisible(find.text('تست اعلان — 5 ثانیه دیگر'));
+    await tester.tap(find.text('تست اعلان — 5 ثانیه دیگر'));
     await tester.pumpAndSettle();
     expect(port.tests, 1);
 
@@ -83,7 +88,7 @@ void main() {
     await tester.tap(find.text('خاموش کردن یادآورها'));
     await tester.pumpAndSettle();
     expect(await reminder.isEnabled(), isFalse);
-    expect(find.text('فعال‌سازی یادآوری دارو'), findsOneWidget);
+    expect(find.text('مجوز اعلان‌ها: غیرفعال'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

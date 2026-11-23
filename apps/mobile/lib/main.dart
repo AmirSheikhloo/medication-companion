@@ -3,11 +3,13 @@ import 'dart:async' show unawaited;
 import 'package:material_ui/material_ui.dart';
 
 import 'core/storage/app_database.dart';
+import 'core/ui/app_design.dart';
 import 'features/medications/data/medication_repository.dart';
 import 'features/medications/presentation/medication_home.dart';
 import 'features/profiles/data/profile_repository.dart';
 import 'features/reminders/data/android_reminder_port.dart';
 import 'features/reminders/data/reminder_coordinator.dart';
+import 'features/reminders/presentation/medication_alarm_screen.dart';
 import 'features/care/data/care_repository.dart';
 import 'features/care/data/care_reminder_coordinator.dart';
 import 'features/care/data/android_care_reminder_port.dart';
@@ -27,29 +29,115 @@ class MedicationBetaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFF008F87);
     return MaterialApp(
       title: 'همراه دارو',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Vazirmatn',
-        colorScheme: ColorScheme.fromSeed(seedColor: brand),
-        scaffoldBackgroundColor: const Color(0xFFF7FBFA),
+        // One consistent Persian text font; Latin digits keep their ASCII shape.
+        fontFamilyFallback: const ['NotoSansArabic'],
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          primary: AppColors.primary,
+          onPrimary: Colors.white,
+          secondary: AppColors.accent,
+          surface: Colors.white,
+          onSurface: AppColors.ink,
+        ),
+        scaffoldBackgroundColor: AppColors.background,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF7FBFA),
+          backgroundColor: AppColors.background,
           surfaceTintColor: Colors.transparent,
+          foregroundColor: AppColors.primaryDark,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            fontFamily: 'Vazirmatn',
+            color: AppColors.primaryDark,
+            fontSize: 21,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.outline),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.outline),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          ),
         ),
         cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(color: Color(0xFFE2EEEC)),
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: AppColors.outline),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(0, 46),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(13),
+            ),
+            textStyle: const TextStyle(
+              fontFamily: 'Vazirmatn',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            minimumSize: const Size(0, 44),
+            side: const BorderSide(color: AppColors.primary),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(13),
+            ),
+          ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: Colors.white,
+          indicatorColor: AppColors.mint,
+          elevation: 0,
+          height: 70,
+          labelTextStyle: WidgetStateProperty.all(
+            const TextStyle(
+              fontFamily: 'Vazirmatn',
+              fontSize: 11,
+              color: AppColors.primaryDark,
+            ),
+          ),
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: AppColors.background,
+          surfaceTintColor: Colors.transparent,
+          showDragHandle: true,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          ),
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: AppColors.lightMint,
+          selectedColor: AppColors.mint,
+          side: const BorderSide(color: AppColors.outline),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -81,6 +169,15 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
     _initialize();
   }
 
+  void _showMedicationAlarm(String title, String body) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => MedicationAlarmScreen(title: title, body: body),
+      ));
+    });
+  }
+
   void _initialize() {
     AppDatabase? db;
     _workspace = null;
@@ -93,7 +190,7 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
         database: db,
         medications: medications,
         profiles: profiles,
-        notifications: AndroidReminderPort(),
+        notifications: AndroidReminderPort(onAlarmOpen: _showMedicationAlarm),
       );
       final careReminders = CareReminderCoordinator(
         database: db,

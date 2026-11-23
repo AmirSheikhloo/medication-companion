@@ -16,6 +16,8 @@ dependencies:
   pdf: 3.13.1
   printing: 5.15.1
   share_plus: 13.3.1
+  image_picker: 1.2.4
+  path_provider: 2.1.6
   # Local offline persistence for beta.
   drift: 2.35.4
   drift_flutter: 0.3.1
@@ -38,6 +40,7 @@ flutter:
   assets:
     - assets/fonts/NotoSansArabic-Regular.ttf
     - assets/fonts/NotoSansArabic-Bold.ttf
+    - assets/images/welcome_ribbon_capsule.png
   fonts:
     - family: Vazirmatn
       fonts:
