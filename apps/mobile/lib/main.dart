@@ -9,6 +9,7 @@ import 'features/medications/presentation/medication_home.dart';
 import 'features/profiles/data/profile_repository.dart';
 import 'features/reminders/data/android_reminder_port.dart';
 import 'features/reminders/data/reminder_coordinator.dart';
+import 'features/reminders/presentation/medication_alarm_screen.dart';
 import 'features/care/data/care_repository.dart';
 import 'features/care/data/care_reminder_coordinator.dart';
 import 'features/care/data/android_care_reminder_port.dart';
@@ -168,6 +169,15 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
     _initialize();
   }
 
+  void _showMedicationAlarm(String title, String body) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => MedicationAlarmScreen(title: title, body: body),
+      ));
+    });
+  }
+
   void _initialize() {
     AppDatabase? db;
     _workspace = null;
@@ -180,7 +190,7 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
         database: db,
         medications: medications,
         profiles: profiles,
-        notifications: AndroidReminderPort(),
+        notifications: AndroidReminderPort(onAlarmOpen: _showMedicationAlarm),
       );
       final careReminders = CareReminderCoordinator(
         database: db,

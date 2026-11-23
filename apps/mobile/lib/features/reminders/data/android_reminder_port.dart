@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -16,11 +18,29 @@ abstract class ReminderNotificationPort {
 
 /// Android plugin adapter. No widgets, SQL, or medical rules live here.
 class AndroidReminderPort implements ReminderNotificationPort {
-  AndroidReminderPort({FlutterLocalNotificationsPlugin? plugin})
+  AndroidReminderPort({FlutterLocalNotificationsPlugin? plugin,
+    this.onAlarmOpen})
       : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+
+  /// The Flutter application owns navigation; this adapter only reports taps.
+  final void Function(String title, String body)? onAlarmOpen;
 
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
+
+  void _handleResponse(NotificationResponse response) {
+    final payload = response.payload;
+    if (payload == null || !payload.startsWith('medication-alarm:')) return;
+    try {
+      final data = jsonDecode(payload.substring('medication-alarm:'.length));
+      if (data is! Map) return;
+      final title = data['title'];
+      final body = data['body'];
+      if (title is String && body is String) onAlarmOpen?.call(title, body);
+    } catch (_) {
+      // Ignore invalid notification payloads; do not open an unsafe route.
+    }
+  }
 
   AndroidFlutterLocalNotificationsPlugin? get _android =>
       _plugin.resolvePlatformSpecificImplementation<
@@ -53,8 +73,14 @@ class AndroidReminderPort implements ReminderNotificationPort {
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
+      onDidReceiveNotificationResponse: _handleResponse,
     );
     _initialized = true;
+    final launch = await _plugin.getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp == true &&
+        launch?.notificationResponse != null) {
+      _handleResponse(launch!.notificationResponse!);
+    }
   }
 
   @override
@@ -98,6 +124,9 @@ class AndroidReminderPort implements ReminderNotificationPort {
         scheduledDate: local,
         notificationDetails: _details(job.body,
           fullScreen: job.fullScreenAlert),
+        payload: job.fullScreenAlert ? 'medication-alarm:${jsonEncode({
+          'title': job.title, 'body': job.body,
+        })}' : null,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents:
             job.daily ? DateTimeComponents.time : null,
