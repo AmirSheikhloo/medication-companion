@@ -37,6 +37,11 @@ void main() {
     await tester.ensureVisible(find.text('محاسبه تعداد از روی ورق قرص'));
     await tester.tap(find.text('محاسبه تعداد از روی ورق قرص'));
     await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('calculator-strip-count')), '5');
+    await tester.enterText(
+      find.byKey(const Key('calculator-per-strip')), '10');
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('اعمال 50 عدد'));
     await tester.tap(find.text('اعمال 50 عدد'));
     await tester.pumpAndSettle();

@@ -525,11 +525,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             Row(children: [
               Expanded(child: _numberField(_strips,
                 label: liquid ? 'تعداد ظرف' : 'تعداد ورق',
+                keyName: 'calculator-strip-count',
                 hint: liquid ? 'تعداد ظرف را وارد کنید' : 'تعداد ورق را وارد کنید',
                 rebuildOnChange: true)),
               const SizedBox(width: 9),
               Expanded(child: _numberField(_tabletsPerStrip,
                 label: liquid ? 'حجم هر ظرف' : 'تعداد در هر ورق',
+                keyName: 'calculator-per-strip',
                 hint: liquid ? 'حجم هر ظرف را وارد کنید' : 'تعداد در هر ورق را وارد کنید',
                 rebuildOnChange: true)),
             ]),
@@ -937,12 +939,17 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         title: const Text('فعال‌سازی هشدار کمبود'),
         value: _lowStockEnabled,
         onChanged: (value) => setState(() => _lowStockEnabled = value)),
-      if (_lowStockEnabled) ...[
-        const SizedBox(height: 10),
-        _numberField(_lowStock,
-          label: 'حد هشدار (${_editing ? widget.initialBaseUnit ?? 'عدد' : _packages.first.unit})',
-          hint: 'مثلاً 20', keyName: 'medication-low-stock-threshold'),
-      ],
+      AnimatedSize(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
+        alignment: Alignment.topCenter,
+        child: _lowStockEnabled
+          ? Padding(padding: const EdgeInsets.only(top: 12),
+            child: _numberField(_lowStock,
+              label: 'حد هشدار (${_editing ? widget.initialBaseUnit ?? 'عدد' : _packages.first.unit})',
+              hint: 'مثلاً 20', keyName: 'medication-low-stock-threshold'))
+          : const SizedBox.shrink(),
+      ),
     ],
   );
 
@@ -997,15 +1004,34 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         value: _alarm,
         onChanged: _requestingPermission ? null
             : (v) => _changeReminder(v, fullScreen: true)),
-      if (_alarm) ...[
-        const SizedBox(height: 12),
-        const Text('توضیح اختیاری زیر هنگام نمایش هشدار نشان داده می‌شود.',
-          style: TextStyle(color: AppColors.muted)),
-        TextField(controller: _reminderNote, maxLines: 3, maxLength: 500,
-          decoration: const InputDecoration(
-            labelText: 'متن هشدار (اختیاری)',
-            hintText: 'مثلاً با آب فراوان مصرف شود')),
-      ],
+      AnimatedSize(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
+        alignment: Alignment.topCenter,
+        child: _alarm ? Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('توضیح روی صفحهٔ هشدار (اختیاری)',
+                style: TextStyle(color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _reminderNote,
+                maxLines: 3, maxLength: 500,
+                decoration: InputDecoration(
+                  hintText: 'مثلاً با آب فراوان مصرف شود',
+                  helperText: 'این متن هنگام نمایش هشدار دیده می‌شود.',
+                  filled: true, fillColor: AppColors.mint,
+                  contentPadding: const EdgeInsets.all(14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none),
+                ),
+              ),
+            ]),
+        ) : const SizedBox.shrink(),
+      ),
     ],
   );
 
