@@ -146,11 +146,13 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
 class MedicationActionIcon extends StatelessWidget {
   const MedicationActionIcon({super.key,
     required this.icon, required this.onPressed,
-    required this.tooltip, this.destructive = false});
+    required this.tooltip, this.destructive = false,
+    this.iconSize = 20});
   final IconData icon;
   final VoidCallback? onPressed;
   final String tooltip;
   final bool destructive;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) => Tooltip(
@@ -162,7 +164,7 @@ class MedicationActionIcon extends StatelessWidget {
         visualDensity: VisualDensity.standard,
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: Icon(icon, size: 20),
+        icon: Icon(icon, size: iconSize),
         color: destructive ? const Color(0xFFAE3149) : AppColors.primaryDark,
       ),
     ),

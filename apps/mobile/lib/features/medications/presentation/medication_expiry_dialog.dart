@@ -109,6 +109,11 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
         flex: length == 4 ? 2 : 1,
         child: TextField(
           controller: controller,
+      onTap: () {
+        final field = controller;
+        field.selection = TextSelection(
+          baseOffset: 0, extentOffset: field.text.length);
+      },
           textAlign: TextAlign.center,
           textDirection: TextDirection.ltr,
           keyboardType: TextInputType.number,

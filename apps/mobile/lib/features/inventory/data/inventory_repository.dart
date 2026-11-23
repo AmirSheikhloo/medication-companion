@@ -200,6 +200,12 @@ class InventoryRepository {
     final id = _uuid.v4();
     await db.transaction(() async {
       await _ownedMedication(profileId, medicationId);
+      final existingSelection = await (db.select(db.stockSelections)
+        ..where((t) => t.profileId.equals(profileId) &
+          t.medicationId.equals(medicationId))).getSingleOrNull();
+      final autoSelect = existingSelection == null &&
+        initialMilliunits > 0 &&
+        !StockQuantity.isExpired(expiryIso, expiryPrecision, DateTime.now());
       await db.into(db.stockPackages).insert(StockPackagesCompanion.insert(
             id: id,
             profileId: profileId,
@@ -217,7 +223,7 @@ class InventoryRepository {
           note: 'موجودی اولیه به اعلام کاربر',
         );
       }
-      if (selectForUse) {
+      if (selectForUse || autoSelect) {
         await db.into(db.stockSelections).insertOnConflictUpdate(
           StockSelectionsCompanion.insert(
             medicationId: medicationId,
@@ -319,6 +325,18 @@ class InventoryRepository {
       await _ownedPackage(profileId, medicationId, packageId);
       await (db.delete(db.appSettings)..where((s) => s.key.equals(
         _archiveKey(profileId, medicationId, packageId)))).go();
+      final current = await (db.select(db.stockSelections)
+        ..where((t) => t.profileId.equals(profileId) &
+          t.medicationId.equals(medicationId))).getSingleOrNull();
+      final pack = await _ownedPackage(profileId, medicationId, packageId);
+      if (current == null && await _balanceForPackage(packageId) > 0 &&
+          !StockQuantity.isExpired(
+            pack.expiryIso, pack.expiryPrecision, DateTime.now())) {
+        await db.into(db.stockSelections).insertOnConflictUpdate(
+          StockSelectionsCompanion.insert(
+            profileId: profileId, medicationId: medicationId,
+            packageId: packageId));
+      }
       await _insertMovement(profileId: profileId, medicationId: medicationId,
         packageId: packageId, kind: 'metadata', delta: 0,
         note: 'بسته از بایگانی بازگردانده شد');
