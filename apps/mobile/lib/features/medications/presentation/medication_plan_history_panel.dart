@@ -21,17 +21,21 @@ class MedicationPlanHistoryPanel extends StatefulWidget {
 class _MedicationPlanHistoryPanelState
     extends State<MedicationPlanHistoryPanel> {
   late Future<List<MedicationPlanVersion>> _history;
+  int _limit = 80;
 
-  @override
-  void initState() {
-    super.initState();
-    _history = (widget.db.select(widget.db.medicationPlanVersions)
+  Future<List<MedicationPlanVersion>> _load() async =>
+    (widget.db.select(widget.db.medicationPlanVersions)
       ..where((t) => t.medicationId.equals(widget.medication.id))
       ..orderBy([
         (t) => OrderingTerm.desc(t.version),
         (t) => OrderingTerm.asc(t.hour),
         (t) => OrderingTerm.asc(t.minute),
-      ])).get();
+      ])..limit(_limit + 1)).get();
+
+  @override
+  void initState() {
+    super.initState();
+    _history = _load();
   }
 
   @override
@@ -42,7 +46,7 @@ class _MedicationPlanHistoryPanelState
         if (!snapshot.hasData) return const SizedBox.shrink();
         final history = snapshot.requireData;
         final versions = <int, List<MedicationPlanVersion>>{};
-        for (final plan in history) {
+        for (final plan in history.take(_limit)) {
           versions.putIfAbsent(plan.version, () => []).add(plan);
         }
         if (versions.isEmpty) return const SizedBox.shrink();
@@ -91,6 +95,14 @@ class _MedicationPlanHistoryPanelState
                 ],
               ),
             ),
+          if (history.length > _limit)
+            OutlinedButton.icon(
+              onPressed: () => setState(() {
+                _limit += 80;
+                _history = _load();
+              }),
+              icon: const Icon(Icons.expand_more_rounded),
+              label: const Text('نمایش نسخه‌های قدیمی‌تر')),
         ]);
       },
     );

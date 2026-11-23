@@ -23,6 +23,7 @@ class MedicationCourseTimeline extends StatefulWidget {
 
 class _MedicationCourseTimelineState extends State<MedicationCourseTimeline> {
   late Future<List<MedicationCourseReport>> _reports;
+  int _visibleCourses = 8;
 
   @override
   void initState() {
@@ -33,7 +34,7 @@ class _MedicationCourseTimelineState extends State<MedicationCourseTimeline> {
   Future<List<MedicationCourseReport>> _fetch() async {
     final meds = await widget.repository.sameNameCourses(widget.medication);
     final values = <MedicationCourseReport>[];
-    for (final med in meds) {
+    for (final med in meds.take(_visibleCourses + 1)) {
       values.add(await widget.repository.report(med));
     }
     return values;
@@ -169,8 +170,16 @@ class _MedicationCourseTimelineState extends State<MedicationCourseTimeline> {
           Text('برای این نام دقیق ${courses.length} دوره ثبت شده؛ '
             'سوابق هر دوره مستقل است.',
             style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-          for (var i = 0; i < courses.length; i++)
+          for (var i = 0; i < courses.length && i < _visibleCourses; i++)
             _course(courses[i], courses.length - i - 1),
+          if (courses.length > _visibleCourses)
+            OutlinedButton.icon(
+              onPressed: () => setState(() {
+                _visibleCourses += 8;
+                _reports = _fetch();
+              }),
+              icon: const Icon(Icons.expand_more_rounded),
+              label: const Text('نمایش دوره‌های بیشتر')),
         ]);
       },
     );
