@@ -134,7 +134,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   Future<void> _openRelatedCourse(Medication related) async {
     final relatedStock = await inventoryRepository.summary(
       related.profileId, related.id);
-    if (!mounted) return;
+    if (!mounted) { return; }
     Navigator.of(context).push(medicationPageRoute<void>(context,
       Scaffold(
         appBar: AppBar(title: const Text('سوابق دوره مصرف')),

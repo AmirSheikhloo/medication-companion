@@ -152,7 +152,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   late String _baseUnit;
 
   void _setBaseUnit(String unit) {
-    if (_editing) return;
+    if (_editing) { return; }
     setState(() {
       _baseUnit = unit;
       for (final slot in _slots) { slot.unit = unit; }
@@ -454,19 +454,6 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         counterText: '', border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14))),
     );
-
-  Widget _unitSelector(String value, ValueChanged<String> onChanged,
-      {bool showGroup = true}) {
-    final units = showGroup ? const ['عدد', 'میلی‌لیتر', 'سی‌سی', 'لیتر'] :
-        MedicationUnits.isLiquid(value)
-          ? const ['میلی‌لیتر'] : const ['عدد'];
-    return MedicationChoiceField(
-      value: value,
-      options: units,
-      onChanged: onChanged,
-      label: 'واحد مصرف',
-    );
-  }
 
   Widget _packageCard(int index) {
     final item = _packages[index];
