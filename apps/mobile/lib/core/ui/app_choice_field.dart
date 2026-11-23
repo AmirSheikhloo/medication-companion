@@ -127,7 +127,7 @@ class _AppChoiceFieldState<T> extends State<AppChoiceField<T>> {
                       style: const TextStyle(color: AppColors.primaryDark,
                         fontWeight: FontWeight.w800)),
                   ]),
-                )),
+                ),
                 const SizedBox(width: 5),
                 AnimatedRotation(
                   turns: _expanded ? .5 : 0,
