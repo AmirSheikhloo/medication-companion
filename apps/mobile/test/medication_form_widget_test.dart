@@ -7,6 +7,13 @@ import 'package:medication_companion/features/inventory/data/inventory_repositor
 import 'package:medication_companion/features/medications/presentation/medication_home.dart';
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
 
+Future<void> advanceWizard(WidgetTester tester, int count) async {
+  for (var index = 0; index < count; index++) {
+    await tester.tap(find.text('مرحله بعد'));
+    await tester.pumpAndSettle();
+  }
+}
+
 void main() {
   testWidgets('save a demo medication through the actual form', (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -40,11 +47,9 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('medication-name-field')),
       'داروی آزمایشی');
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('med-stock-1')), 220,
-      scrollable: find.descendant(of: find.byType(ListView).first,
-        matching: find.byType(Scrollable)).first);
+    await advanceWizard(tester, 2);
     await tester.enterText(find.byKey(const Key('med-stock-1')), '10');
+    await advanceWizard(tester, 2);
     await tester.tap(find.text('ثبت دارو'));
     await tester.pumpAndSettle();
 
@@ -159,13 +164,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('medication-name-field')),
       'داروی تست چندنوبتی');
+    await advanceWizard(tester, 1);
     await tester.enterText(find.byKey(const Key('med-dose-1')), '2');
     await tester.ensureVisible(find.text('افزودن ساعت مصرف'));
     await tester.tap(find.text('افزودن ساعت مصرف'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('med-dose-2')), '3');
-    await tester.ensureVisible(find.byKey(const Key('med-stock-1')));
+    await advanceWizard(tester, 1);
     await tester.enterText(find.byKey(const Key('med-stock-1')), '30');
+    await advanceWizard(tester, 2);
     await tester.tap(find.text('ثبت دارو'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -179,7 +186,9 @@ void main() {
     await tester.tap(find.text('ویرایش'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('medication-name-field')), 'داروی اصلاح‌شده');
+    await advanceWizard(tester, 1);
     await tester.enterText(find.byKey(const Key('med-dose-1')), '4');
+    await advanceWizard(tester, 3);
     await tester.ensureVisible(find.text('ذخیره تغییرات'));
     await tester.tap(find.text('ذخیره تغییرات'));
     await tester.pumpAndSettle();
@@ -206,11 +215,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('ویرایش'));
     await tester.pumpAndSettle();
+    await advanceWizard(tester, 1);
     expect(
       tester.widget<TextField>(find.byKey(const Key('med-dose-1'))).controller?.text,
       '4',
     );
     await tester.enterText(find.byKey(const Key('med-dose-1')), '5');
+    await advanceWizard(tester, 3);
     await tester.ensureVisible(find.text('ذخیره تغییرات'));
     await tester.tap(find.text('ذخیره تغییرات'));
     await tester.pumpAndSettle();
