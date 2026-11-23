@@ -179,7 +179,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
             onPressed: _chooseRange),
         ])),
       const SizedBox(height: 6),
-      Text(PersianDate.persianDigits(
+      Text(PersianDate.displayDigits(
         '${persianDateLabel(_selectedRange().start)} تا '
         '${persianDateLabel(_selectedRange().end)}'),
         style: const TextStyle(fontSize: 11, color: AppColors.muted)),
@@ -196,7 +196,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
           final data = snapshot.requireData;
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            Text('تاریخچهٔ مصرف (${PersianDate.persianDigits('${data.doses.length}')})',
+            Text('تاریخچهٔ مصرف (${PersianDate.displayDigits('${data.doses.length}')})',
               style: const TextStyle(fontWeight: FontWeight.w800,
                 color: AppColors.primaryDark)),
             if (data.doses.isEmpty) const Padding(
@@ -210,7 +210,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               icon: dose.action == 'taken' ? Icons.check_circle_outline
                   : Icons.info_outline),
             const Divider(height: 22),
-            Text('تاریخچهٔ موجودی (${PersianDate.persianDigits('${data.movements.length}')})',
+            Text('تاریخچهٔ موجودی (${PersianDate.displayDigits('${data.movements.length}')})',
               style: const TextStyle(fontWeight: FontWeight.w800,
                 color: AppColors.primaryDark)),
             if (data.movements.isEmpty) const Padding(
@@ -218,7 +218,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               child: Text('در این بازه تغییری در موجودی ثبت نشده است.',
                 style: TextStyle(color: AppColors.muted))),
             for (final move in data.movements) _eventRow(
-              title: PersianDate.persianDigits(_movementTitle(move)),
+              title: PersianDate.displayDigits(_movementTitle(move)),
               subtitle: '${persianDateLabel(move.createdAt, showTime: true)}'
                   '${move.kind == 'metadata' && move.note != null
                     ? ' — ${move.note}' : ''}',

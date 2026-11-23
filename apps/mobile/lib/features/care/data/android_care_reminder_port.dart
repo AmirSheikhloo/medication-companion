@@ -95,10 +95,10 @@ class AndroidCareReminderPort implements CareReminderNotificationPort {
   Future<void> scheduleDemo() => _plugin.zonedSchedule(
         id: CareReminderPlanner.demoNotificationId,
         title: 'تست یادآور پیگیری',
-        body: 'اعلان آزمایشی ۵ ثانیه‌ای؛ نیاز به اقدام پزشکی نیست.',
+        body: 'اعلان آزمایشی 5 ثانیه‌ای؛ نیاز به اقدام پزشکی نیست.',
         scheduledDate: tz.TZDateTime.now(tz.local)
             .add(const Duration(seconds: 5)),
-        notificationDetails: _details('اعلان آزمایشی ۵ ثانیه‌ای؛ نیاز به اقدام پزشکی نیست.'),
+        notificationDetails: _details('اعلان آزمایشی 5 ثانیه‌ای؛ نیاز به اقدام پزشکی نیست.'),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
 }

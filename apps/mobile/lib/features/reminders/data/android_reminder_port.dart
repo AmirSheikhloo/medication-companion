@@ -105,10 +105,10 @@ class AndroidReminderPort implements ReminderNotificationPort {
     await _plugin.zonedSchedule(
       id: ReminderPlanner.demoNotificationId,
       title: 'تست یادآور دارو',
-      body: 'اعلان آزمایشی ۵ ثانیه‌ای؛ دارویی مصرف نکنید.',
+      body: 'اعلان آزمایشی 5 ثانیه‌ای؛ دارویی مصرف نکنید.',
       scheduledDate:
           tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5)),
-      notificationDetails: _details('اعلان آزمایشی ۵ ثانیه‌ای؛ دارویی مصرف نکنید.'),
+      notificationDetails: _details('اعلان آزمایشی 5 ثانیه‌ای؛ دارویی مصرف نکنید.'),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }

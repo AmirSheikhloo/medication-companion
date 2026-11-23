@@ -68,7 +68,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('تاریخچه تغییرات این بسته'), findsOneWidget);
     expect(find.text('موجودی اولیه'), findsOneWidget);
-    expect(find.text('+۴ عدد'), findsOneWidget);
+    expect(find.text('+4 عدد'), findsOneWidget);
     final history = await inventory.movementsForPackage(
       profileId: profile.id,
       medicationId: medId,

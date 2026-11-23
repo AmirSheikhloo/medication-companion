@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/calendar/persian_date.dart';
+import '../../../core/ui/english_digits_input_formatter.dart';
 import '../../../core/ui/app_design.dart';
 import '../../../core/ui/redesign_widgets.dart';
 import '../../inventory/domain/stock_quantity.dart';
@@ -252,7 +253,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         imageQuality: 85);
       if (!mounted || image == null) return;
       if (await File(image.path).length() > 8 * 1024 * 1024) {
-        _showError('عکس انتخابی بزرگ است؛ تصویری کوچک‌تر از ۸ مگابایت انتخاب کن.');
+        _showError('عکس انتخابی بزرگ است؛ تصویری کوچک‌تر از 8 مگابایت انتخاب کن.');
         return;
       }
       setState(() => _imagePath = image.path);
@@ -264,7 +265,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   void _submit() {
     final name = _name.text.trim();
     if (name.isEmpty || name.length > 160) {
-      _showError('نام دارو اجباری است و باید حداکثر ۱۶۰ نویسه باشد.');
+      _showError('نام دارو اجباری است و باید حداکثر 160 نویسه باشد.');
       return;
     }
     final packages = <MedicationPackageDraft>[];
@@ -275,10 +276,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         try {
           quantity = StockQuantity.parsePositive(item.quantity.text);
         } on FormatException {
-          _showError('موجودی بستهٔ ${PersianDate.persianDigits('${index + 1}')} را به‌صورت عدد مثبت وارد کن.');
+          _showError('موجودی بستهٔ ${PersianDate.displayDigits('${index + 1}')} را به‌صورت عدد مثبت وارد کن.');
           return;
         } on ArgumentError {
-          _showError('موجودی بستهٔ ${PersianDate.persianDigits('${index + 1}')} معتبر نیست.');
+          _showError('موجودی بستهٔ ${PersianDate.displayDigits('${index + 1}')} معتبر نیست.');
           return;
         }
         if (item.expiry != null && StockQuantity.isExpired(
@@ -287,7 +288,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           return;
         }
         packages.add(MedicationPackageDraft(
-          label: 'بسته شماره ${PersianDate.persianDigits('${index + 1}')}',
+          label: 'بسته شماره ${PersianDate.displayDigits('${index + 1}')}',
           unit: item.unit,
           initialMilliunits: quantity,
           expiry: item.expiry,
@@ -302,7 +303,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       _normalizeClock(item.minute, 59);
       final minuteOfDay = _clockOf(item);
       if (minuteOfDay == null) {
-        _showError('زمان نوبت ${PersianDate.persianDigits('${i + 1}')} معتبر نیست. ساعت ۲۴ فقط با دقیقهٔ ۰۰ مجاز است.');
+        _showError('زمان نوبت ${PersianDate.displayDigits('${i + 1}')} معتبر نیست. ساعت 24 فقط با دقیقهٔ 00 مجاز است.');
         return;
       }
       if (!used.add(minuteOfDay)) {
@@ -313,7 +314,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       try {
         quantity = StockQuantity.parsePositive(item.amount.text);
       } on FormatException {
-        _showError('مقدار مصرف نوبت ${PersianDate.persianDigits('${i + 1}')} معتبر نیست.');
+        _showError('مقدار مصرف نوبت ${PersianDate.displayDigits('${i + 1}')} معتبر نیست.');
         return;
       } on ArgumentError {
         _showError('مقدار مصرف هر نوبت باید عددی مثبت باشد.');
@@ -335,7 +336,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       ));
     }
     if (_reminderNote.text.trim().length > 500) {
-      _showError('توضیح یادآور باید حداکثر ۵۰۰ نویسه باشد.');
+      _showError('توضیح یادآور باید حداکثر 500 نویسه باشد.');
       return;
     }
     Navigator.of(context).pop(MedicationDraft(
@@ -353,7 +354,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       key: keyName == null ? ValueKey(controller) : ValueKey(keyName),
       textDirection: TextDirection.ltr,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩.٫]'))],
+      inputFormatters: [const EnglishDigitsInputFormatter(), FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩.٫]'))],
       maxLength: maxLength,
       decoration: InputDecoration(labelText: label, hintText: hint,
         counterText: '', border: OutlineInputBorder(
@@ -383,7 +384,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     return AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(children: [
-          Expanded(child: Text(PersianDate.persianDigits('بسته شماره ${index + 1}'),
+          Expanded(child: Text(PersianDate.displayDigits('بسته شماره ${index + 1}'),
             style: const TextStyle(color: AppColors.primaryDark,
               fontWeight: FontWeight.w900, fontSize: 16))),
           if (_packages.length > 1) IconButton(
@@ -414,7 +415,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         const SizedBox(height: 12),
         Row(children: [
           Expanded(flex: 3, child: _numberField(item.quantity,
-            label: 'مقدار موجودی *', hint: liquid ? 'مثلاً ۱۰۰۰' : 'مثلاً ۱۰۰',
+            label: 'مقدار موجودی *', hint: liquid ? 'مثلاً 1000' : 'مثلاً 100',
             keyName: 'med-stock-${index + 1}')),
           const SizedBox(width: 8),
           Expanded(flex: 2, child: _unitSelector(item.unit,
@@ -484,7 +485,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     return AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
       Row(children: [
-        Expanded(child: Text(PersianDate.persianDigits('نوبت ${index + 1}'),
+        Expanded(child: Text(PersianDate.displayDigits('نوبت ${index + 1}'),
           style: const TextStyle(color: AppColors.primaryDark,
             fontWeight: FontWeight.w900))),
         if (_slots.length > 1) IconButton(
@@ -506,7 +507,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       const SizedBox(height: 10),
       Row(children: [
         Expanded(flex: 3, child: _numberField(slot.amount,
-          label: 'مقدار مصرف این نوبت *', hint: 'مثلاً ۱',
+          label: 'مقدار مصرف این نوبت *', hint: 'مثلاً 1',
           keyName: 'med-dose-${index + 1}')),
         const SizedBox(width: 8),
         Expanded(flex: 2, child: _unitSelector(slot.unit,
@@ -537,7 +538,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           subtitle: 'اطلاعات را مطابق نسخه وارد کن؛ همهٔ بخش‌ها قابل بررسی هستند.',
           icon: Icons.medication_outlined),
         const SizedBox(height: 18),
-        const AppSectionHeading('۱. اطلاعات دارو', icon: Icons.medication_outlined),
+        const AppSectionHeading('1. اطلاعات دارو', icon: Icons.medication_outlined),
         const SizedBox(height: 10),
         AppPanel(child: Row(crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -563,13 +564,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             maxLength: 160,
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(labelText: 'نام دارو *',
-              hintText: 'مثلاً استامینوفن ۵۰۰', counterText: '',
+              hintText: 'مثلاً استامینوفن 500', counterText: '',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14))),
           )),
         ])),
         const SizedBox(height: 17),
-        const AppSectionHeading('۲. برنامهٔ مصرف', icon: Icons.calendar_month_outlined),
+        const AppSectionHeading('2. برنامهٔ مصرف', icon: Icons.calendar_month_outlined),
         const SizedBox(height: 8),
         const Text('برای هر ساعت می‌توانی مقدار متفاوتی تعیین کنی. ساعت تکراری پذیرفته نمی‌شود.',
           style: TextStyle(fontSize: 12, color: AppColors.muted)),
@@ -583,7 +584,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           label: const Text('افزودن ساعت مصرف'),
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48))),
         const SizedBox(height: 18),
-        const AppSectionHeading('۳. موجودی', icon: Icons.inventory_2_outlined),
+        const AppSectionHeading('3. موجودی', icon: Icons.inventory_2_outlined),
         const SizedBox(height: 8),
         if (_editing)
           const AppPanel(child: Text('موجودی بسته‌ها را از صفحهٔ جزئیات دارو مدیریت کن. '
@@ -602,7 +603,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             style: TextStyle(fontSize: 11, color: AppColors.muted)),
         ],
         const SizedBox(height: 18),
-        const AppSectionHeading('۴. سوابق مصرف', icon: Icons.history_rounded),
+        const AppSectionHeading('4. سوابق مصرف', icon: Icons.history_rounded),
         const SizedBox(height: 8),
         AppPanel(child: Row(children: [
           const Icon(Icons.receipt_long_outlined, color: AppColors.primary),
@@ -613,7 +614,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             style: const TextStyle(fontSize: 12))),
         ])),
         const SizedBox(height: 18),
-        const AppSectionHeading('۵. یادآور', icon: Icons.notifications_active_outlined),
+        const AppSectionHeading('5. یادآور', icon: Icons.notifications_active_outlined),
         const SizedBox(height: 9),
         AppPanel(child: TextField(
           controller: _reminderNote,

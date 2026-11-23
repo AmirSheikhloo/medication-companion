@@ -14,7 +14,7 @@ class MedicationPhotoStorage {
       throw StateError('عکس انتخاب‌شده دیگر در دسترس نیست.');
     }
     if (await source.length() > 8 * 1024 * 1024) {
-      throw StateError('عکس باید کوچک‌تر از ۸ مگابایت باشد.');
+      throw StateError('عکس باید کوچک‌تر از 8 مگابایت باشد.');
     }
     final root = await getApplicationSupportDirectory();
     final target = Directory('${root.path}/medication_photos');

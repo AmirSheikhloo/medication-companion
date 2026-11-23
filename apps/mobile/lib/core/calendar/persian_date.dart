@@ -85,15 +85,16 @@ class PersianDate {
     }).join();
   }
 
-  static String persianDigits(String value) => value.replaceAllMapped(
-      RegExp('[0-9]'), (match) => '۰۱۲۳۴۵۶۷۸۹'[int.parse(match.group(0)!)]);
+  /// Display localized content using ASCII digits without changing its text.
+  /// Input normalization still accepts Persian and Arabic numerals.
+  static String displayDigits(String value) => latinDigits(value);
 
   static PersianDate parse(String input) {
     final normalized = latinDigits(input).trim();
     final match = RegExp(r'^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$')
         .firstMatch(normalized);
     if (match == null) {
-      throw const FormatException('تاریخ را به شکل ۱۴۰۵/۰۸/۲۶ وارد کنید.');
+      throw const FormatException('تاریخ را به شکل 1405/08/26 وارد کنید.');
     }
     final date = PersianDate(int.parse(match[1]!), int.parse(match[2]!),
         int.parse(match[3]!));
@@ -113,7 +114,7 @@ String persianDateLabel(DateTime date, {bool showTime = false}) {
       ? '  ${local.hour.toString().padLeft(2, '0')}:'
           '${local.minute.toString().padLeft(2, '0')}'
       : '';
-  return PersianDate.persianDigits('$shamsi$clock');
+  return PersianDate.displayDigits('$shamsi$clock');
 }
 
 String gregorianDateLabel(DateTime date) {

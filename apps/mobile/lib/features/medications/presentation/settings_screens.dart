@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/app_database.dart';
+import '../../../core/calendar/persian_date.dart';
 import '../../../core/ui/app_design.dart';
 import '../../../core/ui/redesign_widgets.dart';
 
@@ -29,8 +30,8 @@ class ProfilesScreen extends StatelessWidget {
             leading: CircleAvatar(backgroundColor: profile.id == activeId
                 ? AppColors.primary : AppColors.mint,
               foregroundColor: profile.id == activeId ? Colors.white : AppColors.primary,
-              child: Text(profile.displayName.characters.first)),
-            title: Text(profile.displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(PersianDate.displayDigits(profile.displayName).characters.first)),
+            title: Text(PersianDate.displayDigits(profile.displayName), style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(profile.id == activeId ? 'پروفایل فعلی' :
               profile.kind == 'self' ? 'برای خودم' : 'تحت مدیریت من'),
             trailing: Icon(profile.id == activeId ? Icons.check_circle : Icons.radio_button_unchecked,
@@ -112,7 +113,7 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
       const SizedBox(height: 20),
       OutlinedButton.icon(onPressed: _enabled && !_busy ? widget.onTest : null,
         icon: const Icon(Icons.play_arrow_rounded),
-        label: const Text('تست اعلان — ۵ ثانیه دیگر')),
+        label: const Text('تست اعلان — 5 ثانیه دیگر')),
       if (_enabled) TextButton.icon(onPressed: _busy ? null : () => _change(false),
         icon: const Icon(Icons.notifications_off_outlined),
         label: const Text('خاموش کردن یادآورها')),
@@ -161,7 +162,7 @@ class AboutScreen extends StatelessWidget {
         subtitle: 'مدیریت دارو، موجودی و پیگیری سلامت'),
       const SizedBox(height: 13),
       AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('نسخهٔ آزمایشی ۰.۳.۰',
+        const Text('نسخهٔ آزمایشی 0.3.0',
           style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 5),
         Text(buildNumber == 'محلی' ? 'ساخت محلی' : 'شماره ساخت آزمایشی: CI$buildNumber'),

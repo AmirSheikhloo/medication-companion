@@ -112,7 +112,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
           _importCounts = backupCounts;
           _currentCounts = currentCounts;
           _phase = '';
-          _result = 'رمز و اصالت فایل، یکپارچگی SQLite و ساختار نسخه ۵ تأیید شد. '
+          _result = 'رمز و اصالت فایل، یکپارچگی SQLite و ساختار نسخه 5 تأیید شد. '
               'این فقط پیش‌نمایش است و هیچ اطلاعاتی بازیابی یا جایگزین نشده است.';
           _importPassword.clear();
         });
@@ -305,7 +305,7 @@ class _SecureBackupScreenState extends State<SecureBackupScreen> {
               enableSuggestions: false,
               autocorrect: false,
               decoration: InputDecoration(
-                labelText: 'رمز پشتیبان (حداقل ۱۲ نویسه)',
+                labelText: 'رمز پشتیبان (حداقل 12 نویسه)',
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   tooltip: _showPassword ? 'پنهان‌کردن رمز' : 'نمایش رمز',

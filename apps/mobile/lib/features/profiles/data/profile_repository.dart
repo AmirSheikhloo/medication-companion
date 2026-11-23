@@ -33,7 +33,7 @@ class ProfileRepository {
     final cleaned = (displayName ?? '').trim();
     final name = cleaned.isEmpty ? (forSelf ? 'من' : 'عزیز من') : cleaned;
     if (name.length > 80) {
-      throw ArgumentError('نام پروفایل باید حداکثر ۸۰ نویسه باشد.');
+      throw ArgumentError('نام پروفایل باید حداکثر 80 نویسه باشد.');
     }
 
     final id = _uuid.v4();

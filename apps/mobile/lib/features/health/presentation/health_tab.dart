@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
+import '../../../core/ui/english_digits_input_formatter.dart';
 import '../../../core/calendar/persian_date_picker.dart';
 import '../../../core/ui/app_design.dart';
 import '../../../core/ui/redesign_widgets.dart';
@@ -221,7 +222,7 @@ class _HealthTabState extends State<HealthTab> {
     final type = HealthMetric.fromCode(metric);
     final value = HealthNumber.format(first);
     final extra = second == null ? '' : '/${HealthNumber.format(second)}';
-    return PersianDate.persianDigits('$value$extra ${type.unit}');
+    return PersianDate.displayDigits('$value$extra ${type.unit}');
   }
 
   @override
@@ -247,7 +248,7 @@ class _HealthTabState extends State<HealthTab> {
                 fontWeight: FontWeight.w800, fontSize: 12)))]),
             const SizedBox(height: 6),
             Text(_lastPressure == null ? '—' :
-              PersianDate.persianDigits('${HealthNumber.format(_lastPressure!.primaryMilliunits)}/'
+              PersianDate.displayDigits('${HealthNumber.format(_lastPressure!.primaryMilliunits)}/'
                 '${HealthNumber.format(_lastPressure!.secondaryMilliunits!)}'),
               maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w900,
                 fontSize: 22, color: AppColors.primaryDark)),
@@ -264,7 +265,7 @@ class _HealthTabState extends State<HealthTab> {
                 fontWeight: FontWeight.w800, fontSize: 12)))]),
             const SizedBox(height: 6),
             Text(_lastWeight == null ? '—' :
-              PersianDate.persianDigits(HealthNumber.format(_lastWeight!.primaryMilliunits)),
+              PersianDate.displayDigits(HealthNumber.format(_lastWeight!.primaryMilliunits)),
               maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w900,
                 fontSize: 22, color: AppColors.primaryDark)),
             const Text('کیلوگرم', style: TextStyle(color: AppColors.muted,
@@ -288,7 +289,7 @@ class _HealthTabState extends State<HealthTab> {
               const Icon(Icons.monitor_heart_outlined, color: AppColors.primary,
                 size: 39),
               const SizedBox(height: 8),
-              Text(PersianDate.persianDigits(
+              Text(PersianDate.displayDigits(
                 'در $_days روز گذشته برای ${_metric.label} داده‌ای ثبت نشده است.'),
                 textAlign: TextAlign.center),
             ])),
@@ -349,7 +350,7 @@ class _HealthTabState extends State<HealthTab> {
       const SizedBox(height: 7),
       Wrap(spacing: 6, children: [
         for (final days in [7, 30, 90])
-          ChoiceChip(label: Text(PersianDate.persianDigits('$days روز')),
+          ChoiceChip(label: Text(PersianDate.displayDigits('$days روز')),
             selected: _days == days,
             onSelected: _busy ? null : (_) {
               setState(() => _days = days);
@@ -491,7 +492,7 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
         throw FormatException('زمان اندازه‌گیری نباید در آینده باشد.');
       }
       if (draft.note!.length > 500) {
-        throw FormatException('یادداشت حداکثر ۵۰۰ نویسه است.');
+        throw FormatException('یادداشت حداکثر 500 نویسه است.');
       }
       Navigator.of(context).pop(draft);
     } catch (error) {
@@ -546,6 +547,7 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
           const SizedBox(height: 8),
           TextField(
             controller: _first,
+                inputFormatters: const [EnglishDigitsInputFormatter()],
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
@@ -558,6 +560,7 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
             const SizedBox(height: 10),
             TextField(
               controller: _second,
+                inputFormatters: const [EnglishDigitsInputFormatter()],
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),

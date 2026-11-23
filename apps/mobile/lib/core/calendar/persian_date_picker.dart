@@ -110,7 +110,7 @@ class _PersianDateDialogState extends State<_PersianDateDialog> {
                 keyboardType: TextInputType.datetime,
                 decoration: InputDecoration(
                   labelText: 'سال/ماه/روز شمسی',
-                  hintText: '۱۴۰۵/۰۸/۲۶',
+                  hintText: '1405/08/26',
                   border: const OutlineInputBorder(),
                   errorText: _error,
                 ),

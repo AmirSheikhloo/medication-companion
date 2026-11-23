@@ -11,7 +11,7 @@ import 'package:medication_companion/features/profiles/data/profile_repository.d
 void main() {
   test('compact Persian date and dose-outcome colors are consistent', () {
     expect(todayReadablePersianDate(DateTime(2026, 11, 22)),
-      'یکشنبه، ۱ آذر');
+      'یکشنبه، 1 آذر');
     expect(todayDoseStatusColor('taken'), const Color(0xFF16995E));
     expect(todayDoseStatusColor('skipped'), const Color(0xFFD34E58));
     expect(todayDoseStatusColor('unknown'), const Color(0xFFDD962E));
@@ -127,7 +127,7 @@ void main() {
       widget.key is ValueKey<String> &&
       (widget.key! as ValueKey<String>).value.startsWith('today-quick-take-')),
       findsNothing);
-    await tester.tap(find.text('۰۸:۰۰'));
+    await tester.tap(find.text('08:00'));
     await tester.pumpAndSettle();
     final details = tester.widget<AnimatedContainer>(find.byWidgetPredicate(
       (widget) => widget is AnimatedContainer &&

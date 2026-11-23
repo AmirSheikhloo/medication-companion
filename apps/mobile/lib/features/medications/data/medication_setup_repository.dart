@@ -134,7 +134,7 @@ class MedicationSetupRepository {
   }) async {
     await _assertOwned(profileId, medicationId);
     if (setup.reminderNote.length > 500) {
-      throw ArgumentError('متن یادآور بیش از ۵۰۰ نویسه است.');
+      throw ArgumentError('متن یادآور بیش از 500 نویسه است.');
     }
     await db.into(db.appSettings).insertOnConflictUpdate(
       AppSettingsCompanion.insert(

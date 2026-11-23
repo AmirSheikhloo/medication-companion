@@ -33,10 +33,9 @@ class MedicationBetaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'NotoSansArabic',
-        // Noto Sans Arabic is Arabic-only in our bundled subset; Vazirmatn
-        // supplies Latin letters, punctuation and symbols in mixed labels.
-        fontFamilyFallback: const ['Vazirmatn'],
+        fontFamily: 'Vazirmatn',
+        // One consistent Persian text font; Latin digits keep their ASCII shape.
+        fontFamilyFallback: const ['NotoSansArabic'],
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primary,
           primary: AppColors.primary,
@@ -52,7 +51,7 @@ class MedicationBetaApp extends StatelessWidget {
           foregroundColor: AppColors.primaryDark,
           centerTitle: false,
           titleTextStyle: TextStyle(
-            fontFamily: 'NotoSansArabic',
+            fontFamily: 'Vazirmatn',
             color: AppColors.primaryDark,
             fontSize: 21,
             fontWeight: FontWeight.bold,
@@ -96,7 +95,7 @@ class MedicationBetaApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(13),
             ),
             textStyle: const TextStyle(
-              fontFamily: 'NotoSansArabic',
+              fontFamily: 'Vazirmatn',
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -118,7 +117,7 @@ class MedicationBetaApp extends StatelessWidget {
           height: 70,
           labelTextStyle: WidgetStateProperty.all(
             const TextStyle(
-              fontFamily: 'NotoSansArabic',
+              fontFamily: 'Vazirmatn',
               fontSize: 11,
               color: AppColors.primaryDark,
             ),

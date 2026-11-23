@@ -157,7 +157,7 @@ class MedicationRepository {
   String _validateName(String name) {
     final cleaned = name.trim();
     if (cleaned.isEmpty || cleaned.length > 160) {
-      throw ArgumentError('نام دارو باید بین ۱ تا ۱۶۰ نویسه باشد.');
+      throw ArgumentError('نام دارو باید بین 1 تا 160 نویسه باشد.');
     }
     return cleaned;
   }
@@ -171,7 +171,7 @@ class MedicationRepository {
     for (final slot in slots) {
       final dose = slot.doseText.trim();
       if (dose.isEmpty || dose.length > 120) {
-        throw ArgumentError('شرح هر نوبت باید بین ۱ تا ۱۲۰ نویسه باشد.');
+        throw ArgumentError('شرح هر نوبت باید بین 1 تا 120 نویسه باشد.');
       }
       final hour = slot.time.hour;
       final minute = slot.time.minute;

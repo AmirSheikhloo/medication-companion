@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
+import '../../../core/ui/english_digits_input_formatter.dart';
 import '../../../core/calendar/persian_date_picker.dart';
 import '../../../core/ui/app_design.dart';
 import '../data/inventory_repository.dart';
@@ -283,7 +284,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                             Text(
                               summary.selected == null
                                   ? 'بسته‌ای انتخاب نشده است'
-                                  : PersianDate.persianDigits(
+                                  : PersianDate.displayDigits(
                                       '${StockQuantity.format(summary.selected!.balanceMilliunits)} '
                                       '${summary.selected!.package.unit}',
                                     ),
@@ -318,6 +319,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: _threshold,
+                inputFormatters: const [EnglishDigitsInputFormatter()],
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -335,7 +337,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                 if (summary.thresholdMilliunits != null &&
                     summary.selected != null)
                   Text(
-                    PersianDate.persianDigits(
+                    PersianDate.displayDigits(
                       'حد فعال: ${StockQuantity.format(summary.thresholdMilliunits!)} '
                       '${summary.selected!.package.unit} — '
                       '${summary.lowStock ? 'موجودی در محدودهٔ هشدار است.' : 'موجودی فعلی بالاتر از حد هشدار است.'}',
@@ -371,6 +373,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     Expanded(
                       child: TextField(
                         controller: _initial,
+                inputFormatters: const [EnglishDigitsInputFormatter()],
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
@@ -488,12 +491,12 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               ],
             ),
             Text(
-              PersianDate.persianDigits(
+              PersianDate.displayDigits(
                 'باقی‌مانده: ${StockQuantity.format(item.balanceMilliunits)} ${pack.unit}',
               ),
             ),
             Text(
-              PersianDate.persianDigits(
+              PersianDate.displayDigits(
                 pack.expiryIso == null
                     ? 'انقضا ثبت نشده'
                     : 'انقضا (میلادی): ${pack.expiryIso} '
@@ -588,13 +591,13 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(_movementName(entry)),
                     subtitle: Text(
-                      PersianDate.persianDigits(
+                      PersianDate.displayDigits(
                         '${entry.createdAt.toLocal().toString().substring(0, 16)}'
                         '${entry.note == null ? '' : ' — ${entry.note}'}',
                       ),
                     ),
                     trailing: Text(
-                      PersianDate.persianDigits(
+                      PersianDate.displayDigits(
                         '${entry.deltaMilliunits > 0 ? '+' : ''}'
                         '${StockQuantity.format(entry.deltaMilliunits)} ${pack.unit}',
                       ),
@@ -621,6 +624,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               const SizedBox(height: 8),
               TextField(
                 controller: _adjustQuantity,
+                inputFormatters: const [EnglishDigitsInputFormatter()],
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),

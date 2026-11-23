@@ -37,7 +37,7 @@ class MedicationDetailScreen extends StatelessWidget {
   final VoidCallback onRestore;
   final void Function(PackageBalance balance, String action) onPackageAction;
 
-  String _clock(DateTime date) => PersianDate.persianDigits(
+  String _clock(DateTime date) => PersianDate.displayDigits(
     '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}');
 
   String _expiryLabel(PackageBalance balance) {
@@ -47,7 +47,7 @@ class MedicationDetailScreen extends StatelessWidget {
     final prefix = balance.package.expiryPrecision == 'month'
         ? 'انقضا (ماه)'
         : 'انقضا';
-    return PersianDate.persianDigits('$prefix: $date');
+    return PersianDate.displayDigits('$prefix: $date');
   }
 
   Widget _packageRow(PackageBalance balance, bool isSelected) {
@@ -74,11 +74,11 @@ class MedicationDetailScreen extends StatelessWidget {
         Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(balance.package.label, style: const TextStyle(
+            Text(PersianDate.displayDigits(balance.package.label), style: const TextStyle(
               color: AppColors.primaryDark, fontWeight: FontWeight.w800,
               fontSize: 14)),
             const SizedBox(height: 2),
-            Text(PersianDate.persianDigits(
+            Text(PersianDate.displayDigits(
               '${StockQuantity.format(balance.balanceMilliunits)} ${balance.package.unit} باقی‌مانده'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
             const SizedBox(height: 3),
@@ -136,7 +136,7 @@ class MedicationDetailScreen extends StatelessWidget {
           MedicationArtwork(name: medication.name, setup: setup, size: 82),
           const SizedBox(width: 15),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(medication.name, style: const TextStyle(fontWeight: FontWeight.w900,
+            Text(PersianDate.displayDigits(medication.name), style: const TextStyle(fontWeight: FontWeight.w900,
               fontSize: 23, color: AppColors.primaryDark)),
             const SizedBox(height: 5),
             AppStatusPill(text: archived ? 'بایگانی‌شده' : 'فعال',
@@ -164,7 +164,7 @@ class MedicationDetailScreen extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.bold))),
                 AppStatusPill(text: _clock(slots[i].scheduledAt), color: AppColors.primary),
                 const SizedBox(width: 9),
-                Flexible(child: Text(PersianDate.persianDigits(slots[i].plan.doseText),
+                Flexible(child: Text(PersianDate.displayDigits(slots[i].plan.doseText),
                   maxLines: 2, textAlign: TextAlign.end)),
               ])),
           ],
@@ -176,7 +176,7 @@ class MedicationDetailScreen extends StatelessWidget {
           const SizedBox(height: 9),
           Text(selected == null
               ? 'هنوز بسته‌ای برای مصرف انتخاب نشده است.'
-              : PersianDate.persianDigits(
+              : PersianDate.displayDigits(
                   '${StockQuantity.format(selected.balanceMilliunits)} '
                   '${selected.package.unit} در بستهٔ انتخاب‌شده'),
             style: TextStyle(color: statusColor, fontSize: 15,

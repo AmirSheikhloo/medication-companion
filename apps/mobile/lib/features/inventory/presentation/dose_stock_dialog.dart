@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/calendar/persian_date.dart';
+import '../../../core/ui/english_digits_input_formatter.dart';
 import '../data/inventory_repository.dart';
 import '../domain/stock_quantity.dart';
 
@@ -70,7 +71,7 @@ class _DoseStockDialogState extends State<_DoseStockDialog> {
             else ...[
               Text('بسته: ${selected.package.label}'),
               Text(
-                PersianDate.persianDigits(
+                PersianDate.displayDigits(
                   'باقی‌مانده: ${StockQuantity.format(selected.balanceMilliunits)} '
                   '${selected.package.unit}',
                 ),
@@ -85,6 +86,7 @@ class _DoseStockDialogState extends State<_DoseStockDialog> {
               const SizedBox(height: 10),
               TextField(
                 controller: _quantity,
+                inputFormatters: const [EnglishDigitsInputFormatter()],
                 autofocus: true,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,

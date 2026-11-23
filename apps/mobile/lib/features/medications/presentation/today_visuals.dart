@@ -30,7 +30,7 @@ String todayReadablePersianDate(DateTime date) {
   final local = date.toLocal();
   final persian = PersianDate.fromGregorian(local);
   return '${weekdays[local.weekday - 1]}، '
-      '${PersianDate.persianDigits('${persian.day}')} '
+      '${PersianDate.displayDigits('${persian.day}')} '
       '${months[persian.month - 1]}';
 }
 
@@ -165,7 +165,7 @@ class TodayStatusRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final taken = statuses.where((value) => value == 'taken').length;
     return Semantics(
-      label: PersianDate.persianDigits(
+      label: PersianDate.displayDigits(
         '$taken از ${statuses.length} نوبت مصرف‌شده'),
       child: SizedBox(
         width: size, height: size,
@@ -177,7 +177,7 @@ class TodayStatusRing extends StatelessWidget {
           Directionality(
             textDirection: TextDirection.ltr,
             child: Text(
-              PersianDate.persianDigits('$taken/${statuses.length}'),
+              PersianDate.displayDigits('$taken/${statuses.length}'),
               maxLines: 1,
               style: const TextStyle(fontFamily: 'Vazirmatn',
                 fontSize: 20, fontWeight: FontWeight.bold,

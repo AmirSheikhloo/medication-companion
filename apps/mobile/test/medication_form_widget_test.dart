@@ -188,7 +188,7 @@ void main() {
       'داروی اصلاح‌شده',
     );
     expect(find.text('برنامه جدید — از فردا'), findsOneWidget);
-    expect(find.textContaining('۴ عدد'), findsWidgets);
+    expect(find.textContaining('4 عدد'), findsWidgets);
     final today = DateTime.now();
     final tomorrow = DateTime(today.year, today.month, today.day + 1);
     expect(
@@ -214,8 +214,8 @@ void main() {
     await tester.ensureVisible(find.text('ذخیره تغییرات'));
     await tester.tap(find.text('ذخیره تغییرات'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('۵ عدد'), findsWidgets);
-    expect(find.textContaining('۴ عدد'), findsNothing);
+    expect(find.textContaining('5 عدد'), findsWidgets);
+    expect(find.textContaining('4 عدد'), findsNothing);
     expect(
       (await medications.dosesForDay(profile.id, tomorrow)).first.plan.doseText,
       '5 عدد',
@@ -230,7 +230,7 @@ void main() {
     await tester.tap(find.text('بایگانی شود'));
     await tester.pumpAndSettle();
     expect(await medications.medicationsFor(profile.id), isEmpty);
-    await tester.tap(find.text('نمایش بایگانی (۱)'));
+    await tester.tap(find.text('نمایش بایگانی (1)'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();

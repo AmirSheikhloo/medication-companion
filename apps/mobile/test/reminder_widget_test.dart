@@ -75,9 +75,9 @@ void main() {
     await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
     expect(await reminder.isEnabled(), isTrue);
-    expect(find.text('تست اعلان — ۵ ثانیه دیگر'), findsOneWidget);
-    await tester.ensureVisible(find.text('تست اعلان — ۵ ثانیه دیگر'));
-    await tester.tap(find.text('تست اعلان — ۵ ثانیه دیگر'));
+    expect(find.text('تست اعلان — 5 ثانیه دیگر'), findsOneWidget);
+    await tester.ensureVisible(find.text('تست اعلان — 5 ثانیه دیگر'));
+    await tester.tap(find.text('تست اعلان — 5 ثانیه دیگر'));
     await tester.pumpAndSettle();
     expect(port.tests, 1);
 

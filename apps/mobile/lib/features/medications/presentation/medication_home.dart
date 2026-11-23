@@ -497,7 +497,7 @@ class _MedicationHomeState extends State<MedicationHome>
       await service.demoInFiveSeconds();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('اعلان تستی برای ۵ ثانیه دیگر ثبت شد.')),
+          const SnackBar(content: Text('اعلان تستی برای 5 ثانیه دیگر ثبت شد.')),
         );
       }
     });
@@ -793,7 +793,7 @@ class _MedicationHomeState extends State<MedicationHome>
                           child: const Icon(Icons.person_outline,
                             color: AppColors.primary)),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(profile.displayName,
+                        Expanded(child: Text(PersianDate.displayDigits(profile.displayName),
                           style: const TextStyle(fontFamily: 'Vazirmatn',
                             fontSize: 16, fontWeight: FontWeight.bold,
                             color: AppColors.primaryDark))),
@@ -884,7 +884,7 @@ class _MedicationHomeState extends State<MedicationHome>
                 const SizedBox(width: 17),
                 Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(PersianDate.persianDigits(
+                    Text(PersianDate.displayDigits(
                       '$taken از ${_doses.length} نوبت مصرف شده'),
                       style: const TextStyle(fontFamily: 'Vazirmatn',
                         fontSize: 13, color: AppColors.ink)),
@@ -963,7 +963,7 @@ class _MedicationHomeState extends State<MedicationHome>
       Container(width: 7, height: 7,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 4),
-      Text(PersianDate.persianDigits(description),
+      Text(PersianDate.displayDigits(description),
         style: const TextStyle(fontFamily: 'Vazirmatn', fontSize: 11.5,
           color: AppColors.ink)),
     ],
@@ -1114,7 +1114,7 @@ class _MedicationHomeState extends State<MedicationHome>
                 fontSize: 16, fontWeight: FontWeight.bold,
                 color: AppColors.primaryDark)),
               const Spacer(),
-              Text(PersianDate.persianDigits('${doses.length} نوبت'),
+              Text(PersianDate.displayDigits('${doses.length} نوبت'),
                 style: const TextStyle(fontFamily: 'Vazirmatn',
                   color: AppColors.ink, fontSize: 13)),
             ]),
@@ -1163,7 +1163,7 @@ class _MedicationHomeState extends State<MedicationHome>
             const SizedBox(width: 10),
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(dose.medication.name,
+                Text(PersianDate.displayDigits(dose.medication.name),
                   maxLines: 2, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontFamily: 'Vazirmatn',
                     fontSize: 16, fontWeight: FontWeight.bold,
@@ -1179,7 +1179,7 @@ class _MedicationHomeState extends State<MedicationHome>
                       style: const TextStyle(fontFamily: 'Vazirmatn',
                         fontSize: 14, fontWeight: FontWeight.w600,
                         color: AppColors.ink)),
-                    Text('(${PersianDate.persianDigits(dose.plan.doseText.trim())})',
+                    Text('(${PersianDate.displayDigits(dose.plan.doseText.trim())})',
                       textDirection: TextDirection.rtl,
                       style: const TextStyle(fontFamily: 'Vazirmatn',
                         fontSize: 13, fontWeight: FontWeight.w600,
@@ -1233,7 +1233,7 @@ class _MedicationHomeState extends State<MedicationHome>
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Divider(height: 14, color: AppColors.outline),
         Text('ساعت برنامه: ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}  |  '
-           'مقدار طبق نسخه: ${PersianDate.persianDigits(dose.plan.doseText)}',
+           'مقدار طبق نسخه: ${PersianDate.displayDigits(dose.plan.doseText)}',
           style: const TextStyle(fontFamily: 'Vazirmatn', fontSize: 13,
             color: AppColors.ink)),
         const SizedBox(height: 11),
@@ -1405,7 +1405,7 @@ class _MedicationHomeState extends State<MedicationHome>
           ]),
         ),
         const SizedBox(height: 13),
-        Text(PersianDate.persianDigits(
+        Text(PersianDate.displayDigits(
           _showArchived ? '${_archivedMedications.length} داروی بایگانی‌شده' :
             '${_medications.length} داروی فعال'),
           style: const TextStyle(fontSize: 12, color: AppColors.muted)),
@@ -1441,7 +1441,7 @@ class _MedicationHomeState extends State<MedicationHome>
         if (!_showArchived) OutlinedButton.icon(
           onPressed: () => setState(() => _showArchived = true),
           icon: const Icon(Icons.inventory_2_outlined),
-          label: Text(PersianDate.persianDigits(
+          label: Text(PersianDate.displayDigits(
             'نمایش بایگانی (${_archivedMedications.length})'))),
       ],
     );
@@ -1467,7 +1467,7 @@ class _MedicationHomeState extends State<MedicationHome>
     final lowStock = stock?.lowStock == true;
     final stockLabel = selected == null
         ? '—'
-        : PersianDate.persianDigits('${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}');
+        : PersianDate.displayDigits('${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}');
     return InkWell(
       onTap: () => _openMedicationDetail(med, slots, todaySlots,
         stock, hasPendingSchedule),
@@ -1477,12 +1477,12 @@ class _MedicationHomeState extends State<MedicationHome>
           MedicationArtwork(name: med.name, setup: _setups[med.id], size: 51),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(med.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+            Text(PersianDate.displayDigits(med.name), maxLines: 2, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 16, height: 1.45,
                 color: AppColors.ink, fontWeight: FontWeight.w800)),
             const SizedBox(height: 3),
             Text(_showArchived ? 'بایگانی‌شده' : slots.isEmpty ? 'برنامه ثبت شده' :
-              PersianDate.persianDigits('${slots.length} نوبت · '
+              PersianDate.displayDigits('${slots.length} نوبت · '
                 '${slots.map((d) => '${_clock(TimeOfDay.fromDateTime(d.scheduledAt))} ${d.plan.doseText}').join('، ')}'),
               maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
@@ -1654,6 +1654,6 @@ class _MedicationHomeState extends State<MedicationHome>
   );
 }
 
-String _clock(TimeOfDay time) => PersianDate.persianDigits(
+String _clock(TimeOfDay time) => PersianDate.displayDigits(
   '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
 );

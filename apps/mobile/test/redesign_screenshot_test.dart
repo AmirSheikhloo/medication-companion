@@ -80,7 +80,7 @@ void main() {
     await save('06-medication-form');
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('متفورمین ۵۰۰'));
+    await tester.tap(find.text('متفورمین 500'));
     await save('03-medicine-detail');
     await tester.pageBack();
     await tester.pumpAndSettle();

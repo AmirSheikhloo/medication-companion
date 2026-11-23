@@ -2,7 +2,7 @@
 /// Never normalize Unicode, trim a valid passphrase, or log its contents.
 String? backupPasswordError(String password, String confirmation) {
   if (password.runes.length < 12 || password.trim().isEmpty) {
-    return 'رمز باید دست‌کم ۱۲ نویسه داشته باشد و فقط فاصله نباشد.';
+    return 'رمز باید دست‌کم 12 نویسه داشته باشد و فقط فاصله نباشد.';
   }
   // Dart UTF-16 strings may contain an isolated surrogate; reject it so
   // UTF-8 cannot silently introduce replacement symbols.

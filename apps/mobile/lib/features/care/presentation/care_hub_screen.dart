@@ -123,7 +123,7 @@ class _CareHubScreenState extends State<CareHubScreen>
       await widget.reminderCoordinator!.demoInFiveSeconds();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('اعلان آزمایشی ۵ ثانیه دیگر نمایش داده می‌شود.')));
+            const SnackBar(content: Text('اعلان آزمایشی 5 ثانیه دیگر نمایش داده می‌شود.')));
       }
     } catch (e) {
       if (mounted) setState(() => _reminderError = '$e');
@@ -843,11 +843,11 @@ class _CareEditorState extends State<_CareEditor> {
               items: const [
                 DropdownMenuItem<int>(value: null, child: Text('بدون اعلان')),
                 DropdownMenuItem<int>(value: 0, child: Text('در موعد')),
-                DropdownMenuItem<int>(value: 5, child: Text('۵ دقیقه قبل')),
-                DropdownMenuItem<int>(value: 15, child: Text('۱۵ دقیقه قبل')),
-                DropdownMenuItem<int>(value: 30, child: Text('۳۰ دقیقه قبل')),
+                DropdownMenuItem<int>(value: 5, child: Text('5 دقیقه قبل')),
+                DropdownMenuItem<int>(value: 15, child: Text('15 دقیقه قبل')),
+                DropdownMenuItem<int>(value: 30, child: Text('30 دقیقه قبل')),
                 DropdownMenuItem<int>(value: 60, child: Text('یک ساعت قبل')),
-                DropdownMenuItem<int>(value: 1440, child: Text('۲۴ ساعت قبل')),
+                DropdownMenuItem<int>(value: 1440, child: Text('24 ساعت قبل')),
               ],
               onChanged: (value) => setState(() => _reminderMinutesBefore = value),
             ),
