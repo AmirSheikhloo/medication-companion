@@ -41,13 +41,63 @@ class MedicationRepository {
   final AppDatabase db;
   final Uuid _uuid = Uuid();
 
+  String _hiddenKey(String profileId, String medicationId) =>
+    'medication-hidden:v1:$profileId:$medicationId';
+
+  Future<Set<String>> _hiddenIds(String profileId) async {
+    final prefix = 'medication-hidden:v1:$profileId:';
+    final rows = await (db.select(db.appSettings)
+      ..where((t) => t.key.like('$prefix%'))).get();
+    return rows.where((r) => r.value == 'true')
+      .map((r) => r.key.substring(prefix.length)).toSet();
+  }
+
   Future<List<Medication>> medicationsFor(String profileId,
-      {bool archived = false}) =>
-      (db.select(db.medications)
-            ..where((t) =>
-                t.profileId.equals(profileId) & t.archived.equals(archived))
-            ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
-          .get();
+      {bool archived = false, bool includeHidden = false}) async {
+    final rows = await (db.select(db.medications)
+      ..where((t) =>
+        t.profileId.equals(profileId) & t.archived.equals(archived))
+      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).get();
+    if (includeHidden) return rows;
+    final hidden = await _hiddenIds(profileId);
+    return rows.where((m) => !hidden.contains(m.id)).toList();
+  }
+
+  Future<List<Medication>> hiddenMedicationsFor(String profileId) async {
+    final hidden = await _hiddenIds(profileId);
+    if (hidden.isEmpty) return [];
+    return (db.select(db.medications)
+      ..where((t) =>
+        t.profileId.equals(profileId) & t.id.isIn(hidden.toList()))
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).get();
+  }
+
+  /// "Delete from list" is reversible. Historical events and reports remain.
+  Future<void> setHidden({
+    required String profileId,
+    required String medicationId,
+    required bool hidden,
+  }) async {
+    await db.transaction(() async {
+      final med = await _ownedMedication(profileId, medicationId);
+      if (med == null) {
+        throw StateError('این دارو متعلق به پروفایل فعال نیست.');
+      }
+      if (hidden) {
+        if (!med.archived) {
+          await setArchived(profileId: profileId,
+            medicationId: medicationId, archived: true);
+        }
+        await db.into(db.appSettings).insertOnConflictUpdate(
+          AppSettingsCompanion.insert(
+            key: _hiddenKey(profileId, medicationId), value: 'true'));
+      } else {
+        await (db.delete(db.appSettings)
+          ..where((t) => t.key.equals(
+            _hiddenKey(profileId, medicationId)))).go();
+      }
+    });
+  }
 
   Future<String> addDailyMedication({
     required String profileId,
