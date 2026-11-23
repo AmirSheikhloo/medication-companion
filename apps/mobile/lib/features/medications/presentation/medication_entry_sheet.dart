@@ -59,6 +59,7 @@ Future<MedicationDraft?> showMedicationEntrySheet(
   List<MedicationSlotDraft>? initialSlots,
   MedicationSetup? initialSetup,
   int? initialThresholdMilliunits,
+  String? initialBaseUnit,
   Future<bool> Function({bool fullScreen})? requestReminderPermission,
 }) => Navigator.of(context).push<MedicationDraft>(MaterialPageRoute(
   builder: (_) => _MedicationEntryScreen(
@@ -67,6 +68,7 @@ Future<MedicationDraft?> showMedicationEntrySheet(
     initialSlots: initialSlots,
     initialSetup: initialSetup,
     initialThresholdMilliunits: initialThresholdMilliunits,
+    initialBaseUnit: initialBaseUnit,
     requestReminderPermission: requestReminderPermission,
   ),
 ));
@@ -105,13 +107,15 @@ class _PackageEditor {
 class _MedicationEntryScreen extends StatefulWidget {
   const _MedicationEntryScreen({required this.profileName,
     this.initialName, this.initialSlots, this.initialSetup,
-    this.initialThresholdMilliunits, this.requestReminderPermission});
+    this.initialThresholdMilliunits, this.initialBaseUnit,
+    this.requestReminderPermission});
 
   final String profileName;
   final String? initialName;
   final List<MedicationSlotDraft>? initialSlots;
   final MedicationSetup? initialSetup;
   final int? initialThresholdMilliunits;
+  final String? initialBaseUnit;
   final Future<bool> Function({bool fullScreen})? requestReminderPermission;
 
   @override
@@ -355,6 +359,12 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         return;
       }
       final dose = ScheduledQuantity(milliunits: quantity, unit: item.unit);
+      if (_editing && widget.initialBaseUnit != null &&
+          MedicationUnits.toPackageMilliunits(dose,
+            widget.initialBaseUnit!) == null) {
+        _showError('واحد مصرف با موجودی قبلی سازگار نیست.');
+        return;
+      }
       for (final package in packages) {
         if (MedicationUnits.toPackageMilliunits(dose, package.unit) == null) {
           _showError('واحد مصرف «${item.unit}» با موجودی «${package.unit}» قابل تبدیل نیست. '
@@ -780,7 +790,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         onChanged: (value) => setState(() => _lowStockEnabled = value)),
       if (_lowStockEnabled) ...[
         const SizedBox(height: 10),
-        _numberField(_lowStock, label: 'حد هشدار',
+        _numberField(_lowStock,
+          label: 'حد هشدار (${_editing ? widget.initialBaseUnit ?? 'عدد' : _packages.first.unit})',
           hint: 'مثلاً 20', keyName: 'medication-low-stock-threshold'),
       ],
     ],

@@ -426,6 +426,7 @@ class _MedicationHomeState extends State<MedicationHome>
       initialName: medication.name,
       initialSetup: previous,
       initialThresholdMilliunits: _stocks[medication.id]?.thresholdMilliunits,
+      initialBaseUnit: medication.unit,
       initialSlots: [
         for (final dose in doses)
           MedicationSlotDraft(
