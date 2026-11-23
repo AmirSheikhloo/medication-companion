@@ -13,6 +13,8 @@ import '../../profiles/presentation/guest_welcome_screen.dart';
 import '../../profiles/presentation/profile_name_dialog.dart';
 import 'medication_entry_sheet.dart';
 import 'medication_detail_screen.dart';
+import '../data/medication_course_repository.dart';
+import '../../../core/ui/medication_controls.dart';
 import 'medication_artwork.dart';
 import 'medication_expiry_dialog.dart';
 import 'today_visuals.dart';
@@ -1574,8 +1576,8 @@ class _MedicationHomeState extends State<MedicationHome>
 
   Future<void> _openMedicationDetail(Medication med, List<DailyDose> slots,
       List<DailyDose> todaySlots, StockSummary? stock, bool pendingSchedule) async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (detailContext) => MedicationDetailScreen(
+    await Navigator.of(context).push(medicationPageRoute<void>(context,
+      Builder(builder: (detailContext) => MedicationDetailScreen(
         medication: med,
         slots: slots,
         todaySlots: todaySlots,
@@ -1584,7 +1586,12 @@ class _MedicationHomeState extends State<MedicationHome>
         medicationRepository: widget.repository,
         inventoryRepository: _inventory,
         pendingSchedule: pendingSchedule,
-        archived: _showArchived,
+        archived: med.archived,
+        onOpenCourse: (related) {
+          Navigator.of(detailContext).pop();
+          _openMedicationDetail(related, const [], const [],
+            _stocks[related.id], false);
+        },
         onEdit: () { Navigator.pop(detailContext); _editMedication(med); },
         onStock: () { Navigator.pop(detailContext); _openStock(med); },
         onPackageAction: (balance, action) {
@@ -1593,7 +1600,7 @@ class _MedicationHomeState extends State<MedicationHome>
         },
         onArchive: () { Navigator.pop(detailContext); _archiveMedication(med); },
         onRestore: () { Navigator.pop(detailContext); _restoreMedication(med); },
-      ),
+      )),
     ));
   }
 

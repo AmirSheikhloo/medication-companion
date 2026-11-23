@@ -11,6 +11,9 @@ import '../data/medication_setup_repository.dart';
 import 'medication_artwork.dart';
 import 'medication_history_panel.dart';
 import 'medication_package_editor_screen.dart';
+import 'medication_course_timeline.dart';
+import '../data/medication_course_repository.dart';
+import '../../../core/ui/medication_controls.dart';
 
 /// A dedicated details page, rather than expanding the beta medicine card.
 class MedicationDetailScreen extends StatefulWidget {
@@ -21,7 +24,7 @@ class MedicationDetailScreen extends StatefulWidget {
     required this.pendingSchedule, required this.archived,
     required this.onEdit, required this.onStock,
     required this.onArchive, required this.onRestore,
-    required this.onPackageAction});
+    required this.onPackageAction, this.onOpenCourse});
 
   final Medication medication;
   final List<DailyDose> slots;
@@ -37,6 +40,7 @@ class MedicationDetailScreen extends StatefulWidget {
   final VoidCallback onArchive;
   final VoidCallback onRestore;
   final void Function(PackageBalance balance, String action) onPackageAction;
+  final ValueChanged<Medication>? onOpenCourse;
 
   @override
   State<MedicationDetailScreen> createState() =>
@@ -60,7 +64,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   Future<void> _openPackage(PackageBalance? package) async {
     final summary = stock;
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => MedicationPackageEditorScreen(
+      medicationPageRoute(context, MedicationPackageEditorScreen(
         repository: inventoryRepository,
         profileId: medication.profileId,
         medicationId: medication.id,
@@ -168,7 +172,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             Text(PersianDate.displayDigits(medication.name), style: const TextStyle(fontWeight: FontWeight.w900,
               fontSize: 23, color: AppColors.primaryDark)),
             const SizedBox(height: 5),
-            AppStatusPill(text: archived ? 'بایگانی‌شده' : 'فعال',
+            AppStatusPill(text: archived ? 'پایان مصرف' : 'فعال',
               icon: archived ? Icons.archive_outlined : Icons.check, color: AppColors.primary),
           ])),
         ]),
@@ -242,6 +246,12 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           inventoryRepository: inventoryRepository,
           stock: stock),
         const SizedBox(height: 16),
+        MedicationCourseTimeline(
+          medication: medication,
+          repository: MedicationCourseRepository(medicationRepository.db),
+          onOpenCourse: widget.onOpenCourse,
+        ),
+        const SizedBox(height: 16),
         if (archived)
           AppGradientButton(label: 'بازیابی دارو', icon: Icons.restore,
             onPressed: onRestore)
@@ -249,8 +259,14 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           AppGradientButton(label: 'ویرایش دارو', icon: Icons.edit_outlined,
             onPressed: onEdit),
           const SizedBox(height: 9),
-          OutlinedButton.icon(onPressed: onArchive,
-            icon: const Icon(Icons.archive_outlined), label: const Text('پایان مصرف')),
+          FilledButton.icon(
+            onPressed: onArchive,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFB5791C),
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(52)),
+            icon: const Icon(Icons.task_alt_rounded),
+            label: const Text('پایان دورهٔ مصرف')),
         ],
       ]),
     );
