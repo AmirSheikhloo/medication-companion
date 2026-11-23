@@ -46,6 +46,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
 
   StockSummary? _summary;
   final Set<String> _historyOpen = <String>{};
+  final Map<String, int> _historyLimits = {};
   Map<String, List<StockMovement>> _history = {};
   String? _feedbackMessage;
   bool _busy = false;
@@ -85,6 +86,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
           profileId: widget.profileId,
           medicationId: widget.medication.id,
           packageId: id,
+          limit: (_historyLimits[id] ?? 20) + 1,
         );
       }
       if (!mounted) return;
@@ -565,7 +567,8 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               else if (_history[pack.id]!.isEmpty)
                 const Text('هنوز تغییری برای این بسته ثبت نشده است.')
               else
-                for (final entry in _history[pack.id]!)
+                for (final entry in _history[pack.id]!.take(
+                  _historyLimits[pack.id] ?? 20))
                   ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -588,6 +591,16 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                       ),
                     ),
                   ),
+              if ((_history[pack.id]?.length ?? 0) >
+                  (_historyLimits[pack.id] ?? 20))
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() => _historyLimits[pack.id] =
+                      (_historyLimits[pack.id] ?? 20) + 20);
+                    _load();
+                  },
+                  icon: const Icon(Icons.expand_more_rounded),
+                  label: const Text('نمایش ۲۰ تغییر بیشتر')),
             ],
             if (_adjustingPackageId == pack.id) ...[
               const SizedBox(height: 8),

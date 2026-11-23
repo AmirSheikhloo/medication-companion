@@ -155,6 +155,7 @@ class InventoryRepository {
     required String profileId,
     required String medicationId,
     required String packageId,
+    int? limit,
   }) async {
     await _assertReadableMedication(profileId, medicationId);
     final package = await (db.select(db.stockPackages)
@@ -163,12 +164,13 @@ class InventoryRepository {
               t.medicationId.equals(medicationId)))
         .getSingleOrNull();
     if (package == null) throw StateError('بسته متعلق به این دارو نیست.');
-    return (db.select(db.stockMovements)
-          ..where((t) => t.profileId.equals(profileId) &
-              t.medicationId.equals(medicationId) &
-              t.packageId.equals(packageId))
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-        .get();
+    final query = db.select(db.stockMovements)
+      ..where((t) => t.profileId.equals(profileId) &
+          t.medicationId.equals(medicationId) &
+          t.packageId.equals(packageId))
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
+    if (limit != null) { query.limit(limit); }
+    return query.get();
   }
 
   Future<String> addPackage({

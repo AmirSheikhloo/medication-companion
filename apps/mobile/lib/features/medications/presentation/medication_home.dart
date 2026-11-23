@@ -1249,7 +1249,10 @@ class _MedicationHomeState extends State<MedicationHome>
       ),
       builder: (sheetContext) => Padding(
         padding: const EdgeInsets.fromLTRB(22, 3, 22, 30),
-        child: Column(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * .72),
+          child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1313,7 +1316,7 @@ class _MedicationHomeState extends State<MedicationHome>
               ),
             const SizedBox(height: 8),
           ],
-        ),
+        ))),
       ),
     );
   }

@@ -101,7 +101,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
   String _doseName(String action) => switch (action) {
     'taken' => 'مصرف کردم',
     'skipped' => 'مصرف نکردم',
-    'unknown' => 'مطمئن نیستم',
+    'unknown' => 'مطمئن نیستم · نیازمند بازبینی',
     'undo' => 'بازگرداندن ثبت',
     _ => 'ثبت وضعیت',
   };
