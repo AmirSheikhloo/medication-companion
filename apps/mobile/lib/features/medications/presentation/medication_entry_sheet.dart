@@ -41,7 +41,8 @@ class MedicationDraft {
     required this.artwork, this.imagePath,
     this.lowStockThresholdMilliunits,
     this.notificationsEnabled = false,
-    this.fullScreenAlert = false});
+    this.fullScreenAlert = false,
+    this.tabletsPerStrip});
 
   final String name;
   final List<MedicationSlotDraft> slots;
@@ -52,6 +53,7 @@ class MedicationDraft {
   final int? lowStockThresholdMilliunits;
   final bool notificationsEnabled;
   final bool fullScreenAlert;
+  final int? tabletsPerStrip;
 }
 
 Future<MedicationDraft?> showMedicationEntrySheet(
@@ -145,6 +147,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   bool _lowStockEnabled = false;
   late final TextEditingController _lowStock;
   int? _calculatorPackage;
+  final Map<int, int> _knownTabletsPerStrip = {};
   String _calculatorVolumeUnit = 'میلی‌لیتر';
   final _strips = TextEditingController();
   final _tabletsPerStrip = TextEditingController();
@@ -244,7 +247,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
 
   void _removePackage(int index) {
     if (_packages.length == 1) return;
-    setState(() => _retiredPackages.add(_packages.removeAt(index)));
+    setState(() {
+      _knownTabletsPerStrip.remove(_packages[index].number);
+      _retiredPackages.add(_packages.removeAt(index));
+    });
   }
 
   Future<void> _chooseExpiry(_PackageEditor package) async {
@@ -406,6 +412,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       lowStockThresholdMilliunits: threshold,
       notificationsEnabled: _notify,
       fullScreenAlert: _alarm,
+      tabletsPerStrip: !_editing && _packages.isNotEmpty &&
+          _packages.every((p) => _knownTabletsPerStrip[p.number] != null) &&
+          _knownTabletsPerStrip.values.toSet().length == 1
+            ? _knownTabletsPerStrip.values.first : null,
     ));
   }
 
@@ -535,6 +545,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             const SizedBox(height: 8),
             FilledButton(onPressed: calculatorValid ? () {
               item.quantity.text = StockQuantity.format(totalMilliunits);
+              if (!liquid) {
+                final perStrip = int.tryParse(
+                  PersianDate.latinDigits(_tabletsPerStrip.text));
+                if (perStrip != null && perStrip > 0 && perStrip <= 1000) {
+                  _knownTabletsPerStrip[item.number] = perStrip;
+                }
+              }
               setState(() => _calculatorPackage = null);
             } : null, child: Text(!calculatorValid
               ? 'مقدار معتبر وارد کن'

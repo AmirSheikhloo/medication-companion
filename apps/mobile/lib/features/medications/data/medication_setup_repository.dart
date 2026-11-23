@@ -61,6 +61,7 @@ class MedicationSetup {
     this.doses = const {},
     this.notificationsEnabled = true,
     this.fullScreenAlert = false,
+    this.tabletsPerStrip,
   });
 
   final String reminderNote;
@@ -69,6 +70,7 @@ class MedicationSetup {
   final Map<String, ScheduledQuantity> doses;
   final bool notificationsEnabled;
   final bool fullScreenAlert;
+  final int? tabletsPerStrip;
 
   MedicationSetup copyWith({
     String? reminderNote,
@@ -77,6 +79,7 @@ class MedicationSetup {
     Map<String, ScheduledQuantity>? doses,
     bool? notificationsEnabled,
     bool? fullScreenAlert,
+    int? tabletsPerStrip,
   }) => MedicationSetup(
     reminderNote: reminderNote ?? this.reminderNote,
     artwork: artwork ?? this.artwork,
@@ -84,6 +87,7 @@ class MedicationSetup {
     doses: doses ?? this.doses,
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     fullScreenAlert: fullScreenAlert ?? this.fullScreenAlert,
+    tabletsPerStrip: tabletsPerStrip ?? this.tabletsPerStrip,
   );
 }
 
@@ -131,6 +135,9 @@ class MedicationSetupRepository {
         doses: doses,
         notificationsEnabled: data['notificationsEnabled'] != false,
         fullScreenAlert: data['fullScreenAlert'] == true,
+        tabletsPerStrip: data['tabletsPerStrip'] is int &&
+          data['tabletsPerStrip'] > 0 && data['tabletsPerStrip'] <= 1000
+            ? data['tabletsPerStrip'] as int : null,
       );
     } on FormatException {
       return const MedicationSetup();
@@ -156,6 +163,7 @@ class MedicationSetupRepository {
           'imagePath': setup.localImagePath,
           'notificationsEnabled': setup.notificationsEnabled,
           'fullScreenAlert': setup.fullScreenAlert,
+          'tabletsPerStrip': setup.tabletsPerStrip,
           'doses': {for (final e in setup.doses.entries) e.key: e.value.toJson()},
         }),
       ),

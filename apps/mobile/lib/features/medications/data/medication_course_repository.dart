@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../../core/storage/app_database.dart';
 import '../../../core/calendar/persian_date.dart';
+import 'medication_setup_repository.dart';
 
 /// One medication DB row is one treatment course. Never merge dose events,
 /// inventory ledgers, or plan-version IDs between courses, even for identical
@@ -16,6 +17,7 @@ class MedicationCourseReport {
     required this.unknown,
     required this.stockDebitedMilliunits,
     required this.recordedDoses,
+    this.tabletsPerStrip,
   });
 
   final Medication medication;
@@ -27,6 +29,7 @@ class MedicationCourseReport {
   final int recordedDoses;
   /// From signed stock ledger. Does NOT include "taken without deduction".
   final int stockDebitedMilliunits;
+  final int? tabletsPerStrip;
 
   int get days => ((ended ?? DateTime.now()).difference(
     DateTime(started.year, started.month, started.day)).inDays + 1).clamp(1, 999999);
@@ -87,6 +90,8 @@ class MedicationCourseRepository {
         deducted -= entry.deltaMilliunits;
       }
     }
+    final setup = await MedicationSetupRepository(db).read(
+      med.profileId, med.id);
     return MedicationCourseReport(
       medication: med,
       started: med.createdAt.toLocal(),
@@ -96,6 +101,7 @@ class MedicationCourseRepository {
       unknown: state.values.where((v) => v == 'unknown').length,
       stockDebitedMilliunits: deducted < 0 ? 0 : deducted,
       recordedDoses: state.length,
+      tabletsPerStrip: setup.tabletsPerStrip,
     );
   }
 }

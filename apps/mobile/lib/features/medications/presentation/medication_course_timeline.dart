@@ -114,6 +114,18 @@ class _MedicationCourseTimelineState extends State<MedicationCourseTimeline> {
             style: const TextStyle(color: AppColors.primaryDark,
               fontWeight: FontWeight.w800))),
         ]),
+        if (report.tabletsPerStrip != null &&
+            report.medication.unit == 'عدد') ...[
+          const SizedBox(height: 7),
+          Text('معادل تقریبی: ${(report.stockDebitedMilliunits / 1000 / report.tabletsPerStrip!).toStringAsFixed(1)} '
+            'ورق (${report.tabletsPerStrip} عدد در هر ورق)',
+            style: const TextStyle(color: AppColors.primaryDark,
+              fontWeight: FontWeight.w700)),
+        ] else if (report.medication.unit == 'عدد') ...[
+          const SizedBox(height: 6),
+          const Text('معادل ورق: تعداد قرص در هر ورق ثبت نشده است.',
+            style: TextStyle(color: AppColors.muted, fontSize: 11)),
+        ],
         const SizedBox(height: 5),
         const Text('این مقدار فقط کسرهای واقعی موجودی را شامل می‌شود؛ '
           'مصرف‌های ثبت‌شده بدون کسر، در این عدد محاسبه نمی‌شوند.',

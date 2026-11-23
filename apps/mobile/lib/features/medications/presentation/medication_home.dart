@@ -424,6 +424,7 @@ class _MedicationHomeState extends State<MedicationHome>
         reminderNote: draft.reminderNote,
         notificationsEnabled: draft.notificationsEnabled,
         fullScreenAlert: draft.fullScreenAlert,
+        tabletsPerStrip: draft.tabletsPerStrip ?? previous.tabletsPerStrip,
       ));
   }
 
