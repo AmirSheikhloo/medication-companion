@@ -103,8 +103,10 @@ class _MedicationHomeState extends State<MedicationHome>
 
   bool _needsStockAttention(StockSummary? stock) {
     if (stock == null || stock.packages.isEmpty) return false;
-    return !stock.packages.any((pack) => !pack.archived && !pack.expired &&
-      pack.balanceMilliunits > 0);
+    return stock.selected == null ||
+      stock.selected!.balanceMilliunits <= 0 ||
+      !stock.packages.any((pack) => !pack.archived && !pack.expired &&
+        pack.balanceMilliunits > 0);
   }
 
   List<Medication> get _stockAlerts => [

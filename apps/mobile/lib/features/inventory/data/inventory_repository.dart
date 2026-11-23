@@ -472,7 +472,8 @@ class InventoryRepository {
         pack.expiryIso, pack.expiryPrecision, DateTime.now())) {
       throw StateError('از بسته منقضی موجودی کسر نمی‌شود.');
     }
-    if (await _balanceForPackage(packageId) < quantityMilliunits) {
+    final balanceBefore = await _balanceForPackage(packageId);
+    if (balanceBefore < quantityMilliunits) {
       throw StateError('موجودی بسته برای این مقدار کافی نیست.');
     }
     await _insertMovement(
@@ -481,6 +482,35 @@ class InventoryRepository {
       occurrenceKey: occurrenceKey,
       note: 'مقدار واقعی مصرف‌شده به اعلام کاربر',
     );
+    if (balanceBefore == quantityMilliunits) {
+      // No stock may be debited from a depleted package. Transition to a
+      // same-unit positive-stock, eligible package by nearest expiry; if none
+      // exists clear the selection but retain all immutable ledger entries.
+      final fresh = await summary(profileId, medicationId);
+      final candidates = fresh.packages.where((other) =>
+        other.package.id != packageId &&
+        other.package.unit == pack.unit &&
+        !other.archived && !other.expired &&
+        other.balanceMilliunits > 0).toList();
+      candidates.sort((a, b) {
+        final x = a.package.expiryIso;
+        final y = b.package.expiryIso;
+        if (x == null) return y == null ? 0 : 1;
+        if (y == null) return -1;
+        return x.compareTo(y);
+      });
+      if (candidates.isNotEmpty) {
+        await db.into(db.stockSelections).insertOnConflictUpdate(
+          StockSelectionsCompanion.insert(
+            medicationId: medicationId, profileId: profileId,
+            packageId: candidates.first.package.id));
+      } else {
+        await (db.delete(db.stockSelections)..where((s) =>
+          s.profileId.equals(profileId) &
+          s.medicationId.equals(medicationId) &
+          s.packageId.equals(packageId))).go();
+      }
+    }
   }
 
   /// Compensate the exact unmatched debit once; no compensating entry is
