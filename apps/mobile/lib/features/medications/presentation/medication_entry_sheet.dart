@@ -149,6 +149,18 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   int? _calculatorPackage;
   final Map<int, int> _knownTabletsPerStrip = {};
   String _calculatorVolumeUnit = 'میلی‌لیتر';
+  late String _baseUnit;
+
+  void _setBaseUnit(String unit) {
+    if (_editing) { return; }
+    setState(() {
+      _baseUnit = unit;
+      for (final slot in _slots) { slot.unit = unit; }
+      for (final pack in _packages) { pack.unit = unit; }
+      _calculatorPackage = null;
+      _knownTabletsPerStrip.clear();
+    });
+  }
   final _strips = TextEditingController();
   final _tabletsPerStrip = TextEditingController();
   bool _notify = false;
@@ -179,7 +191,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                 : StockQuantity.format(slot.quantity!.milliunits),
             unit: slot.quantity?.unit ?? 'عدد',
           )];
-    if (!_editing) _packages.add(_PackageEditor(number: 1));
+    _baseUnit = widget.initialBaseUnit ??
+      (initial != null && initial.isNotEmpty
+        ? initial.first.quantity?.unit : null) ?? 'عدد';
+    for (final slot in _slots) { slot.unit = _baseUnit; }
+    if (!_editing) {
+      _packages.add(_PackageEditor(number: 1, unit: _baseUnit));
+    }
   }
 
   @override
@@ -241,7 +259,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   void _addPackage() {
     setState(() => _packages.add(_PackageEditor(
       number: (_packages.isEmpty ? 0 : _packages.last.number) + 1,
-      unit: _packages.first.unit,
+      unit: _baseUnit,
     )));
   }
 
@@ -321,6 +339,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       return;
     }
     final packages = <MedicationPackageDraft>[];
+    for (final slot in _slots) { slot.unit = _baseUnit; }
+    for (final pack in _packages) { pack.unit = _baseUnit; }
     if (!_editing) {
       for (var index = 0; index < _packages.length; index++) {
         final item = _packages[index];
@@ -426,6 +446,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       controller: controller,
       key: keyName == null ? ValueKey(controller) : ValueKey(keyName),
       textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [const EnglishDigitsInputFormatter(), FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩.٫]'))],
       maxLength: maxLength,
@@ -434,19 +455,6 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         counterText: '', border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14))),
     );
-
-  Widget _unitSelector(String value, ValueChanged<String> onChanged,
-      {bool showGroup = true}) {
-    final units = showGroup ? const ['عدد', 'میلی‌لیتر', 'سی‌سی', 'لیتر'] :
-        MedicationUnits.isLiquid(value)
-          ? const ['میلی‌لیتر'] : const ['عدد'];
-    return MedicationChoiceField(
-      value: value,
-      options: units,
-      onChanged: onChanged,
-      label: 'واحد مصرف',
-    );
-  }
 
   Widget _packageCard(int index) {
     final item = _packages[index];
@@ -481,37 +489,26 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             icon: Icons.delete_outline_rounded),
         ]),
         const SizedBox(height: 9),
-        if (index == 0) SegmentedButton<bool>(
-          showSelectedIcon: false,
-          segments: const [
-            ButtonSegment(value: false, label: Text('تعدادی')),
-            ButtonSegment(value: true, label: Text('حجمی / مایع')),
-          ],
-          selected: {liquid},
-          onSelectionChanged: (values) {
-            final before = item.unit;
-            setState(() {
-              item.unit = values.first ? 'میلی‌لیتر' : 'عدد';
-              if (index == 0) {
-                for (final slot in _slots) {
-                  if (slot.unit == before) slot.unit = item.unit;
-                }
-              }
-              for (final pack in _packages) { pack.unit = item.unit; }
-            });
-          },
-        ),
-        if (index > 0) const Text('واحد همهٔ بسته‌ها یکسان است.',
-          style: TextStyle(color: AppColors.muted)),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text('واحد پایه: $_baseUnit',
+            style: const TextStyle(color: AppColors.muted,
+              fontSize: 12, fontWeight: FontWeight.w700))),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(flex: 3, child: _numberField(item.quantity,
             label: 'مقدار موجودی *', hint: liquid ? 'مثلاً 1000' : 'مثلاً 100',
             keyName: 'med-stock-${index + 1}')),
           const SizedBox(width: 8),
-          Expanded(flex: 2, child: _unitSelector(item.unit,
-            (value) => setState(() => item.unit = value),
-            showGroup: false)),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 15, vertical: 16),
+            decoration: BoxDecoration(color: AppColors.mint,
+              borderRadius: BorderRadius.circular(14)),
+            child: Text(_baseUnit,
+              style: const TextStyle(
+                color: AppColors.primaryDark,
+                fontWeight: FontWeight.w800))),
         ]),
         ...[
           const SizedBox(height: 9),
@@ -526,13 +523,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
               Expanded(child: _numberField(_strips,
                 label: liquid ? 'تعداد ظرف' : 'تعداد ورق',
                 keyName: 'calculator-strip-count',
-                hint: liquid ? 'تعداد ظرف را وارد کنید' : 'تعداد ورق را وارد کنید',
+                hint: liquid ? 'مثلاً 2' : 'مثلاً 2',
                 rebuildOnChange: true)),
               const SizedBox(width: 9),
               Expanded(child: _numberField(_tabletsPerStrip,
                 label: liquid ? 'حجم هر ظرف' : 'تعداد در هر ورق',
                 keyName: 'calculator-per-strip',
-                hint: liquid ? 'حجم هر ظرف را وارد کنید' : 'تعداد در هر ورق را وارد کنید',
+                hint: liquid ? 'مثلاً 100' : 'مثلاً 10',
                 rebuildOnChange: true)),
             ]),
             if (liquid) ...[
@@ -633,7 +630,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         if (_slots.length > 1) MedicationActionIcon(
           tooltip: 'حذف نوبت', destructive: true,
           onPressed: () => _removeSlot(index),
-          icon: Icons.remove_circle_outline),
+          icon: Icons.remove_circle_outline, iconSize: 16),
       ]),
       const SizedBox(height: 7),
       Row(children: [
@@ -656,8 +653,15 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           label: 'مقدار مصرف این نوبت *', hint: 'مثلاً 1',
           keyName: 'med-dose-${index + 1}')),
         const SizedBox(width: 8),
-        Expanded(flex: 2, child: _unitSelector(slot.unit,
-          (value) => setState(() => slot.unit = value))),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 13, vertical: 15),
+          decoration: BoxDecoration(color: AppColors.mint,
+            borderRadius: BorderRadius.circular(14)),
+          child: Text(_baseUnit,
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontWeight: FontWeight.w800))),
       ]),
     ]));
   }
@@ -883,6 +887,24 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         ))),
       ]),
       _nameSuggestions(),
+      const SizedBox(height: 18),
+      const Text('واحد پایه دارو', style: TextStyle(
+        fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
+      const SizedBox(height: 6),
+      Text(_editing
+        ? 'واحد این دارو برای حفظ سوابق قابل تغییر نیست.'
+        : 'واحد را یک‌بار انتخاب کن؛ نوبت‌ها و موجودی از آن پیروی می‌کنند.',
+        style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+      const SizedBox(height: 10),
+      SegmentedButton<String>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(value: 'عدد', label: Text('تعدادی')),
+          ButtonSegment(value: 'میلی‌لیتر', label: Text('مایع / حجمی')),
+        ],
+        selected: {_baseUnit == 'عدد' ? 'عدد' : 'میلی‌لیتر'},
+        onSelectionChanged: _editing ? null :
+          (values) => _setBaseUnit(values.first)),
     ],
   );
 
@@ -1072,7 +1094,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
               : 'مرحله بعد',
           icon: _currentStep == 4
             ? Icons.check_circle_outline : Icons.arrow_forward_rounded,
-          onPressed: _nextStep, light: true, height: 50,
+          onPressed: _nextStep, height: 50,
         )),
       ]),
     )),

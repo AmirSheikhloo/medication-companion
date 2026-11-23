@@ -277,6 +277,68 @@ void main() {
     expect(movements.where((m) => m.kind == 'metadata'), hasLength(3));
   });
 
+  test('eligible package auto-selection never overrides a current choice', () async {
+    final (profileId, medId) = await setupMedication();
+    final first = await inventory.addPackage(profileId: profileId,
+      medicationId: medId, label: 'اول', unit: 'عدد',
+      initialMilliunits: 3000);
+    expect((await inventory.summary(profileId, medId)).selectedPackageId, first);
+    final second = await inventory.addPackage(profileId: profileId,
+      medicationId: medId, label: 'دوم', unit: 'عدد',
+      initialMilliunits: 5000);
+    expect((await inventory.summary(profileId, medId)).selectedPackageId, first);
+    await inventory.archivePackage(profileId: profileId,
+      medicationId: medId, packageId: first);
+    expect((await inventory.summary(profileId, medId)).selected, isNull);
+    await inventory.restorePackage(profileId: profileId,
+      medicationId: medId, packageId: first);
+    expect((await inventory.summary(profileId, medId)).selectedPackageId, first);
+    await inventory.selectPackage(profileId: profileId,
+      medicationId: medId, packageId: second);
+    await inventory.archivePackage(profileId: profileId,
+      medicationId: medId, packageId: first);
+    await inventory.restorePackage(profileId: profileId,
+      medicationId: medId, packageId: first);
+    expect((await inventory.summary(profileId, medId)).selectedPackageId, second);
+  });
+
+  test('depleting selected package switches only to eligible same-unit stock', () async {
+    final (profileId, medId) = await setupMedication();
+    final first = await inventory.addPackage(profileId: profileId,
+      medicationId: medId, label: 'اول', unit: 'عدد',
+      initialMilliunits: 1000);
+    final second = await inventory.addPackage(profileId: profileId,
+      medicationId: medId, label: 'دوم', unit: 'عدد',
+      initialMilliunits: 3000);
+    final dose = (await medications.dosesForDay(
+      profileId, DateTime.now())).single;
+    expect(await medications.recordDose(
+      dose: dose, profileId: profileId, action: 'taken',
+      stockPackageId: first, stockQuantityMilliunits: 1000), isTrue);
+    final stock = await inventory.summary(profileId, medId);
+    expect(stock.selectedPackageId, second);
+    expect(stock.packages.first.balanceMilliunits, 0);
+    expect(stock.selected?.balanceMilliunits, 3000);
+  });
+
+  test('zero stock without replacement clears selection but keeps ledger', () async {
+    final (profileId, medId) = await setupMedication();
+    final first = await inventory.addPackage(profileId: profileId,
+      medicationId: medId, label: 'تنها', unit: 'عدد',
+      initialMilliunits: 1000);
+    final dose = (await medications.dosesForDay(
+      profileId, DateTime.now())).single;
+    expect(await medications.recordDose(
+      dose: dose, profileId: profileId, action: 'taken',
+      stockPackageId: first, stockQuantityMilliunits: 1000), isTrue);
+    final stock = await inventory.summary(profileId, medId);
+    expect(stock.selectedPackageId, isNull);
+    expect(stock.packages.single.balanceMilliunits, 0);
+    expect(await inventory.movementsForPackage(
+      profileId: profileId, medicationId: medId, packageId: first),
+      hasLength(2));
+  });
+
   test('empty package without movements can be deleted', () async {
     final (profileId, medId) = await setupMedication();
     final packId = await inventory.addPackage(profileId: profileId,

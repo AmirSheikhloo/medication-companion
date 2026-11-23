@@ -29,6 +29,7 @@ class MedicationHistoryPanel extends StatefulWidget {
 
 class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
   _HistoryRange _range = _HistoryRange.week;
+  int _visibleLimit = 20;
   DateTimeRange? _custom;
   late Future<({List<DoseEvent> doses, List<StockMovement> movements})> _future;
 
@@ -46,7 +47,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
       _HistoryRange.week => DateTimeRange(
         start: end.subtract(const Duration(days: 6)), end: end),
       _HistoryRange.month => DateTimeRange(
-        start: DateTime(end.year, end.month, 1), end: end),
+        start: end.subtract(const Duration(days: 29)), end: end),
       _HistoryRange.year => DateTimeRange(
         start: DateTime(end.year, 1, 1), end: end),
       _HistoryRange.custom => _custom ?? DateTimeRange(start: end, end: end),
@@ -65,26 +66,22 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
         t.medicationId.equals(med.id) &
         t.recordedAt.isBiggerOrEqualValue(first) &
         t.recordedAt.isSmallerThanValue(afterLast))
-      ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)]))
-        .get();
-    final movements = <StockMovement>[];
-    for (final package in widget.stock?.packages ?? const <PackageBalance>[]) {
-      final rows = await widget.inventoryRepository.movementsForPackage(
-        profileId: med.profileId, medicationId: med.id,
-        packageId: package.package.id);
-      for (final row in rows) {
-        if (!row.createdAt.isBefore(first) && row.createdAt.isBefore(afterLast)) {
-          movements.add(row);
-        }
-      }
-    }
-    movements.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
+      ..limit(_visibleLimit + 1)).get();
+    final movements = await (db.select(db.stockMovements)
+      ..where((t) => t.profileId.equals(med.profileId) &
+        t.medicationId.equals(med.id) &
+        t.createdAt.isBiggerOrEqualValue(first) &
+        t.createdAt.isSmallerThanValue(afterLast))
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
+      ..limit(_visibleLimit + 1)).get();
     return (doses: doses, movements: movements);
   }
 
   void _setRange(_HistoryRange value) {
     setState(() {
       _range = value;
+      _visibleLimit = 20;
       _future = _load();
     });
   }
@@ -96,6 +93,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
     setState(() {
       _custom = custom;
       _range = _HistoryRange.custom;
+      _visibleLimit = 20;
       _future = _load();
     });
   }
@@ -103,7 +101,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
   String _doseName(String action) => switch (action) {
     'taken' => 'مصرف کردم',
     'skipped' => 'مصرف نکردم',
-    'unknown' => 'مطمئن نیستم',
+    'unknown' => 'مطمئن نیستم · نیازمند بازبینی',
     'undo' => 'بازگرداندن ثبت',
     _ => 'ثبت وضعیت',
   };
@@ -149,31 +147,33 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
       );
 
   @override
-  Widget build(BuildContext context) => AppPanel(
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-      const AppSectionHeading('سوابق مصرف و تغییرات موجودی',
-        icon: Icons.history_rounded),
+      const SizedBox(height: 2),
       const SizedBox(height: 9),
-      SingleChildScrollView(scrollDirection: Axis.horizontal,
-        child: Row(children: [
-          for (final item in const [
-            (_HistoryRange.today, 'امروز'),
-            (_HistoryRange.week, 'هفتگی'),
-            (_HistoryRange.month, 'ماهانه'),
-            (_HistoryRange.year, 'سالانه'),
-          ]) Padding(padding: const EdgeInsets.only(left: 6),
-            child: ChoiceChip(label: Text(item.$2),
-              selected: _range == item.$1,
-              onSelected: (_) => _setRange(item.$1))),
-          ActionChip(
-            avatar: const Icon(Icons.date_range_outlined, size: 17),
-            backgroundColor: _range == _HistoryRange.custom
-              ? AppColors.mint : Colors.white,
-            side: const BorderSide(color: AppColors.outline),
-            label: const Text('بازه دلخواه'),
-            onPressed: _chooseRange),
-        ])),
+      Wrap(spacing: 5, runSpacing: 5, children: [
+        for (final item in const [
+          (_HistoryRange.today, 'امروز'),
+          (_HistoryRange.week, '۷ روز'),
+          (_HistoryRange.month, '۳۰ روز'),
+          (_HistoryRange.year, 'سال'),
+        ])
+          ChoiceChip(
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            label: Text(item.$2, style: const TextStyle(fontSize: 11)),
+            selected: _range == item.$1,
+            onSelected: (_) => _setRange(item.$1)),
+        ActionChip(
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          backgroundColor: _range == _HistoryRange.custom
+            ? AppColors.mint : Colors.white,
+          side: const BorderSide(color: AppColors.outline),
+          label: const Text('بازه', style: TextStyle(fontSize: 11)),
+          onPressed: _chooseRange),
+      ]),
       const SizedBox(height: 6),
       Text(PersianDate.displayDigits(
         '${persianDateLabel(_selectedRange().start)} تا '
@@ -190,30 +190,32 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.requireData;
+          final hasMore = data.doses.length > _visibleLimit ||
+              data.movements.length > _visibleLimit;
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            Text('تاریخچهٔ مصرف (${PersianDate.displayDigits('${data.doses.length}')})',
+            Text('تاریخچهٔ مصرف (${PersianDate.displayDigits('${data.doses.take(_visibleLimit).length}')}${data.doses.length > _visibleLimit ? '+' : ''})',
               style: const TextStyle(fontWeight: FontWeight.w800,
                 color: AppColors.primaryDark)),
             if (data.doses.isEmpty) const Padding(
               padding: EdgeInsets.symmetric(vertical: 9),
               child: Text('در این بازه مصرفی ثبت نشده است.',
                 style: TextStyle(color: AppColors.muted))),
-            for (final dose in data.doses) _eventRow(
+            for (final dose in data.doses.take(_visibleLimit)) _eventRow(
               title: _doseName(dose.action),
               subtitle: persianDateLabel(dose.recordedAt, showTime: true),
               color: _doseColor(dose.action),
               icon: dose.action == 'taken' ? Icons.check_circle_outline
                   : Icons.info_outline),
             const Divider(height: 22),
-            Text('تاریخچهٔ موجودی (${PersianDate.displayDigits('${data.movements.length}')})',
+            Text('تاریخچهٔ موجودی (${PersianDate.displayDigits('${data.movements.take(_visibleLimit).length}')}${data.movements.length > _visibleLimit ? '+' : ''})',
               style: const TextStyle(fontWeight: FontWeight.w800,
                 color: AppColors.primaryDark)),
             if (data.movements.isEmpty) const Padding(
               padding: EdgeInsets.symmetric(vertical: 9),
               child: Text('در این بازه تغییری در موجودی ثبت نشده است.',
                 style: TextStyle(color: AppColors.muted))),
-            for (final move in data.movements) _eventRow(
+            for (final move in data.movements.take(_visibleLimit)) _eventRow(
               title: PersianDate.displayDigits(_movementTitle(move)),
               subtitle: '${persianDateLabel(move.createdAt, showTime: true)}'
                   '${move.kind == 'metadata' && move.note != null
@@ -221,9 +223,18 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               color: move.deltaMilliunits < 0
                 ? const Color(0xFFB55B32) : AppColors.primary,
               icon: Icons.inventory_2_outlined),
+            if (hasMore) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => setState(() {
+                  _visibleLimit += 20;
+                  _future = _load();
+                }),
+                icon: const Icon(Icons.expand_more_rounded),
+                label: const Text('نمایش ۲۰ مورد بیشتر')),
+            ],
           ]);
         },
       ),
-    ]),
-  );
+    ]);
 }

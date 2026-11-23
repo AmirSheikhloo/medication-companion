@@ -130,19 +130,19 @@ class _RangeDialogState extends State<_RangeDialog> {
     if (from == null || to == null) {
       setState(() => _error = _jalali
         ? 'تاریخ شمسی معتبر با سال چهاررقمی وارد کنید.'
-        : 'Enter a valid Gregorian date (four-digit year).');
+        : 'تاریخ میلادی معتبر با سال چهاررقمی وارد کنید.');
       return;
     }
     if (from.isAfter(to)) {
       setState(() => _error = _jalali
         ? 'تاریخ شروع نباید بعد از تاریخ پایان باشد.'
-        : 'Start date must be on or before end date.');
+        : 'تاریخ شروع نباید بعد از تاریخ پایان باشد.');
       return;
     }
     if (to.isAfter(_today)) {
       setState(() => _error = _jalali
         ? 'تاریخ پایان نمی‌تواند در آینده باشد.'
-        : 'End date cannot be in the future.');
+        : 'تاریخ پایان نمی‌تواند در آینده باشد.');
       return;
     }
     Navigator.pop(context, DateTimeRange(start: from, end: to));
@@ -151,6 +151,11 @@ class _RangeDialogState extends State<_RangeDialog> {
   Widget _part(TextEditingController ctl, String label, int maxLength) =>
     Expanded(child: TextField(
       controller: ctl,
+      onTap: () {
+        final field = ctl;
+        field.selection = TextSelection(
+          baseOffset: 0, extentOffset: field.text.length);
+      },
       maxLength: maxLength,
       keyboardType: TextInputType.number,
       textDirection: TextDirection.ltr,
@@ -195,13 +200,13 @@ class _RangeDialogState extends State<_RangeDialog> {
           _part(input.year, 'سال', 4),
         ]
       : <Widget>[
-          _part(input.month, 'Month', 2),
+          _part(input.month, 'ماه', 2),
           const Padding(padding: EdgeInsets.symmetric(horizontal: 5),
             child: Text('/')),
-          _part(input.day, 'Day', 2),
+          _part(input.day, 'روز', 2),
           const Padding(padding: EdgeInsets.symmetric(horizontal: 5),
             child: Text('/')),
-          _part(input.year, 'Year', 4),
+          _part(input.year, 'سال', 4),
         ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -222,15 +227,15 @@ class _RangeDialogState extends State<_RangeDialog> {
     final to = _to.parse(_jalali);
     final equivalent = from == null || to == null
       ? (_jalali ? 'با تکمیل هر دو تاریخ، معادل میلادی دیده می‌شود.'
-        : 'Enter both dates to view their Jalali equivalents.')
+        : 'هر دو تاریخ را وارد کن تا معادل شمسی دیده شود.')
       : (_jalali
         ? 'میلادی: ${gregorianDateLabel(from)} تا ${gregorianDateLabel(to)}'
-        : 'Jalali: ${persianDateLabel(from)} — ${persianDateLabel(to)}');
+        : 'شمسی: ${persianDateLabel(from)} — ${persianDateLabel(to)}');
     return AlertDialog(
       backgroundColor: AppColors.background,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 20),
-      title: Text(_jalali ? 'انتخاب بازه گزارش' : 'Custom date range',
+      title: Text(_jalali ? 'انتخاب بازه گزارش' : 'انتخاب بازه گزارش',
         style: const TextStyle(color: AppColors.primaryDark,
           fontWeight: FontWeight.w900)),
       content: SizedBox(
@@ -243,7 +248,7 @@ class _RangeDialogState extends State<_RangeDialog> {
               showSelectedIcon: false,
               segments: const [
                 ButtonSegment(value: true, label: Text('شمسی')),
-                ButtonSegment(value: false, label: Text('Gregorian')),
+                ButtonSegment(value: false, label: Text('میلادی')),
               ],
               selected: {_jalali},
               onSelectionChanged: (value) => _switchCalendar(value.first),
@@ -251,16 +256,16 @@ class _RangeDialogState extends State<_RangeDialog> {
             const SizedBox(height: 14),
             Wrap(spacing: 8, runSpacing: 8, children: [
               ActionChip(
-                label: Text(_jalali ? '6 ماه اخیر' : 'Last 6 months'),
+                label: Text(_jalali ? '6 ماه اخیر' : '۶ ماه اخیر'),
                 onPressed: () => _presetMonths(6)),
               ActionChip(
-                label: Text(_jalali ? '12 ماه اخیر' : 'Last 12 months'),
+                label: Text(_jalali ? '12 ماه اخیر' : '۱۲ ماه اخیر'),
                 onPressed: () => _presetMonths(12)),
             ]),
             const SizedBox(height: 14),
-            _dateRow(_jalali ? 'از تاریخ' : 'From', _from),
+            _dateRow(_jalali ? 'از تاریخ' : 'از تاریخ', _from),
             const SizedBox(height: 18),
-            _dateRow(_jalali ? 'تا تاریخ' : 'To', _to),
+            _dateRow(_jalali ? 'تا تاریخ' : 'تا تاریخ', _to),
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(12),
@@ -280,10 +285,10 @@ class _RangeDialogState extends State<_RangeDialog> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context),
-          child: Text(_jalali ? 'انصراف' : 'Cancel')),
+          child: Text(_jalali ? 'انصراف' : 'انصراف')),
         FilledButton(
           onPressed: _save,
-          child: Text(_jalali ? 'نمایش گزارش' : 'Apply range')),
+          child: Text(_jalali ? 'نمایش گزارش' : 'نمایش گزارش')),
       ],
     );
   }

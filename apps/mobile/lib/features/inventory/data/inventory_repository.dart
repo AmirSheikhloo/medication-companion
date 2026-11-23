@@ -155,6 +155,7 @@ class InventoryRepository {
     required String profileId,
     required String medicationId,
     required String packageId,
+    int? limit,
   }) async {
     await _assertReadableMedication(profileId, medicationId);
     final package = await (db.select(db.stockPackages)
@@ -163,12 +164,13 @@ class InventoryRepository {
               t.medicationId.equals(medicationId)))
         .getSingleOrNull();
     if (package == null) throw StateError('بسته متعلق به این دارو نیست.');
-    return (db.select(db.stockMovements)
-          ..where((t) => t.profileId.equals(profileId) &
-              t.medicationId.equals(medicationId) &
-              t.packageId.equals(packageId))
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-        .get();
+    final query = db.select(db.stockMovements)
+      ..where((t) => t.profileId.equals(profileId) &
+          t.medicationId.equals(medicationId) &
+          t.packageId.equals(packageId))
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
+    if (limit != null) { query.limit(limit); }
+    return query.get();
   }
 
   Future<String> addPackage({
@@ -200,6 +202,12 @@ class InventoryRepository {
     final id = _uuid.v4();
     await db.transaction(() async {
       await _ownedMedication(profileId, medicationId);
+      final existingSelection = await (db.select(db.stockSelections)
+        ..where((t) => t.profileId.equals(profileId) &
+          t.medicationId.equals(medicationId))).getSingleOrNull();
+      final autoSelect = existingSelection == null &&
+        initialMilliunits > 0 &&
+        !StockQuantity.isExpired(expiryIso, expiryPrecision, DateTime.now());
       await db.into(db.stockPackages).insert(StockPackagesCompanion.insert(
             id: id,
             profileId: profileId,
@@ -217,7 +225,7 @@ class InventoryRepository {
           note: 'موجودی اولیه به اعلام کاربر',
         );
       }
-      if (selectForUse) {
+      if (selectForUse || autoSelect) {
         await db.into(db.stockSelections).insertOnConflictUpdate(
           StockSelectionsCompanion.insert(
             medicationId: medicationId,
@@ -319,6 +327,18 @@ class InventoryRepository {
       await _ownedPackage(profileId, medicationId, packageId);
       await (db.delete(db.appSettings)..where((s) => s.key.equals(
         _archiveKey(profileId, medicationId, packageId)))).go();
+      final current = await (db.select(db.stockSelections)
+        ..where((t) => t.profileId.equals(profileId) &
+          t.medicationId.equals(medicationId))).getSingleOrNull();
+      final pack = await _ownedPackage(profileId, medicationId, packageId);
+      if (current == null && await _balanceForPackage(packageId) > 0 &&
+          !StockQuantity.isExpired(
+            pack.expiryIso, pack.expiryPrecision, DateTime.now())) {
+        await db.into(db.stockSelections).insertOnConflictUpdate(
+          StockSelectionsCompanion.insert(
+            profileId: profileId, medicationId: medicationId,
+            packageId: packageId));
+      }
       await _insertMovement(profileId: profileId, medicationId: medicationId,
         packageId: packageId, kind: 'metadata', delta: 0,
         note: 'بسته از بایگانی بازگردانده شد');
@@ -452,7 +472,8 @@ class InventoryRepository {
         pack.expiryIso, pack.expiryPrecision, DateTime.now())) {
       throw StateError('از بسته منقضی موجودی کسر نمی‌شود.');
     }
-    if (await _balanceForPackage(packageId) < quantityMilliunits) {
+    final balanceBefore = await _balanceForPackage(packageId);
+    if (balanceBefore < quantityMilliunits) {
       throw StateError('موجودی بسته برای این مقدار کافی نیست.');
     }
     await _insertMovement(
@@ -461,6 +482,35 @@ class InventoryRepository {
       occurrenceKey: occurrenceKey,
       note: 'مقدار واقعی مصرف‌شده به اعلام کاربر',
     );
+    if (balanceBefore == quantityMilliunits) {
+      // No stock may be debited from a depleted package. Transition to a
+      // same-unit positive-stock, eligible package by nearest expiry; if none
+      // exists clear the selection but retain all immutable ledger entries.
+      final fresh = await summary(profileId, medicationId);
+      final candidates = fresh.packages.where((other) =>
+        other.package.id != packageId &&
+        other.package.unit == pack.unit &&
+        !other.archived && !other.expired &&
+        other.balanceMilliunits > 0).toList();
+      candidates.sort((a, b) {
+        final x = a.package.expiryIso;
+        final y = b.package.expiryIso;
+        if (x == null) return y == null ? 0 : 1;
+        if (y == null) return -1;
+        return x.compareTo(y);
+      });
+      if (candidates.isNotEmpty) {
+        await db.into(db.stockSelections).insertOnConflictUpdate(
+          StockSelectionsCompanion.insert(
+            medicationId: medicationId, profileId: profileId,
+            packageId: candidates.first.package.id));
+      } else {
+        await (db.delete(db.stockSelections)..where((s) =>
+          s.profileId.equals(profileId) &
+          s.medicationId.equals(medicationId) &
+          s.packageId.equals(packageId))).go();
+      }
+    }
   }
 
   /// Compensate the exact unmatched debit once; no compensating entry is

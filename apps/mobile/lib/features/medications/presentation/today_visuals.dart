@@ -131,7 +131,7 @@ class TodayRecordedOutcomeBanner extends StatelessWidget {
     final message = switch (status) {
       'taken' => 'این نوبت مصرف شده است',
       'skipped' => 'مصرف این نوبت ثبت نشده است',
-      _ => 'وضعیت این نوبت نامشخص ثبت شده است',
+      _ => 'ثبت نامطمئن است؛ پیش از هر تصمیم، سابقه مصرف را بررسی کن',
     };
     return Container(
       width: double.infinity,

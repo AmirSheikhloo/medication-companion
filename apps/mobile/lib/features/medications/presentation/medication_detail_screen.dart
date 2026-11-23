@@ -87,6 +87,72 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     if (mounted) setState(() => _reloadedStock = latest);
   }
 
+  Future<void> _selectPackage(PackageBalance balance) async {
+    if (balance.archived || balance.expired ||
+        balance.balanceMilliunits <= 0) { return; }
+    try {
+      await inventoryRepository.selectPackage(
+        profileId: medication.profileId,
+        medicationId: medication.id,
+        packageId: balance.package.id);
+      final fresh = await inventoryRepository.summary(
+        medication.profileId, medication.id);
+      if (mounted) setState(() => _reloadedStock = fresh);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('این بسته قابل انتخاب نیست؛ موجودی یا تاریخ انقضا را بررسی کن.')));
+    }
+  }
+
+  void _openPlanHistory() {
+    Navigator.of(context).push(medicationPageRoute<void>(context,
+      Scaffold(
+        appBar: AppBar(title: const Text('تاریخچه تغییر برنامه')),
+        body: ListView(padding: const EdgeInsets.all(16),
+          children: [
+            AppPanel(child: MedicationPlanHistoryPanel(
+              medication: medication, db: medicationRepository.db)),
+          ]),
+      )));
+  }
+
+  void _openCourseHistory() {
+    Navigator.of(context).push(medicationPageRoute<void>(context,
+      Scaffold(
+        appBar: AppBar(title: const Text('پرونده و دوره‌های مصرف')),
+        body: ListView(padding: const EdgeInsets.all(16),
+          children: [
+            AppPanel(child: MedicationCourseTimeline(
+              medication: medication,
+              repository: MedicationCourseRepository(medicationRepository.db),
+              onOpenCourse: _openRelatedCourse)),
+          ]),
+      )));
+  }
+
+  Future<void> _openRelatedCourse(Medication related) async {
+    final relatedStock = await inventoryRepository.summary(
+      related.profileId, related.id);
+    if (!mounted) { return; }
+    Navigator.of(context).push(medicationPageRoute<void>(context,
+      Scaffold(
+        appBar: AppBar(title: const Text('سوابق دوره مصرف')),
+        body: ListView(padding: const EdgeInsets.all(16),
+          children: [
+            Padding(padding: const EdgeInsets.only(bottom: 12),
+              child: Text(PersianDate.displayDigits(related.name),
+                style: const TextStyle(
+                  fontSize: 19, fontWeight: FontWeight.w800))),
+            MedicationHistoryPanel(
+              medication: related,
+              medicationRepository: medicationRepository,
+              inventoryRepository: inventoryRepository,
+              stock: relatedStock),
+          ]),
+      )));
+  }
+
   String _clock(DateTime date) => PersianDate.displayDigits(
     '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}');
 
@@ -136,9 +202,14 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             const SizedBox(height: 3),
             Text(_expiryLabel(balance), style: TextStyle(
               color: expired ? color : AppColors.muted, fontSize: 11)),
-            if (isSelected) const Text('بسته انتخاب‌شده برای مصرف',
-              style: TextStyle(color: AppColors.primary, fontSize: 11,
-                fontWeight: FontWeight.w700)),
+            if (isSelected) const Align(
+              alignment: Alignment.centerRight,
+              child: AppStatusPill(text: 'منتخب', icon: Icons.check_rounded,
+                color: AppColors.primary, fontSize: 10)),
+            if (balance.balanceMilliunits <= 0 && !balance.archived)
+              const Text('موجودی تمام شده',
+                style: TextStyle(color: Color(0xFFB04A38),
+                  fontWeight: FontWeight.w800, fontSize: 11)),
             if (balance.archived) const Text('بایگانی‌شده؛ در مصرف و موجودی فعال استفاده نمی‌شود',
               style: TextStyle(color: AppColors.muted, fontSize: 11)),
             if (expired) const Text('منقضی‌شده؛ قابل انتخاب برای مصرف نیست',
@@ -146,7 +217,19 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                 fontWeight: FontWeight.w700)),
           ],
         )),
-        const Icon(Icons.chevron_left_rounded, color: AppColors.primary),
+        if (!isSelected && !balance.archived && !expired &&
+            balance.balanceMilliunits > 0)
+          IconButton(
+            key: Key('select-package-${balance.package.id}'),
+            tooltip: 'انتخاب برای مصرف',
+            onPressed: () => _selectPackage(balance),
+            icon: const Icon(Icons.radio_button_unchecked_rounded,
+              size: 22, color: AppColors.primary))
+        else
+          Icon(isSelected ? Icons.check_circle_rounded :
+            Icons.chevron_left_rounded,
+            color: isSelected ? AppColors.primary : AppColors.muted,
+            size: 21),
       ]),
     ));
   }
@@ -169,7 +252,38 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('جزئیات دارو'),
-        backgroundColor: AppColors.background),
+        backgroundColor: AppColors.background,
+        actions: [
+          PopupMenuButton<String>(
+            key: const Key('medication-detail-actions'),
+            tooltip: 'مدیریت دارو',
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (action) {
+              if (action == 'edit') onEdit();
+              if (action == 'finish') onArchive();
+              if (action == 'restore') onRestore();
+              if (action == 'hide') widget.onHide?.call();
+              if (action == 'unhide') widget.onUnhide?.call();
+            },
+            itemBuilder: (_) => [
+              if (!hidden && !archived)
+                const PopupMenuItem(value: 'edit',
+                  child: Text('ویرایش دارو')),
+              if (!hidden && !archived)
+                const PopupMenuItem(value: 'finish',
+                  child: Text('پایان دوره مصرف')),
+              if (archived && !hidden)
+                const PopupMenuItem(value: 'restore',
+                  child: Text('شروع دوباره دوره')),
+              if (hidden)
+                const PopupMenuItem(value: 'unhide',
+                  child: Text('بازگرداندن به فهرست'))
+              else
+                const PopupMenuItem(value: 'hide',
+                  child: Text('حذف دارو از فهرست')),
+            ],
+          ),
+        ]),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 15, 16, 32), children: [
         Row(children: [
           MedicationArtwork(name: medication.name, setup: setup, size: 82),
@@ -198,19 +312,28 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                 Icon(slots[i].scheduledAt.hour >= 17 ? Icons.nightlight_outlined :
                   Icons.wb_sunny_outlined, size: 20, color: AppColors.primary),
                 const SizedBox(width: 10),
-                Expanded(child: Text(slots[i].scheduledAt.hour < 11 ? 'صبح' :
-                  slots[i].scheduledAt.hour < 17 ? 'ظهر' : 'شب',
-                  style: const TextStyle(fontWeight: FontWeight.bold))),
-                AppStatusPill(text: _clock(slots[i].scheduledAt), color: AppColors.primary),
-                const SizedBox(width: 9),
-                Flexible(child: Text(PersianDate.displayDigits(slots[i].plan.doseText),
-                  maxLines: 2, textAlign: TextAlign.end)),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(slots[i].scheduledAt.hour < 11 ? 'صبح' :
+                      slots[i].scheduledAt.hour < 16 ? 'ظهر' :
+                      slots[i].scheduledAt.hour < 19 ? 'عصر' : 'شب',
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text('ساعت: ${_clock(slots[i].scheduledAt)}',
+                      style: const TextStyle(fontSize: 12,
+                        color: AppColors.muted)),
+                    Text('مقدار: ${PersianDate.displayDigits(slots[i].plan.doseText)}',
+                      style: const TextStyle(fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+                  ],
+                )),
               ])),
           ],
         ])),
         const SizedBox(height: 12),
         AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const AppSectionHeading('موجودی و بسته‌ها',
+          const AppSoftHeader(title: 'موجودی و بسته‌ها',
             icon: Icons.inventory_2_outlined),
           const SizedBox(height: 9),
           Text(selected == null
@@ -220,6 +343,12 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                   '${selected.package.unit} در بستهٔ انتخاب‌شده'),
             style: TextStyle(color: statusColor, fontSize: 15,
               fontWeight: FontWeight.w900)),
+          if (selected != null && selected.balanceMilliunits <= 0) ...[
+            const SizedBox(height: 8),
+            const AppStatusPill(text: 'موجودی این بسته تمام شده',
+              icon: Icons.inventory_2_outlined,
+              color: Color(0xFFB35A2C)),
+          ],
           if (stock?.lowStock == true) ...[
             const SizedBox(height: 7),
             const AppStatusPill(text: 'هشدار کم‌موجودی',
@@ -247,53 +376,38 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             ])),
           const SizedBox(height: 12),
         ],
-        MedicationPlanHistoryPanel(
-          medication: medication, db: medicationRepository.db),
-        const SizedBox(height: 16),
-        MedicationHistoryPanel(medication: medication,
-          medicationRepository: medicationRepository,
-          inventoryRepository: inventoryRepository,
-          stock: stock),
-        const SizedBox(height: 16),
-        MedicationCourseTimeline(
-          medication: medication,
-          repository: MedicationCourseRepository(medicationRepository.db),
-          onOpenCourse: widget.onOpenCourse,
-        ),
-        const SizedBox(height: 16),
-        if (hidden) ...[
-          AppGradientButton(
-            label: 'بازگرداندن دارو به فهرست',
-            icon: Icons.restore_rounded, onPressed: widget.onUnhide),
-        ] else ...[
-          if (archived)
-            AppGradientButton(
-              label: 'شروع دوبارهٔ همین دوره',
-              icon: Icons.restore_rounded,
-              onPressed: onRestore)
-          else ...[
-            AppGradientButton(label: 'ویرایش دارو',
-              icon: Icons.edit_outlined, onPressed: onEdit),
+        AppPanel(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const AppSoftHeader(title: 'سوابق مصرف',
+              icon: Icons.history_rounded),
+            const SizedBox(height: 11),
+            MedicationHistoryPanel(medication: medication,
+              medicationRepository: medicationRepository,
+              inventoryRepository: inventoryRepository,
+              stock: stock),
+          ])),
+        const SizedBox(height: 12),
+        AppPanel(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const AppSoftHeader(title: 'پرونده و تغییرات',
+              icon: Icons.folder_copy_outlined),
+            const SizedBox(height: 11),
+            OutlinedButton.icon(
+              onPressed: _openPlanHistory,
+              icon: const Icon(Icons.history_toggle_off_rounded),
+              label: const Text('تاریخچه تغییر برنامه')),
             const SizedBox(height: 9),
-            FilledButton.icon(
-              onPressed: onArchive,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB5791C),
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(52)),
-              icon: const Icon(Icons.task_alt_rounded),
-              label: const Text('پایان دورهٔ مصرف')),
-          ],
-          const SizedBox(height: 12),
-          FilledButton.tonalIcon(
-            onPressed: widget.onHide,
-            icon: const Icon(Icons.delete_outline),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFBE5E8),
-              foregroundColor: const Color(0xFFA52F48),
-              minimumSize: const Size.fromHeight(52)),
-            label: const Text('حذف دارو از فهرست')),
-        ],
+            OutlinedButton.icon(
+              onPressed: _openCourseHistory,
+              icon: const Icon(Icons.medical_information_outlined),
+              label: const Text('پرونده و دوره‌های مصرف')),
+          ])),
+        if (hidden)
+          Padding(padding: const EdgeInsets.only(top: 14),
+            child: FilledButton.tonalIcon(
+              onPressed: widget.onUnhide,
+              icon: const Icon(Icons.restore_rounded),
+              label: const Text('بازگرداندن دارو به فهرست'))),
       ]),
     );
   }

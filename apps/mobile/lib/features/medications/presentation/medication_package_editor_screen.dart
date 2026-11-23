@@ -34,7 +34,9 @@ class _MedicationPackageEditorScreenState
   late final TextEditingController _quantity;
   final TextEditingController _reason = TextEditingController();
   DateTime? _expiry;
-  bool _selectForUse = false;
+  bool _calculatorOpen = false;
+  final _containers = TextEditingController();
+  final _perContainer = TextEditingController();
   bool _busy = false;
   String? _error;
 
@@ -47,7 +49,7 @@ class _MedicationPackageEditorScreenState
         StockQuantity.format(widget.existing!.balanceMilliunits));
     final rawExpiry = widget.existing?.package.expiryIso;
     _expiry = rawExpiry == null ? null : StockQuantity.parseIso(rawExpiry);
-    _selectForUse = widget.selected;
+
   }
 
   @override
@@ -55,6 +57,8 @@ class _MedicationPackageEditorScreenState
     _label.dispose();
     _quantity.dispose();
     _reason.dispose();
+    _containers.dispose();
+    _perContainer.dispose();
     super.dispose();
   }
 
@@ -111,7 +115,7 @@ class _MedicationPackageEditorScreenState
           label: label, unit: widget.unit, initialMilliunits: quantity,
           expiryIso: _expiry == null ? null : StockQuantity.isoDate(_expiry!),
           expiryPrecision: _expiry == null ? 'none' : 'day',
-          selectForUse: _selectForUse,
+          selectForUse: false,
         );
       } else {
         await widget.repository.editPackage(
@@ -124,15 +128,6 @@ class _MedicationPackageEditorScreenState
             profileId: widget.profileId, medicationId: widget.medicationId,
             packageId: existing.package.id, deltaMilliunits: delta,
             reason: _reason.text.trim());
-        }
-        if (!_selectForUse && widget.selected) {
-          await widget.repository.clearSelection(profileId: widget.profileId,
-            medicationId: widget.medicationId);
-        }
-        if (_selectForUse && !widget.selected && !existing.archived) {
-          await widget.repository.selectPackage(
-            profileId: widget.profileId, medicationId: widget.medicationId,
-            packageId: existing.package.id);
         }
       }
     }));
@@ -202,26 +197,68 @@ class _MedicationPackageEditorScreenState
                 labelText: 'دلیل اصلاح موجودی (در صورت تغییر)')),
           ],
           const SizedBox(height: 12),
-          FilledButton.tonalIcon(onPressed: _busy ? null : _chooseExpiry,
-            icon: const Icon(Icons.event_outlined),
-            label: Text(_expiry == null ? 'افزودن تاریخ انقضا (اختیاری)'
-              : 'انقضا: ${persianDateLabel(_expiry!)}')),
+          if (existing == null && widget.unit == 'عدد') ...[
+            OutlinedButton.icon(
+              onPressed: _busy ? null : () =>
+                setState(() => _calculatorOpen = !_calculatorOpen),
+              icon: const Icon(Icons.calculate_outlined),
+              label: const Text('محاسبه تعداد از روی ورق قرص')),
+            if (_calculatorOpen) ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(child: TextField(
+                  controller: _containers,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: const [EnglishDigitsInputFormatter()],
+                  decoration: const InputDecoration(
+                    labelText: 'تعداد ورق', hintText: 'مثلاً ۲'))),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(
+                  controller: _perContainer,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: const [EnglishDigitsInputFormatter()],
+                  decoration: const InputDecoration(
+                    labelText: 'تعداد در هر ورق', hintText: 'مثلاً ۱۰'))),
+              ]),
+              const SizedBox(height: 7),
+              FilledButton.tonal(
+                onPressed: () {
+                  final count = int.tryParse(PersianDate.latinDigits(
+                    _containers.text.trim()));
+                  final each = int.tryParse(PersianDate.latinDigits(
+                    _perContainer.text.trim()));
+                  if (count == null || each == null ||
+                      count <= 0 || each <= 0 || count > 100000 ||
+                      each > 1000 || count * each > 999999) {
+                    setState(() => _error = 'تعداد ورق و تعداد هر ورق معتبر نیست.');
+                    return;
+                  }
+                  setState(() {
+                    _quantity.text = '${count * each}';
+                    _error = null;
+                    _calculatorOpen = false;
+                  });
+                },
+                child: const Text('اعمال مقدار محاسبه‌شده')),
+            ],
+          ],
+          const SizedBox(height: 12),
+          Align(alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _busy ? null : _chooseExpiry,
+              icon: Icon(_expiry == null ? Icons.add_circle_outline :
+                Icons.edit_calendar_outlined),
+              label: Text(_expiry == null ? 'افزودن تاریخ انقضا (اختیاری)'
+                : 'انقضا: ${persianDateLabel(_expiry!)}'))),
+
           if (_expiry != null)
             Align(alignment: Alignment.centerRight,
-              child: FilledButton.tonalIcon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFE2E6),
-                  foregroundColor: const Color(0xFF98283E)),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFAA4255)),
                 onPressed: _busy ? null : () => setState(() => _expiry = null),
-                icon: const Icon(Icons.close),
-                label: const Text('حذف تاریخ انقضا'))),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('انتخاب برای مصرف'),
-            subtitle: const Text('کسر موجودی از این بسته انجام شود.'),
-            value: _selectForUse,
-            onChanged: _busy || existing?.archived == true ? null
-              : (v) => setState(() => _selectForUse = v)),
+                icon: const Icon(Icons.close_rounded, size: 16),
+                label: const Text('حذف تاریخ'))),
           if (existing?.expired == true)
             const Text('این بسته منقضی شده است و برای مصرف قابل انتخاب نیست.',
               style: TextStyle(color: Color(0xFFB43B4D))),
@@ -229,31 +266,42 @@ class _MedicationPackageEditorScreenState
             Padding(padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(_error!, style:
                 const TextStyle(color: Color(0xFFC3353A)))),
-          const SizedBox(height: 14),
-          FilledButton.icon(onPressed: _busy ? null : _save,
+          const SizedBox(height: 22),
+          FilledButton.icon(
+            onPressed: _busy ? null : _save,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              backgroundColor: AppColors.primary),
             icon: const Icon(Icons.check_circle_outline),
             label: const Text('ذخیره تغییرات')),
           if (existing != null) ...[
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: _busy ? null : _archiveOrRestore,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB47A18),
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(50)),
-              icon: Icon(existing.archived ? Icons.unarchive_outlined
-                : Icons.inventory_outlined),
-              label: Text(existing.archived ? 'بازگشت بسته به موجودی فعال'
-                : 'پایان استفاده از این بسته')),
-            const SizedBox(height: 10),
-            FilledButton.icon(
-              onPressed: _busy ? null : _delete,
-              icon: const Icon(Icons.delete_outline),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB6354C),
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(50)),
-              label: const Text('حذف بستهٔ بدون سابقه')),
+            const SizedBox(height: 11),
+            Row(children: [
+              Expanded(child: FilledButton.tonal(
+                onPressed: _busy ? null : _archiveOrRestore,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFE8C4),
+                  foregroundColor: const Color(0xFF805112),
+                  minimumSize: const Size.fromHeight(51),
+                  padding: const EdgeInsets.symmetric(horizontal: 6)),
+                child: Text(existing.archived
+                  ? 'بازگشت بسته' : 'پایان استفاده',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12,
+                    fontWeight: FontWeight.w800)))),
+              const SizedBox(width: 9),
+              Expanded(child: FilledButton.tonal(
+                onPressed: _busy ? null : _delete,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFBE2E7),
+                  foregroundColor: const Color(0xFF9F2842),
+                  minimumSize: const Size.fromHeight(51),
+                  padding: const EdgeInsets.symmetric(horizontal: 6)),
+                child: const Text('حذف بسته',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12,
+                    fontWeight: FontWeight.w800)))),
+            ]),
           ],
         ]),
     );

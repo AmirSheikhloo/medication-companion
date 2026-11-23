@@ -39,7 +39,6 @@ class _StockManagementSheet extends StatefulWidget {
 
 class _StockManagementSheetState extends State<_StockManagementSheet> {
   final _label = TextEditingController();
-  final _unit = TextEditingController();
   final _initial = TextEditingController();
   final _threshold = TextEditingController();
   final _adjustQuantity = TextEditingController();
@@ -47,12 +46,12 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
 
   StockSummary? _summary;
   final Set<String> _historyOpen = <String>{};
+  final Map<String, int> _historyLimits = {};
   Map<String, List<StockMovement>> _history = {};
   String? _feedbackMessage;
   bool _busy = false;
   bool _initializedThreshold = false;
   String? _lastSelectedPackageId;
-  bool _selectNew = true;
   bool _adjustIncrease = true;
   String? _adjustingPackageId;
   String _precision = 'day';
@@ -62,14 +61,12 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   @override
   void initState() {
     super.initState();
-    _unit.text = widget.medication.unit;
     _load();
   }
 
   @override
   void dispose() {
     _label.dispose();
-    _unit.dispose();
     _initial.dispose();
     _threshold.dispose();
     _adjustQuantity.dispose();
@@ -89,6 +86,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
           profileId: widget.profileId,
           medicationId: widget.medication.id,
           packageId: id,
+          limit: (_historyLimits[id] ?? 20) + 1,
         );
       }
       if (!mounted) return;
@@ -184,9 +182,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
         profileId: widget.profileId,
         medicationId: widget.medication.id,
         label: _label.text,
-        unit: _unit.text,
+        unit: widget.medication.unit,
         initialMilliunits: initial,
-        selectForUse: _selectNew,
+        selectForUse: false,
         expiryIso: _expiry == null
             ? null
             : StockQuantity.isoDate(
@@ -385,15 +383,15 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _unit,
-                        decoration: const InputDecoration(
-                          labelText: 'واحد (مثلاً عدد یا ml)',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 17),
+                      decoration: BoxDecoration(
+                        color: AppColors.mint,
+                        borderRadius: BorderRadius.circular(13)),
+                      child: Text(widget.medication.unit,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800))),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -437,15 +435,6 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                   const Text(
                     'برای تاریخ با دقت ماه، همان ماه میلادیِ تاریخ انتخابی ثبت می‌شود.',
                   ),
-                CheckboxListTile(
-                  value: _selectNew,
-                  title: const Text('این بسته برای کسر موجودی انتخاب شود'),
-                  subtitle: const Text('بسته منقضی قابل انتخاب نیست.'),
-                  onChanged: _busy
-                      ? null
-                      : (value) => setState(() => _selectNew = value ?? false),
-                  contentPadding: EdgeInsets.zero,
-                ),
                 FilledButton.icon(
                   onPressed: _busy ? null : _add,
                   icon: const Icon(Icons.add),
@@ -578,7 +567,8 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
               else if (_history[pack.id]!.isEmpty)
                 const Text('هنوز تغییری برای این بسته ثبت نشده است.')
               else
-                for (final entry in _history[pack.id]!)
+                for (final entry in _history[pack.id]!.take(
+                  _historyLimits[pack.id] ?? 20))
                   ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -601,6 +591,16 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                       ),
                     ),
                   ),
+              if ((_history[pack.id]?.length ?? 0) >
+                  (_historyLimits[pack.id] ?? 20))
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() => _historyLimits[pack.id] =
+                      (_historyLimits[pack.id] ?? 20) + 20);
+                    _load();
+                  },
+                  icon: const Icon(Icons.expand_more_rounded),
+                  label: const Text('نمایش ۲۰ تغییر بیشتر')),
             ],
             if (_adjustingPackageId == pack.id) ...[
               const SizedBox(height: 8),
