@@ -25,7 +25,8 @@ class MedicationDetailScreen extends StatefulWidget {
     required this.pendingSchedule, required this.archived,
     required this.onEdit, required this.onStock,
     required this.onArchive, required this.onRestore,
-    required this.onPackageAction, this.onOpenCourse});
+    required this.onPackageAction, this.onOpenCourse,
+    this.hidden = false, this.onHide, this.onUnhide});
 
   final Medication medication;
   final List<DailyDose> slots;
@@ -42,6 +43,9 @@ class MedicationDetailScreen extends StatefulWidget {
   final VoidCallback onRestore;
   final void Function(PackageBalance balance, String action) onPackageAction;
   final ValueChanged<Medication>? onOpenCourse;
+  final bool hidden;
+  final VoidCallback? onHide;
+  final VoidCallback? onUnhide;
 
   @override
   State<MedicationDetailScreen> createState() =>
@@ -55,6 +59,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   StockSummary? get stock => _reloadedStock ?? widget.stock;
   MedicationSetup? get setup => widget.setup;
   bool get archived => widget.archived;
+  bool get hidden => widget.hidden;
   InventoryRepository get inventoryRepository => widget.inventoryRepository;
   MedicationRepository get medicationRepository => widget.medicationRepository;
   bool get pendingSchedule => widget.pendingSchedule;
@@ -173,7 +178,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             Text(PersianDate.displayDigits(medication.name), style: const TextStyle(fontWeight: FontWeight.w900,
               fontSize: 23, color: AppColors.primaryDark)),
             const SizedBox(height: 5),
-            AppStatusPill(text: archived ? 'پایان مصرف' : 'فعال',
+            AppStatusPill(text: hidden ? 'حذف‌شده از فهرست' : archived ? 'پایان مصرف' : 'فعال',
               icon: archived ? Icons.archive_outlined : Icons.check, color: AppColors.primary),
           ])),
         ]),
@@ -256,21 +261,38 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           onOpenCourse: widget.onOpenCourse,
         ),
         const SizedBox(height: 16),
-        if (archived)
-          AppGradientButton(label: 'بازیابی دارو', icon: Icons.restore,
-            onPressed: onRestore)
-        else ...[
-          AppGradientButton(label: 'ویرایش دارو', icon: Icons.edit_outlined,
-            onPressed: onEdit),
-          const SizedBox(height: 9),
-          FilledButton.icon(
-            onPressed: onArchive,
+        if (hidden) ...[
+          AppGradientButton(
+            label: 'بازگرداندن دارو به فهرست',
+            icon: Icons.restore_rounded, onPressed: widget.onUnhide),
+        ] else ...[
+          if (archived)
+            AppGradientButton(
+              label: 'شروع دوبارهٔ همین دوره',
+              icon: Icons.restore_rounded,
+              onPressed: onRestore)
+          else ...[
+            AppGradientButton(label: 'ویرایش دارو',
+              icon: Icons.edit_outlined, onPressed: onEdit),
+            const SizedBox(height: 9),
+            FilledButton.icon(
+              onPressed: onArchive,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFB5791C),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(52)),
+              icon: const Icon(Icons.task_alt_rounded),
+              label: const Text('پایان دورهٔ مصرف')),
+          ],
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: widget.onHide,
+            icon: const Icon(Icons.delete_outline),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFB5791C),
-              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFFFBE5E8),
+              foregroundColor: const Color(0xFFA52F48),
               minimumSize: const Size.fromHeight(52)),
-            icon: const Icon(Icons.task_alt_rounded),
-            label: const Text('پایان دورهٔ مصرف')),
+            label: const Text('حذف دارو از فهرست')),
         ],
       ]),
     );
