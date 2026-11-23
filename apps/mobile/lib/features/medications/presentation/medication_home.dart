@@ -361,6 +361,9 @@ class _MedicationHomeState extends State<MedicationHome>
             thresholdMilliunits: draft.lowStockThresholdMilliunits);
         }
       });
+      if (draft.notificationsEnabled) {
+        await widget.reminderCoordinator?.enable();
+      }
     });
   }
 
@@ -449,6 +452,9 @@ class _MedicationHomeState extends State<MedicationHome>
           medicationId: medication.id,
           thresholdMilliunits: draft.lowStockThresholdMilliunits);
       });
+      if (draft.notificationsEnabled) {
+        await widget.reminderCoordinator?.enable();
+      }
     });
   }
 
