@@ -240,6 +240,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('پایان مصرف'));
     await tester.pumpAndSettle();
+    // Completing a treatment course now opens its audited summary dialog.
+    // Dismiss it through the visible action before interacting with the list.
+    expect(find.text('خلاصهٔ پایان مصرف'), findsOneWidget);
+    await tester.tap(find.text('مشاهده بعداً در پرونده'));
+    await tester.pumpAndSettle();
     expect(await medications.medicationsFor(profile.id), isEmpty);
     await tester.tap(find.text('نمایش بایگانی (1)'));
     await tester.pumpAndSettle();
