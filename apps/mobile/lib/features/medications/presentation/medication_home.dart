@@ -511,6 +511,73 @@ class _MedicationHomeState extends State<MedicationHome>
         archived: true,
       ),
     );
+    // Verify the write committed before presenting any summary.
+    final updated = await (widget.repository.db.select(
+      widget.repository.db.medications)
+      ..where((t) => t.id.equals(medication.id) &
+        t.profileId.equals(profile.id))).getSingleOrNull();
+    if (!mounted || updated == null || !updated.archived) return;
+    final report = await MedicationCourseRepository(
+      widget.repository.db).report(updated);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.background,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(25)),
+        title: const Row(children: [
+          Icon(Icons.verified_rounded, color: AppColors.success),
+          SizedBox(width: 8),
+          Expanded(child: Text('خلاصهٔ پایان مصرف',
+            style: TextStyle(color: AppColors.primaryDark,
+              fontWeight: FontWeight.w900))),
+        ]),
+        content: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(PersianDate.displayDigits(updated.name),
+              style: const TextStyle(color: AppColors.primaryDark,
+                fontWeight: FontWeight.w800, fontSize: 17)),
+            const SizedBox(height: 10),
+            Text('از ${persianDateLabel(report.started)}'
+              ' تا ${persianDateLabel(report.ended ?? DateTime.now())}'),
+            const SizedBox(height: 7),
+            Text('${report.days} روز از شروع دوره',
+              style: const TextStyle(color: AppColors.primaryDark,
+                fontWeight: FontWeight.w800)),
+            const Divider(height: 25),
+            Text('ثبت مصرف‌شده: ${report.taken} نوبت'),
+            Text('ثبت مصرف‌نشده: ${report.skipped} نوبت'),
+            Text('وضعیت نامطمئن: ${report.unknown} نوبت'),
+            const SizedBox(height: 10),
+            Text('کسر واقعی از موجودی: '
+              '${StockQuantity.format(report.stockDebitedMilliunits)} '
+              '${updated.unit}',
+              style: const TextStyle(color: AppColors.primaryDark,
+                fontWeight: FontWeight.w800)),
+            if (updated.unit == 'عدد' &&
+                report.tabletsPerStrip != null) ...[
+              const SizedBox(height: 5),
+              Text('تقریباً ${(report.stockDebitedMilliunits / 1000 / report.tabletsPerStrip!).toStringAsFixed(1)} '
+                'ورق (${report.tabletsPerStrip} عدد در هر ورق)'),
+            ],
+            const SizedBox(height: 10),
+            const Text('این گزارش از ثبت‌های واقعی استخراج شده است؛ '
+              'مصرف بدون کسر موجودی به مقدار کسرشده اضافه نمی‌شود. '
+              'سوابق برای گزارش پزشک محفوظ هستند.',
+              style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          ],
+        )),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('مشاهده بعداً در پرونده'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _restoreMedication(Medication medication) async {
