@@ -24,6 +24,9 @@ class FakeReminderPort implements ReminderNotificationPort {
   Future<bool> requestPermissions() async => requestGranted && permissions;
 
   @override
+  Future<bool> requestFullScreenPermission() async => requestGranted;
+
+  @override
   Future<void> replaceManaged(List<ReminderJob> jobs) async {
     syncCount++;
     scheduled = List.of(jobs);

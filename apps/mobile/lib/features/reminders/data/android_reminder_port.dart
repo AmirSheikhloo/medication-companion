@@ -9,6 +9,7 @@ abstract class ReminderNotificationPort {
   Future<void> initialize();
   Future<bool> requestPermissions();
   Future<bool> hasPermissions();
+  Future<bool> requestFullScreenPermission();
   Future<void> replaceManaged(List<ReminderJob> jobs);
   Future<void> scheduleDemo();
 }
@@ -25,19 +26,20 @@ class AndroidReminderPort implements ReminderNotificationPort {
       _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
 
-  static NotificationDetails _details(String body) => NotificationDetails(
+  static NotificationDetails _details(String body, {bool fullScreen = false}) => NotificationDetails(
     android: AndroidNotificationDetails(
-      'm2_medication_reminder_v1',
-      'یادآور دارو',
+      fullScreen ? 'm2_medication_alarm_v1' : 'm2_medication_reminder_v1',
+      fullScreen ? 'هشدار مصرف دارو' : 'یادآور دارو',
       channelDescription: 'اعلان نوبت دارو طبق زمان ثبت‌شده توسط کاربر',
-      importance: Importance.high,
-      priority: Priority.high,
-      category: AndroidNotificationCategory.reminder,
+      importance: fullScreen ? Importance.max : Importance.high,
+      priority: fullScreen ? Priority.max : Priority.high,
+      category: fullScreen ? AndroidNotificationCategory.alarm
+          : AndroidNotificationCategory.reminder,
       visibility: NotificationVisibility.private,
       styleInformation: BigTextStyleInformation(body),
       playSound: true,
       enableVibration: true,
-      fullScreenIntent: false,
+      fullScreenIntent: fullScreen,
     ),
   );
 
@@ -54,6 +56,10 @@ class AndroidReminderPort implements ReminderNotificationPort {
     );
     _initialized = true;
   }
+
+  @override
+  Future<bool> requestFullScreenPermission() async =>
+      await _android?.requestFullScreenIntentPermission() == true;
 
   @override
   Future<bool> hasPermissions() async {
@@ -90,7 +96,8 @@ class AndroidReminderPort implements ReminderNotificationPort {
         title: job.title,
         body: job.body,
         scheduledDate: local,
-        notificationDetails: _details(job.body),
+        notificationDetails: _details(job.body,
+          fullScreen: job.fullScreenAlert),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents:
             job.daily ? DateTimeComponents.time : null,

@@ -40,6 +40,13 @@ class ReminderCoordinator {
         );
   }
 
+  Future<bool> requestPermissionsForDraft({bool fullScreen = false}) async {
+    await notifications.initialize();
+    if (!await notifications.requestPermissions()) return false;
+    if (fullScreen) return notifications.requestFullScreenPermission();
+    return true;
+  }
+
   Future<int> enable() async {
     await notifications.initialize();
     if (!await notifications.requestPermissions()) {
@@ -92,15 +99,16 @@ class ReminderCoordinator {
     for (final profile in await profiles.profiles()) {
       final todayDoses = await medications.dosesForDay(profile.id, today);
       final tomorrowDoses = await medications.dosesForDay(profile.id, tomorrow);
-      final notes = <String, String>{};
+      final setups = <String, MedicationSetup>{};
       for (final dose in [...todayDoses, ...tomorrowDoses]) {
         final id = dose.medication.id;
-        if (!notes.containsKey(id)) {
-          notes[id] = (await setupRepository.read(profile.id, id)).reminderNote;
+        if (!setups.containsKey(id)) {
+          setups[id] = await setupRepository.read(profile.id, id);
         }
       }
       todaySlots.addAll([
         for (final dose in todayDoses)
+          if (setups[dose.medication.id]?.notificationsEnabled != false)
           ReminderSlot(
             occurrenceKey: dose.occurrenceKey,
             planId: dose.plan.id,
@@ -109,11 +117,13 @@ class ReminderCoordinator {
             doseText: dose.plan.doseText,
             scheduledAt: dose.scheduledAt,
             status: dose.status,
-            reminderNote: notes[dose.medication.id] ?? '',
+            reminderNote: setups[dose.medication.id]?.reminderNote ?? '',
+            fullScreenAlert: setups[dose.medication.id]?.fullScreenAlert == true,
           ),
       ]);
       tomorrowSlots.addAll([
         for (final dose in tomorrowDoses)
+          if (setups[dose.medication.id]?.notificationsEnabled != false)
           ReminderSlot(
             occurrenceKey: dose.occurrenceKey,
             planId: dose.plan.id,
@@ -122,7 +132,8 @@ class ReminderCoordinator {
             doseText: dose.plan.doseText,
             scheduledAt: dose.scheduledAt,
             status: dose.status,
-            reminderNote: notes[dose.medication.id] ?? '',
+            reminderNote: setups[dose.medication.id]?.reminderNote ?? '',
+            fullScreenAlert: setups[dose.medication.id]?.fullScreenAlert == true,
           ),
       ]);
     }
