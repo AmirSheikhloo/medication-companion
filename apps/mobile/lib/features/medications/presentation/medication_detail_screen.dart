@@ -259,13 +259,11 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             tooltip: 'مدیریت دارو',
             icon: const Icon(Icons.more_vert_rounded),
             onSelected: (action) {
-              switch (action) {
-                case 'edit': onEdit();
-                case 'finish': onArchive();
-                case 'restore': onRestore();
-                case 'hide': widget.onHide?.call();
-                case 'unhide': widget.onUnhide?.call();
-              }
+              if (action == 'edit') onEdit();
+              if (action == 'finish') onArchive();
+              if (action == 'restore') onRestore();
+              if (action == 'hide') widget.onHide?.call();
+              if (action == 'unhide') widget.onUnhide?.call();
             },
             itemBuilder: (_) => [
               if (!hidden && !archived)
