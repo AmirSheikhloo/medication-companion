@@ -10,9 +10,10 @@ import '../data/medication_repository.dart';
 import '../data/medication_setup_repository.dart';
 import 'medication_artwork.dart';
 import 'medication_history_panel.dart';
+import 'medication_package_editor_screen.dart';
 
 /// A dedicated details page, rather than expanding the beta medicine card.
-class MedicationDetailScreen extends StatelessWidget {
+class MedicationDetailScreen extends StatefulWidget {
   const MedicationDetailScreen({super.key, required this.medication,
     required this.slots, required this.todaySlots, required this.stock,
     this.setup,
@@ -37,6 +38,45 @@ class MedicationDetailScreen extends StatelessWidget {
   final VoidCallback onRestore;
   final void Function(PackageBalance balance, String action) onPackageAction;
 
+  @override
+  State<MedicationDetailScreen> createState() =>
+      _MedicationDetailScreenState();
+}
+
+class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
+  StockSummary? _reloadedStock;
+  Medication get medication => widget.medication;
+  List<DailyDose> get slots => widget.slots;
+  StockSummary? get stock => _reloadedStock ?? widget.stock;
+  MedicationSetup? get setup => widget.setup;
+  bool get archived => widget.archived;
+  InventoryRepository get inventoryRepository => widget.inventoryRepository;
+  MedicationRepository get medicationRepository => widget.medicationRepository;
+  bool get pendingSchedule => widget.pendingSchedule;
+  VoidCallback get onEdit => widget.onEdit;
+  VoidCallback get onArchive => widget.onArchive;
+  VoidCallback get onRestore => widget.onRestore;
+
+  Future<void> _openPackage(PackageBalance? package) async {
+    final summary = stock;
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => MedicationPackageEditorScreen(
+        repository: inventoryRepository,
+        profileId: medication.profileId,
+        medicationId: medication.id,
+        packageNumber: (summary?.packages.length ?? 0) + 1,
+        unit: package?.package.unit ??
+            summary?.selected?.package.unit ?? 'عدد',
+        existing: package,
+        selected: package != null &&
+            package.package.id == summary?.selectedPackageId,
+      )));
+    if (!mounted || result != true) return;
+    final latest = await inventoryRepository.summary(
+      medication.profileId, medication.id);
+    if (mounted) setState(() => _reloadedStock = latest);
+  }
+
   String _clock(DateTime date) => PersianDate.displayDigits(
     '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}');
 
@@ -58,7 +98,9 @@ class MedicationDetailScreen extends StatelessWidget {
     final fill = balance.archived ? const Color(0xFFF0F2F3) : expired
         ? const Color(0xFFFFF0F1)
         : isSelected ? const Color(0xFFE0F5F0) : const Color(0xFFF5F8F9);
-    return Container(
+    return InkWell(onTap: () => _openPackage(balance),
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
@@ -94,22 +136,9 @@ class MedicationDetailScreen extends StatelessWidget {
                 fontWeight: FontWeight.w700)),
           ],
         )),
-        if (!archived) PopupMenuButton<String>(
-          tooltip: 'گزینه‌های بسته',
-          icon: const Icon(Icons.more_vert_rounded, color: AppColors.primaryDark),
-          onSelected: (action) => onPackageAction(balance, action),
-          itemBuilder: (_) => balance.archived ? const [
-            PopupMenuItem(value: 'restore', child: Text('بازیابی بسته')),
-            PopupMenuItem(value: 'delete', child: Text('حذف بستهٔ بدون سابقه')),
-          ] : const [
-            PopupMenuItem(value: 'edit', child: Text('ویرایش نام و انقضا')),
-            PopupMenuItem(value: 'stock', child: Text('اصلاح موجودی و انتخاب بسته')),
-            PopupMenuItem(value: 'archive', child: Text('بایگانی بسته')),
-            PopupMenuItem(value: 'delete', child: Text('حذف بستهٔ بدون سابقه')),
-          ],
-        ),
+        const Icon(Icons.chevron_left_rounded, color: AppColors.primary),
       ]),
-    );
+    ));
   }
 
   @override
@@ -193,9 +222,9 @@ class MedicationDetailScreen extends StatelessWidget {
             const Padding(padding: EdgeInsets.symmetric(vertical: 12),
               child: Text('برای این دارو هنوز بسته‌ای ثبت نشده است.',
                 style: TextStyle(color: AppColors.muted))),
-          OutlinedButton.icon(onPressed: archived ? null : onStock,
+          OutlinedButton.icon(onPressed: archived ? null : () => _openPackage(null),
             icon: const Icon(Icons.add_circle_outline),
-            label: const Text('افزودن بسته یا مدیریت موجودی')),
+            label: const Text('افزودن بسته جدید')),
         ])),
         const SizedBox(height: 12),
         if (setup?.reminderNote.isNotEmpty == true) ...[
@@ -221,7 +250,7 @@ class MedicationDetailScreen extends StatelessWidget {
             onPressed: onEdit),
           const SizedBox(height: 9),
           OutlinedButton.icon(onPressed: onArchive,
-            icon: const Icon(Icons.archive_outlined), label: const Text('بایگانی')),
+            icon: const Icon(Icons.archive_outlined), label: const Text('پایان مصرف')),
         ],
       ]),
     );
