@@ -639,10 +639,12 @@ class _MedicationHomeState extends State<MedicationHome>
     if (profile == null || _saving) return;
     await _perform(() => widget.repository.setHidden(
       profileId: profile.id, medicationId: medication.id, hidden: false));
-    if (mounted) setState(() {
-      _showHidden = false;
-      _showArchived = true;
-    });
+    if (mounted) {
+      setState(() {
+        _showHidden = false;
+        _showArchived = true;
+      });
+    }
   }
 
   Future<void> _restoreMedication(Medication medication) async {

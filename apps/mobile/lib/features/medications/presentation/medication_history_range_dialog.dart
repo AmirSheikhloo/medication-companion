@@ -40,7 +40,9 @@ class _DateInputs {
     final m = int.tryParse(PersianDate.latinDigits(month.text));
     final d = int.tryParse(PersianDate.latinDigits(day.text));
     if (year.text.length != 4 || y == null || m == null || d == null ||
-        m < 1 || m > 12 || d < 1 || d > 31) return null;
+        m < 1 || m > 12 || d < 1 || d > 31) {
+      return null;
+    }
     try {
       if (jalali) return PersianDate(y, m, d).toGregorian();
       if (y < 1900 || y > 2100) return null;
