@@ -465,9 +465,9 @@ class _MedicationHomeState extends State<MedicationHome>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('بایگانی دارو'),
+        title: const Text('پایان مصرف دارو'),
         content: Text(
-          '«${medication.name}» از فهرست فعال و نوبت‌های امروز پنهان می‌شود. '
+          'با پایان مصرف «${medication.name}»، نوبت‌های آینده متوقف می‌شوند. '
           'سوابق پاک نمی‌شوند و بعداً می‌توانید دارو را بازیابی کنید.',
         ),
         actions: [
@@ -477,7 +477,7 @@ class _MedicationHomeState extends State<MedicationHome>
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('بایگانی شود'),
+            child: const Text('پایان مصرف'),
           ),
         ],
       ),
