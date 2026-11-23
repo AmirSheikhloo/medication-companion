@@ -70,8 +70,10 @@ class _MedicationPackageEditorScreenState
       await work();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
-      if (mounted) setState(() => _error =
-        'عملیات انجام نشد؛ مقدارها و مجوز این بسته را بررسی کن. $error');
+      if (mounted) {
+        setState(() => _error =
+          'عملیات انجام نشد؛ مقدارها و مجوز این بسته را بررسی کن. $error');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
