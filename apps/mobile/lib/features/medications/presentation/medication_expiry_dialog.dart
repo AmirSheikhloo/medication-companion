@@ -106,6 +106,7 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
 
   Widget _numberField(String name, TextEditingController controller,
       {required int length}) => Expanded(
+        flex: length == 4 ? 2 : 1,
         child: TextField(
           controller: controller,
           textAlign: TextAlign.center,
@@ -125,6 +126,8 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
           },
           decoration: InputDecoration(
             labelText: name,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8, vertical: 18),
             counterText: '',
             filled: true, fillColor: AppColors.mint,
             border: OutlineInputBorder(
@@ -166,7 +169,10 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
             selected: {_persian},
             onSelectionChanged: (values) => _toggle(values.first),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
+          const Text('تاریخ را به تقویم موردنظر وارد کنید.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          const SizedBox(height: 12),
           // Right-to-left: day (right), month (middle), year (left).
           Row(children: [
             _numberField('روز', _day, length: 2),

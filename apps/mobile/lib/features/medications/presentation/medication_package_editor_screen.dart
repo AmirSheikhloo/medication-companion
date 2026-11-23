@@ -208,7 +208,10 @@ class _MedicationPackageEditorScreenState
               : 'انقضا: ${persianDateLabel(_expiry!)}')),
           if (_expiry != null)
             Align(alignment: Alignment.centerRight,
-              child: TextButton.icon(
+              child: FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFE2E6),
+                  foregroundColor: const Color(0xFF98283E)),
                 onPressed: _busy ? null : () => setState(() => _expiry = null),
                 icon: const Icon(Icons.close),
                 label: const Text('حذف تاریخ انقضا'))),
@@ -232,17 +235,24 @@ class _MedicationPackageEditorScreenState
             label: const Text('ذخیره تغییرات')),
           if (existing != null) ...[
             const SizedBox(height: 14),
-            OutlinedButton.icon(onPressed: _busy ? null : _archiveOrRestore,
+            FilledButton.icon(
+              onPressed: _busy ? null : _archiveOrRestore,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFB47A18),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(50)),
               icon: Icon(existing.archived ? Icons.unarchive_outlined
                 : Icons.inventory_outlined),
-              label: Text(existing.archived ? 'بازیابی بسته'
+              label: Text(existing.archived ? 'بازگشت بسته به موجودی فعال'
                 : 'پایان استفاده از این بسته')),
-            const SizedBox(height: 8),
-            FilledButton.tonalIcon(onPressed: _busy ? null : _delete,
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: _busy ? null : _delete,
               icon: const Icon(Icons.delete_outline),
-              style: FilledButton.styleFrom(backgroundColor:
-                const Color(0xFFFBE5E7), foregroundColor:
-                const Color(0xFFB43B4D)),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFB6354C),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(50)),
               label: const Text('حذف بستهٔ بدون سابقه')),
           ],
         ]),
