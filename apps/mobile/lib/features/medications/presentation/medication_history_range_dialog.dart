@@ -174,14 +174,14 @@ class _RangeDialogState extends State<_RangeDialog> {
       onChanged: (_) => setState(() => _error = null),
       decoration: InputDecoration(
         labelText: label, counterText: '',
-        filled: true, fillColor: AppColors.mint,
+        filled: true, fillColor: AppPalette.surface(context, AppColors.mint),
         isDense: true,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
           borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+          borderSide: BorderSide(color: AppPalette.ink(context, AppColors.primary), width: 1.5)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
           borderSide: BorderSide.none),
@@ -211,8 +211,8 @@ class _RangeDialogState extends State<_RangeDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(label, style: const TextStyle(
-          fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
+        Text(label, style: TextStyle(
+          fontWeight: FontWeight.w800, color: AppPalette.ink(context, AppColors.primaryDark))),
         const SizedBox(height: 8),
         Directionality(
           textDirection: _jalali ? TextDirection.rtl : TextDirection.ltr,
@@ -232,11 +232,11 @@ class _RangeDialogState extends State<_RangeDialog> {
         ? 'میلادی: ${gregorianDateLabel(from)} تا ${gregorianDateLabel(to)}'
         : 'شمسی: ${persianDateLabel(from)} — ${persianDateLabel(to)}');
     return AlertDialog(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppPalette.surface(context, AppColors.background),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 20),
       title: Text(_jalali ? 'انتخاب بازه گزارش' : 'انتخاب بازه گزارش',
-        style: const TextStyle(color: AppColors.primaryDark,
+        style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
           fontWeight: FontWeight.w900)),
       content: SizedBox(
         width: 420,
@@ -270,15 +270,15 @@ class _RangeDialogState extends State<_RangeDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.mint,
+                color: AppPalette.surface(context, AppColors.mint),
                 borderRadius: BorderRadius.circular(14)),
               child: Text(equivalent,
-                style: const TextStyle(color: AppColors.primaryDark,
+                style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                   fontWeight: FontWeight.w700))),
             if (_error != null) ...[
               const SizedBox(height: 9),
-              Text(_error!, style: const TextStyle(
-                color: Color(0xFFB83E4D), fontWeight: FontWeight.w700)),
+              Text(_error!, style: TextStyle(
+                color: AppPalette.ink(context, const Color(0xFFB83E4D)), fontWeight: FontWeight.w700)),
             ],
           ],
         )),

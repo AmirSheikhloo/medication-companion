@@ -108,7 +108,8 @@ class ReminderCoordinator {
       }
       todaySlots.addAll([
         for (final dose in todayDoses)
-          if (setups[dose.medication.id]?.notificationsEnabled != false)
+          if (setups[dose.medication.id]?.notificationsEnabled != false ||
+              setups[dose.medication.id]?.fullScreenAlert == true)
           ReminderSlot(
             occurrenceKey: dose.occurrenceKey,
             planId: dose.plan.id,
@@ -123,7 +124,8 @@ class ReminderCoordinator {
       ]);
       tomorrowSlots.addAll([
         for (final dose in tomorrowDoses)
-          if (setups[dose.medication.id]?.notificationsEnabled != false)
+          if (setups[dose.medication.id]?.notificationsEnabled != false ||
+              setups[dose.medication.id]?.fullScreenAlert == true)
           ReminderSlot(
             occurrenceKey: dose.occurrenceKey,
             planId: dose.plan.id,

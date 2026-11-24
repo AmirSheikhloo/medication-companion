@@ -31,7 +31,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
   _HistoryRange _range = _HistoryRange.week;
   int _visibleLimit = 20;
   DateTimeRange? _custom;
-  late Future<({List<DoseEvent> doses, List<StockMovement> movements})> _future;
+  late Future<({List<DoseEvent> doses, List<StockMovement> movements, int unknownCount, int noDebitCount})> _future;
 
   @override
   void initState() {
@@ -54,7 +54,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
     };
   }
 
-  Future<({List<DoseEvent> doses, List<StockMovement> movements})> _load() async {
+  Future<({List<DoseEvent> doses, List<StockMovement> movements, int unknownCount, int noDebitCount})> _load() async {
     final med = widget.medication;
     final range = _selectedRange();
     final first = range.start.toUtc();
@@ -75,7 +75,31 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
         t.createdAt.isSmallerThanValue(afterLast))
       ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
       ..limit(_visibleLimit + 1)).get();
-    return (doses: doses, movements: movements);
+    final counts = await db.customSelect(
+      """
+      SELECT
+        COALESCE(SUM(CASE WHEN s.status = 'unknown' THEN 1 ELSE 0 END), 0) AS unknown_count,
+        COALESCE(SUM(CASE WHEN s.status = 'taken' AND NOT EXISTS (
+          SELECT 1 FROM stock_movements m
+          WHERE m.occurrence_key = s.occurrence_key AND m.kind = 'taken'
+            AND m.profile_id = ? AND m.medication_id = ?
+            AND NOT EXISTS (SELECT 1 FROM stock_movements u WHERE u.reverses_movement_id = m.id)
+        ) THEN 1 ELSE 0 END), 0) AS no_debit_count
+      FROM dose_current_states s
+      WHERE EXISTS (
+        SELECT 1 FROM dose_events e
+        WHERE e.occurrence_key = s.occurrence_key AND e.profile_id = ?
+          AND e.medication_id = ? AND e.recorded_at >= ? AND e.recorded_at < ?
+      )
+      """,
+      variables: [Variable.withString(med.profileId), Variable.withString(med.id),
+        Variable.withString(med.profileId), Variable.withString(med.id),
+        Variable<DateTime>(first), Variable<DateTime>(afterLast)],
+      readsFrom: {db.doseEvents, db.doseCurrentStates, db.stockMovements},
+    ).getSingle();
+    return (doses: doses, movements: movements,
+      unknownCount: counts.read<int>('unknown_count'),
+      noDebitCount: counts.read<int>('no_debit_count'));
   }
 
   void _setRange(_HistoryRange value) {
@@ -107,10 +131,10 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
   };
 
   Color _doseColor(String action) => switch (action) {
-    'taken' => AppColors.success,
-    'skipped' => const Color(0xFFD24B56),
-    'unknown' => const Color(0xFFBA7812),
-    _ => AppColors.muted,
+    'taken' => AppPalette.ink(context, AppColors.success),
+    'skipped' => AppPalette.tone(context, const Color(0xFFD24B56)),
+    'unknown' => AppPalette.tone(context, const Color(0xFFBA7812)),
+    _ => AppPalette.ink(context, AppColors.muted),
   };
 
   String _movementName(String kind) => switch (kind) {
@@ -138,10 +162,10 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
           const SizedBox(width: 9),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w800,
-                color: AppColors.primaryDark, fontSize: 12)),
-              Text(subtitle, style: const TextStyle(
-                color: AppColors.muted, fontSize: 11)),
+              Text(title, style: TextStyle(fontWeight: FontWeight.w800,
+                color: AppPalette.ink(context, AppColors.primaryDark), fontSize: 12)),
+              Text(subtitle, style: TextStyle(
+                color: AppPalette.ink(context, AppColors.muted), fontSize: 11)),
             ])),
         ]),
       );
@@ -169,8 +193,8 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
           visualDensity: VisualDensity.compact,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           backgroundColor: _range == _HistoryRange.custom
-            ? AppColors.mint : Colors.white,
-          side: const BorderSide(color: AppColors.outline),
+            ? AppPalette.surface(context, AppColors.mint) : AppPalette.surface(context, Colors.white),
+          side: BorderSide(color: AppPalette.surface(context, AppColors.outline)),
           label: const Text('بازه', style: TextStyle(fontSize: 11)),
           onPressed: _chooseRange),
       ]),
@@ -178,9 +202,9 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
       Text(PersianDate.displayDigits(
         '${persianDateLabel(_selectedRange().start)} تا '
         '${persianDateLabel(_selectedRange().end)}'),
-        style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+        style: TextStyle(fontSize: 11, color: AppPalette.ink(context, AppColors.muted))),
       const SizedBox(height: 12),
-      FutureBuilder<({List<DoseEvent> doses, List<StockMovement> movements})>(
+      FutureBuilder<({List<DoseEvent> doses, List<StockMovement> movements, int unknownCount, int noDebitCount})>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -194,13 +218,30 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               data.movements.length > _visibleLimit;
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+            if (data.unknownCount > 0 || data.noDebitCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: AppPanel(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('نیازمند بازبینی', style: TextStyle(fontWeight: FontWeight.bold,
+                      color: AppPalette.ink(context, AppColors.primaryDark))),
+                    if (data.unknownCount > 0)
+                      Text(PersianDate.displayDigits('${data.unknownCount} نوبت نامطمئن')),
+                    if (data.noDebitCount > 0)
+                      Text(PersianDate.displayDigits('${data.noDebitCount} نوبت مصرف‌شده بدون کسر موجودی')),
+                    const SizedBox(height: 5),
+                    const Text('موجودی واقعی را با موجودی ثبت‌شده مقایسه کن. این موارد به‌تنهایی اثبات اختلاف یا مصرف دارو نیستند. برای اصلاح ثبت امروز، از بخش امروز و بازگرداندن ثبت استفاده کن.',
+                      style: TextStyle(fontSize: 12)),
+                  ]),
+                ),
+              ),
             Text('تاریخچهٔ مصرف (${PersianDate.displayDigits('${data.doses.take(_visibleLimit).length}')}${data.doses.length > _visibleLimit ? '+' : ''})',
-              style: const TextStyle(fontWeight: FontWeight.w800,
-                color: AppColors.primaryDark)),
-            if (data.doses.isEmpty) const Padding(
+              style: TextStyle(fontWeight: FontWeight.w800,
+                color: AppPalette.ink(context, AppColors.primaryDark))),
+            if (data.doses.isEmpty) Padding(
               padding: EdgeInsets.symmetric(vertical: 9),
               child: Text('در این بازه مصرفی ثبت نشده است.',
-                style: TextStyle(color: AppColors.muted))),
+                style: TextStyle(color: AppPalette.ink(context, AppColors.muted)))),
             for (final dose in data.doses.take(_visibleLimit)) _eventRow(
               title: _doseName(dose.action),
               subtitle: persianDateLabel(dose.recordedAt, showTime: true),
@@ -209,19 +250,19 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
                   : Icons.info_outline),
             const Divider(height: 22),
             Text('تاریخچهٔ موجودی (${PersianDate.displayDigits('${data.movements.take(_visibleLimit).length}')}${data.movements.length > _visibleLimit ? '+' : ''})',
-              style: const TextStyle(fontWeight: FontWeight.w800,
-                color: AppColors.primaryDark)),
-            if (data.movements.isEmpty) const Padding(
+              style: TextStyle(fontWeight: FontWeight.w800,
+                color: AppPalette.ink(context, AppColors.primaryDark))),
+            if (data.movements.isEmpty) Padding(
               padding: EdgeInsets.symmetric(vertical: 9),
               child: Text('در این بازه تغییری در موجودی ثبت نشده است.',
-                style: TextStyle(color: AppColors.muted))),
+                style: TextStyle(color: AppPalette.ink(context, AppColors.muted)))),
             for (final move in data.movements.take(_visibleLimit)) _eventRow(
               title: PersianDate.displayDigits(_movementTitle(move)),
               subtitle: '${persianDateLabel(move.createdAt, showTime: true)}'
                   '${move.kind == 'metadata' && move.note != null
                     ? ' — ${move.note}' : ''}',
               color: move.deltaMilliunits < 0
-                ? const Color(0xFFB55B32) : AppColors.primary,
+                ? AppPalette.tone(context, const Color(0xFFB55B32)) : AppPalette.ink(context, AppColors.primary),
               icon: Icons.inventory_2_outlined),
             if (hasMore) ...[
               const SizedBox(height: 10),

@@ -11,7 +11,10 @@ void main() {
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    medications = MedicationRepository(db);
+    medications = MedicationRepository(db, clock: () {
+      final now = DateTime.now();
+      return DateTime(now.year, now.month, now.day, 12);
+    });
     profiles = ProfileRepository(db);
   });
   tearDown(() async => db.close());
@@ -100,6 +103,29 @@ void main() {
       ),
       completion(isFalse),
     );
+  });
+
+  test('future-only edit is effective today and retains protected past dose IDs', () async {
+    final profile = await profiles.createGuestProfile(forSelf: true);
+    final id = await medications.addMedicationSchedule(
+      profileId: profile.id, name: 'ثابت', slots: const [
+        DoseSlotInput(doseText: 'صبح', time: TimeOfDayValue(8, 0)),
+        DoseSlotInput(doseText: 'بعدازظهر', time: TimeOfDayValue(14, 0)),
+      ]);
+    final today = DateTime.now();
+    final original = await medications.dosesForDay(profile.id, today);
+    await medications.recordDose(dose: original.first,
+      profileId: profile.id, action: 'taken');
+    await medications.updateMedicationSchedule(
+      profileId: profile.id, medicationId: id, name: 'ثابت', slots: const [
+        DoseSlotInput(doseText: 'صبح', time: TimeOfDayValue(8, 0)),
+        DoseSlotInput(doseText: 'بعدازظهر', time: TimeOfDayValue(16, 0)),
+      ]);
+    final changed = await medications.dosesForDay(profile.id, today);
+    expect(changed.map((d) => d.scheduledAt.hour), [8, 16]);
+    expect(changed.first.occurrenceKey, original.first.occurrenceKey);
+    expect(changed.first.status, 'taken');
+    expect(changed.last.plan.version, 2);
   });
 
   test('second edit supersedes pending schedule without deleting versions',

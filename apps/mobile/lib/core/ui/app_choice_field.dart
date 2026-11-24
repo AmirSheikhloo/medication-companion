@@ -38,7 +38,7 @@ class _AppChoiceFieldState<T> extends State<AppChoiceField<T>> {
         context: context,
         showDragHandle: true,
         isScrollControlled: true,
-        backgroundColor: AppColors.background,
+        backgroundColor: AppPalette.surface(context, AppColors.background),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
         builder: (sheetContext) => SafeArea(top: false,
@@ -47,8 +47,8 @@ class _AppChoiceFieldState<T> extends State<AppChoiceField<T>> {
             child: Column(mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(widget.label, style: const TextStyle(
-                  fontSize: 19, color: AppColors.primaryDark,
+                Text(widget.label, style: TextStyle(
+                  fontSize: 19, color: AppPalette.ink(context, AppColors.primaryDark),
                   fontWeight: FontWeight.w900)),
                 const SizedBox(height: 12),
                 ConstrainedBox(
@@ -61,7 +61,7 @@ class _AppChoiceFieldState<T> extends State<AppChoiceField<T>> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Material(
                             color: widget.options[i].value == widget.value
-                              ? AppColors.mint : Colors.white,
+                              ? AppPalette.surface(context, AppColors.mint) : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(16),
@@ -71,12 +71,12 @@ class _AppChoiceFieldState<T> extends State<AppChoiceField<T>> {
                                   horizontal: 15, vertical: 15),
                                 child: Row(children: [
                                   Expanded(child: Text(widget.options[i].label,
-                                    style: const TextStyle(
-                                      color: AppColors.primaryDark,
+                                    style: TextStyle(
+                                      color: AppPalette.ink(context, AppColors.primaryDark),
                                       fontWeight: FontWeight.w700))),
                                   if (widget.options[i].value == widget.value)
-                                    const Icon(Icons.check_circle_rounded,
-                                      color: AppColors.primary),
+                                    Icon(Icons.check_circle_rounded,
+                                      color: AppPalette.ink(context, AppColors.primary)),
                                 ]),
                               ),
                             ),
@@ -103,7 +103,7 @@ class _AppChoiceFieldState<T> extends State<AppChoiceField<T>> {
       button: true,
       label: '${widget.label}، $name',
       child: Material(
-        color: widget.enabled ? AppColors.mint : const Color(0xFFE9EFF0),
+        color: widget.enabled ? AppPalette.surface(context, AppColors.mint) : AppPalette.tone(context, const Color(0xFFE9EFF0)),
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: widget.enabled ? _show : null,
@@ -119,12 +119,12 @@ class _AppChoiceFieldState<T> extends State<AppChoiceField<T>> {
                   children: [
                     Text(widget.label, maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppColors.muted,
+                      style: TextStyle(color: AppPalette.ink(context, AppColors.muted),
                         fontSize: 11)),
                     const SizedBox(height: 3),
                     Text(name, maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppColors.primaryDark,
+                      style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                         fontWeight: FontWeight.w800)),
                   ]),
                 ),
@@ -132,8 +132,8 @@ class _AppChoiceFieldState<T> extends State<AppChoiceField<T>> {
                 AnimatedRotation(
                   turns: _expanded ? .5 : 0,
                   duration: const Duration(milliseconds: 230),
-                  child: const Icon(Icons.keyboard_arrow_down_rounded,
-                    color: AppColors.primary)),
+                  child: Icon(Icons.keyboard_arrow_down_rounded,
+                    color: AppPalette.ink(context, AppColors.primary))),
               ]),
             ),
           ),

@@ -31,7 +31,7 @@ class MedicineArtwork extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.mint,
+        color: AppPalette.surface(context, AppColors.mint),
         borderRadius: BorderRadius.circular(size * .26),
       ),
       child: roundTablet
@@ -76,13 +76,14 @@ class MedicineArtwork extends StatelessWidget {
 
 class AppGradientButton extends StatelessWidget {
   const AppGradientButton({super.key, required this.label, required this.icon, required this.onPressed,
-    this.light = false, this.height = 48});
+    this.light = false, this.height = 48, this.iconAfterLabel = false});
 
   final String label;
   final IconData icon;
   final VoidCallback? onPressed;
   final bool light;
   final double height;
+  final bool iconAfterLabel;
 
   @override
   Widget build(BuildContext context) => Opacity(
@@ -97,18 +98,25 @@ class AppGradientButton extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(13),
             gradient: LinearGradient(colors: light
-                ? const [Color(0xFFA8F7EF), AppColors.accent]
+                ? [AppPalette.surface(context, const Color(0xFFA8F7EF)),
+                    AppPalette.surface(context, AppColors.accent)]
                 : const [AppColors.primary, Color(0xFF01847E)]),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 21, color: light ? AppColors.primaryDark : Colors.white),
-              const SizedBox(width: 8),
+              if (!iconAfterLabel) ...[
+                Icon(icon, size: 21, color: light ? AppPalette.ink(context, AppColors.primaryDark) : Colors.white),
+                const SizedBox(width: 8),
+              ],
               Flexible(child: Text(label, style: TextStyle(
-                color: light ? AppColors.primaryDark : Colors.white,
+                color: light ? AppPalette.ink(context, AppColors.primaryDark) : Colors.white,
                 fontWeight: FontWeight.w800, fontSize: 14),
                 maxLines: 1, overflow: TextOverflow.ellipsis)),
+              if (iconAfterLabel) ...[
+                const SizedBox(width: 8),
+                Icon(icon, size: 21, color: light ? AppPalette.ink(context, AppColors.primaryDark) : Colors.white),
+              ],
             ],
           ),
         ),
@@ -129,21 +137,23 @@ class AppSoftHeader extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(colors: [AppColors.mint, Color(0xFFF1FBFC)]),
+      gradient: LinearGradient(colors: [
+        AppPalette.surface(context, AppColors.mint),
+        AppPalette.surface(context, const Color(0xFFF1FBFC))]),
       borderRadius: BorderRadius.circular(16),
     ),
     child: Row(children: [
       Container(
         padding: const EdgeInsets.all(9),
-        decoration: BoxDecoration(color: const Color(0xFFBEF1EC),
+        decoration: BoxDecoration(color: AppPalette.surface(context, const Color(0xFFBEF1EC)),
           borderRadius: BorderRadius.circular(12)),
-        child: Icon(icon, color: AppColors.primary, size: 23),
+        child: Icon(icon, color: AppPalette.ink(context, AppColors.primary), size: 23),
       ),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(color: AppColors.primaryDark,
+        Text(title, style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
           fontWeight: FontWeight.w800, fontSize: 16)),
-        if (subtitle != null) Text(subtitle!, style: const TextStyle(color: AppColors.muted,
+        if (subtitle != null) Text(subtitle!, style: TextStyle(color: AppPalette.ink(context, AppColors.muted),
           fontSize: 11)),
       ])),
       ?trailing,
@@ -163,11 +173,11 @@ class AppStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    decoration: BoxDecoration(color: background ?? color.withValues(alpha: .12),
+    decoration: BoxDecoration(color: background == null ? AppPalette.ink(context, color).withValues(alpha: .12) : AppPalette.surface(context, background!),
       borderRadius: BorderRadius.circular(18)),
     child: Row(mainAxisSize: MainAxisSize.min, children: [
-      if (icon != null) ...[Icon(icon, size: 15, color: color), const SizedBox(width: 4)],
-      Text(text, style: TextStyle(fontFamily: 'Vazirmatn', color: color,
+      if (icon != null) ...[Icon(icon, size: 15, color: AppPalette.ink(context, color)), const SizedBox(width: 4)],
+      Text(text, style: TextStyle(fontFamily: 'Vazirmatn', color: AppPalette.ink(context, color),
         fontSize: fontSize, fontWeight: FontWeight.w700)),
     ]),
   );
@@ -187,19 +197,19 @@ class AppProgressRing extends StatelessWidget {
       SizedBox.expand(child: CircularProgressIndicator(
         value: progress.clamp(0, 1), strokeWidth: 8,
         strokeCap: StrokeCap.round,
-        color: AppColors.primary,
-        backgroundColor: const Color(0xFFC5EAE8),
+        color: AppPalette.ink(context, AppColors.primary),
+        backgroundColor: AppPalette.surface(context, const Color(0xFFC5EAE8)),
       )),
       Directionality(
         textDirection: TextDirection.ltr,
         child: Text(center,
           maxLines: 1,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Vazirmatn',
             fontWeight: FontWeight.bold,
             fontSize: 20,
-            color: AppColors.primaryDark,
+            color: AppPalette.ink(context, AppColors.primaryDark),
           ),
         ),
       ),
@@ -222,8 +232,8 @@ class AppBottomNav extends StatelessWidget {
     ];
     return SafeArea(top: false, child: Container(
       padding: const EdgeInsets.fromLTRB(10, 7, 10, 5),
-      decoration: const BoxDecoration(color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.outline))),
+      decoration: BoxDecoration(color: AppPalette.surface(context, Colors.white),
+        border: Border(top: BorderSide(color: AppPalette.surface(context, AppColors.outline)))),
       child: Row(children: [
         for (var i = 0; i < entries.length; i++)
           Expanded(child: InkWell(
@@ -241,11 +251,11 @@ class AppBottomNav extends StatelessWidget {
                   ),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(entries[i].$2, size: 22,
-                      color: selectedIndex == i ? Colors.white : AppColors.muted),
+                      color: selectedIndex == i ? Colors.white : AppPalette.ink(context, AppColors.muted)),
                     const SizedBox(height: 2),
                     Text(entries[i].$1, style: TextStyle(fontSize: 11,
                       fontWeight: selectedIndex == i ? FontWeight.w800 : FontWeight.w500,
-                      color: selectedIndex == i ? Colors.white : AppColors.ink)),
+                      color: selectedIndex == i ? Colors.white : AppPalette.ink(context, AppColors.ink))),
                   ]),
                 ),
               ),
@@ -263,8 +273,8 @@ class AppWaveBanner extends StatelessWidget {
   Widget build(BuildContext context) => ClipRRect(
     borderRadius: BorderRadius.circular(20),
     child: Stack(children: [
-      Container(height: 84, decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFFDAF9F6), Color(0xFFF4FAFA)]))),
+      Container(height: 84, decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [AppPalette.surface(context, const Color(0xFFDAF9F6)), AppPalette.surface(context, const Color(0xFFF4FAFA))]))),
       Positioned.directional(textDirection: Directionality.of(context),
         start: -36, bottom: -54,
         child: Transform.rotate(angle: -math.pi / 10,

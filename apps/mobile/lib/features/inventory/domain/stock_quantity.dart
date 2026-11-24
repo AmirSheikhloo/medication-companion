@@ -60,6 +60,12 @@ class StockQuantity {
     throw ArgumentError('دقت تاریخ انقضا ناشناخته است.');
   }
 
+  static DateTime expiryDay(String iso, String precision) {
+    final date = parseIso(iso);
+    return precision == 'month'
+      ? DateTime(date.year, date.month + 1, 0) : date;
+  }
+
   static DateTime parseIso(String iso) {
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(iso)) {
       throw ArgumentError('تاریخ انقضا معتبر نیست.');

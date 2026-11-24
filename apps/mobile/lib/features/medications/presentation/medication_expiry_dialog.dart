@@ -134,7 +134,7 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 8, vertical: 18),
             counterText: '',
-            filled: true, fillColor: AppColors.mint,
+            filled: true, fillColor: AppPalette.surface(context, AppColors.mint),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
               borderSide: BorderSide.none),
@@ -143,7 +143,7 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
               borderSide: BorderSide.none),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+              borderSide: BorderSide(color: AppPalette.ink(context, AppColors.primary), width: 1.5)),
           ),
         ),
       );
@@ -157,10 +157,10 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
             ? 'میلادی: ${gregorianDateLabel(converted)}'
             : 'شمسی: ${persianDateLabel(converted)}';
     return AlertDialog(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppPalette.surface(context, AppColors.background),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: const Text('تاریخ انقضای بسته', style: TextStyle(
-          color: AppColors.primaryDark, fontWeight: FontWeight.w900)),
+      title: Text('تاریخ انقضای بسته', style: TextStyle(
+          color: AppPalette.ink(context, AppColors.primaryDark), fontWeight: FontWeight.w900)),
       content: SizedBox(width: 350, child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -175,8 +175,8 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
             onSelectionChanged: (values) => _toggle(values.first),
           ),
           const SizedBox(height: 12),
-          const Text('تاریخ را به تقویم موردنظر وارد کنید.',
-            style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          Text('تاریخ را به تقویم موردنظر وارد کنید.',
+            style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
           const SizedBox(height: 12),
           // Right-to-left: day (right), month (middle), year (left).
           Row(children: [
@@ -192,19 +192,19 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
           AnimatedSwitcher(duration: const Duration(milliseconds: 200),
             child: Container(key: ValueKey(helper),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(color: AppColors.mint,
+              decoration: BoxDecoration(color: AppPalette.surface(context, AppColors.mint),
                 borderRadius: BorderRadius.circular(13)),
               child: Row(children: [
-                const Icon(Icons.sync_alt, color: AppColors.primary, size: 19),
+                Icon(Icons.sync_alt, color: AppPalette.ink(context, AppColors.primary), size: 19),
                 const SizedBox(width: 8),
-                Expanded(child: Text(helper, style: const TextStyle(
-                  color: AppColors.primaryDark, fontSize: 14,
+                Expanded(child: Text(helper, style: TextStyle(
+                  color: AppPalette.ink(context, AppColors.primaryDark), fontSize: 14,
                   fontWeight: FontWeight.w800))),
               ]))),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(
-              color: Color(0xFFC3353A), fontSize: 12)),
+            Text(_error!, style: TextStyle(
+              color: AppPalette.ink(context, const Color(0xFFC3353A)), fontSize: 12)),
           ],
         ],
       )),
