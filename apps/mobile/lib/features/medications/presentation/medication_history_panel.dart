@@ -107,10 +107,10 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
   };
 
   Color _doseColor(String action) => switch (action) {
-    'taken' => AppColors.success,
-    'skipped' => const Color(0xFFD24B56),
-    'unknown' => const Color(0xFFBA7812),
-    _ => AppColors.muted,
+    'taken' => AppPalette.ink(context, AppColors.success),
+    'skipped' => AppPalette.tone(context, const Color(0xFFD24B56)),
+    'unknown' => AppPalette.tone(context, const Color(0xFFBA7812)),
+    _ => AppPalette.ink(context, AppColors.muted),
   };
 
   String _movementName(String kind) => switch (kind) {
@@ -138,10 +138,10 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
           const SizedBox(width: 9),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w800,
-                color: AppColors.primaryDark, fontSize: 12)),
-              Text(subtitle, style: const TextStyle(
-                color: AppColors.muted, fontSize: 11)),
+              Text(title, style: TextStyle(fontWeight: FontWeight.w800,
+                color: AppPalette.ink(context, AppColors.primaryDark), fontSize: 12)),
+              Text(subtitle, style: TextStyle(
+                color: AppPalette.ink(context, AppColors.muted), fontSize: 11)),
             ])),
         ]),
       );
@@ -169,8 +169,8 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
           visualDensity: VisualDensity.compact,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           backgroundColor: _range == _HistoryRange.custom
-            ? AppColors.mint : Colors.white,
-          side: const BorderSide(color: AppColors.outline),
+            ? AppPalette.surface(context, AppColors.mint) : Colors.white,
+          side: BorderSide(color: AppPalette.surface(context, AppColors.outline)),
           label: const Text('بازه', style: TextStyle(fontSize: 11)),
           onPressed: _chooseRange),
       ]),
@@ -178,7 +178,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
       Text(PersianDate.displayDigits(
         '${persianDateLabel(_selectedRange().start)} تا '
         '${persianDateLabel(_selectedRange().end)}'),
-        style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+        style: TextStyle(fontSize: 11, color: AppPalette.ink(context, AppColors.muted))),
       const SizedBox(height: 12),
       FutureBuilder<({List<DoseEvent> doses, List<StockMovement> movements})>(
         future: _future,
@@ -195,12 +195,12 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
             Text('تاریخچهٔ مصرف (${PersianDate.displayDigits('${data.doses.take(_visibleLimit).length}')}${data.doses.length > _visibleLimit ? '+' : ''})',
-              style: const TextStyle(fontWeight: FontWeight.w800,
-                color: AppColors.primaryDark)),
-            if (data.doses.isEmpty) const Padding(
+              style: TextStyle(fontWeight: FontWeight.w800,
+                color: AppPalette.ink(context, AppColors.primaryDark))),
+            if (data.doses.isEmpty) Padding(
               padding: EdgeInsets.symmetric(vertical: 9),
               child: Text('در این بازه مصرفی ثبت نشده است.',
-                style: TextStyle(color: AppColors.muted))),
+                style: TextStyle(color: AppPalette.ink(context, AppColors.muted)))),
             for (final dose in data.doses.take(_visibleLimit)) _eventRow(
               title: _doseName(dose.action),
               subtitle: persianDateLabel(dose.recordedAt, showTime: true),
@@ -209,19 +209,19 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
                   : Icons.info_outline),
             const Divider(height: 22),
             Text('تاریخچهٔ موجودی (${PersianDate.displayDigits('${data.movements.take(_visibleLimit).length}')}${data.movements.length > _visibleLimit ? '+' : ''})',
-              style: const TextStyle(fontWeight: FontWeight.w800,
-                color: AppColors.primaryDark)),
-            if (data.movements.isEmpty) const Padding(
+              style: TextStyle(fontWeight: FontWeight.w800,
+                color: AppPalette.ink(context, AppColors.primaryDark))),
+            if (data.movements.isEmpty) Padding(
               padding: EdgeInsets.symmetric(vertical: 9),
               child: Text('در این بازه تغییری در موجودی ثبت نشده است.',
-                style: TextStyle(color: AppColors.muted))),
+                style: TextStyle(color: AppPalette.ink(context, AppColors.muted)))),
             for (final move in data.movements.take(_visibleLimit)) _eventRow(
               title: PersianDate.displayDigits(_movementTitle(move)),
               subtitle: '${persianDateLabel(move.createdAt, showTime: true)}'
                   '${move.kind == 'metadata' && move.note != null
                     ? ' — ${move.note}' : ''}',
               color: move.deltaMilliunits < 0
-                ? const Color(0xFFB55B32) : AppColors.primary,
+                ? AppPalette.tone(context, const Color(0xFFB55B32)) : AppPalette.ink(context, AppColors.primary),
               icon: Icons.inventory_2_outlined),
             if (hasMore) ...[
               const SizedBox(height: 10),

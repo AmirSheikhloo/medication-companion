@@ -343,8 +343,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('تصویر دارو', textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 19, color: AppColors.primaryDark,
+          Text('تصویر دارو', textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 19, color: AppPalette.ink(context, AppColors.primaryDark),
               fontWeight: FontWeight.w900)),
           const SizedBox(height: 9),
           const Text('انتخاب تصویر اختیاری است؛ در صورت انتخاب‌نکردن، نماد پیش‌فرض نمایش داده می‌شود.',
@@ -355,15 +355,15 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             ('tablet', 'قرص', Icons.medication_outlined),
             ('liquid', 'داروی مایع', Icons.water_drop_outlined),
           ]) ListTile(
-            leading: Icon(item.$3, color: AppColors.primary),
+            leading: Icon(item.$3, color: AppPalette.ink(context, AppColors.primary)),
             title: Text(item.$2),
             trailing: _artwork == item.$1 && _imagePath == null
-              ? const Icon(Icons.check_circle, color: AppColors.success) : null,
+              ? Icon(Icons.check_circle, color: AppPalette.ink(context, AppColors.success)) : null,
             onTap: () => Navigator.pop(context, item.$1),
           ),
           ListTile(
-            leading: const Icon(Icons.add_photo_alternate_outlined,
-              color: AppColors.primary),
+            leading: Icon(Icons.add_photo_alternate_outlined,
+              color: AppPalette.ink(context, AppColors.primary)),
             title: const Text('انتخاب عکس از گوشی'),
             onTap: () => Navigator.pop(context, 'gallery'),
           ),
@@ -553,13 +553,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       totalMilliunits <= StockQuantity.maxMilliunits &&
       (liquid || totalMilliunits % 1000 == 0);
     return Container(padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.lightMint,
+      decoration: BoxDecoration(color: AppPalette.surface(context, AppColors.lightMint),
         borderRadius: BorderRadius.circular(18)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(children: [
           Expanded(child: Text(PersianDate.displayDigits('بسته شماره ${index + 1}'),
-            style: const TextStyle(color: AppColors.primaryDark,
+            style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
               fontWeight: FontWeight.w900, fontSize: 16))),
           if (_packages.length > 1) MedicationActionIcon(
             tooltip: 'حذف این بسته', destructive: true,
@@ -570,7 +570,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Text('واحد موجودی: $_stockUnit',
-            style: const TextStyle(color: AppColors.muted,
+            style: TextStyle(color: AppPalette.ink(context, AppColors.muted),
               fontSize: 12, fontWeight: FontWeight.w700))),
         const SizedBox(height: 12),
         Row(children: [
@@ -581,11 +581,11 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 15, vertical: 16),
-            decoration: BoxDecoration(color: AppColors.mint,
+            decoration: BoxDecoration(color: AppPalette.surface(context, AppColors.mint),
               borderRadius: BorderRadius.circular(14)),
             child: Text(_stockUnit,
-              style: const TextStyle(
-                color: AppColors.primaryDark,
+              style: TextStyle(
+                color: AppPalette.ink(context, AppColors.primaryDark),
                 fontWeight: FontWeight.w800))),
         ]),
         if (canCalculate) ...[
@@ -637,10 +637,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           ],
         ],
         const SizedBox(height: 8),
-        const Padding(padding: EdgeInsets.only(bottom: 6),
+        Padding(padding: EdgeInsets.only(bottom: 6),
           child: Text('می‌توانی تاریخ انقضا را به شمسی یا میلادی وارد کنی.',
             maxLines: 2, style: TextStyle(
-              color: AppColors.muted, fontSize: 11.5))),
+              color: AppPalette.ink(context, AppColors.muted), fontSize: 11.5))),
         if (item.expiry == null)
           Align(alignment: Alignment.centerRight, child: TextButton.icon(
             onPressed: () => _chooseExpiry(item),
@@ -648,8 +648,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             label: const Text('افزودن تاریخ انقضا (اختیاری)'),
           ))
         else Row(children: [
-          const Icon(Icons.event_available_outlined,
-            color: AppColors.primary),
+          Icon(Icons.event_available_outlined,
+            color: AppPalette.ink(context, AppColors.primary)),
           const SizedBox(width: 8),
           Expanded(child: Text('انقضا: ${persianDateLabel(item.expiry!)}',
             style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -697,13 +697,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     final slot = _slots[index];
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.lightMint,
+      decoration: BoxDecoration(color: AppPalette.surface(context, AppColors.lightMint),
         borderRadius: BorderRadius.circular(18)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
       Row(children: [
         Expanded(child: Text(PersianDate.displayDigits('نوبت ${index + 1}'),
-          style: const TextStyle(color: AppColors.primaryDark,
+          style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
             fontWeight: FontWeight.w900))),
         if (_slots.length > 1) MedicationActionIcon(
           tooltip: 'حذف نوبت', destructive: true,
@@ -712,16 +712,16 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       ]),
       const SizedBox(height: 7),
       Row(children: [
-        const Icon(Icons.schedule_rounded, color: AppColors.primary),
+        Icon(Icons.schedule_rounded, color: AppPalette.ink(context, AppColors.primary)),
         const SizedBox(width: 12),
         const Expanded(child: Text('ساعت مصرف', style: TextStyle(
           fontWeight: FontWeight.bold))),
         Directionality(textDirection: TextDirection.ltr,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             _timeField(slot.hour, 'ساعت', 24),
-            const Padding(padding: EdgeInsets.symmetric(horizontal: 4),
+            Padding(padding: EdgeInsets.symmetric(horizontal: 4),
               child: Text(':', style: TextStyle(fontSize: 20,
-                color: AppColors.primaryDark))),
+                color: AppPalette.ink(context, AppColors.primaryDark)))),
             _timeField(slot.minute, 'دقیقه', 59),
           ])),
       ]),
@@ -734,11 +734,11 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         Flexible(flex: 2, child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: 10, vertical: 15),
-          decoration: BoxDecoration(color: AppColors.mint,
+          decoration: BoxDecoration(color: AppPalette.surface(context, AppColors.mint),
             borderRadius: BorderRadius.circular(14)),
           child: Text(_baseUnit, textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.primaryDark,
+            style: TextStyle(
+              color: AppPalette.ink(context, AppColors.primaryDark),
               fontWeight: FontWeight.w800)))),
       ]),
     ]));
@@ -826,7 +826,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(4),
               color: index <= _currentStep
-                ? AppColors.primary : AppColors.outline)),
+                ? AppPalette.surface(context, AppColors.primary) : AppPalette.surface(context, AppColors.outline))),
           SizedBox(width: scale > 1.4 ? 102 : 64,
             child: InkWell(
               onTap: index <= _currentStep
@@ -840,22 +840,22 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                   width: index == _currentStep ? 44 : 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: index == _currentStep ? AppColors.primary :
-                      index < _currentStep ? const Color(0xFFCAF2E9)
-                      : const Color(0xFFE6EFF0),
+                    color: index == _currentStep ? AppPalette.surface(context, AppColors.primary) :
+                      index < _currentStep ? AppPalette.tone(context, const Color(0xFFCAF2E9))
+                      : AppPalette.tone(context, const Color(0xFFE6EFF0)),
                     boxShadow: index == _currentStep ? [
-                      BoxShadow(color: AppColors.primary.withValues(alpha:.18),
+                      BoxShadow(color: AppPalette.surface(context, AppColors.primary).withValues(alpha:.18),
                         blurRadius: 10, offset: const Offset(0,4))] : null),
                   alignment: Alignment.center,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 210),
                     child: index < _currentStep
-                      ? const Icon(Icons.check_rounded,
-                        key: ValueKey('done'), color: AppColors.primaryDark)
+                      ? Icon(Icons.check_rounded,
+                        key: ValueKey('done'), color: AppPalette.ink(context, AppColors.primaryDark))
                       : Text('${index + 1}', key: ValueKey(index),
                         style: TextStyle(fontWeight: FontWeight.w900,
                           color: index == _currentStep
-                            ? Colors.white : AppColors.primaryDark)))),
+                            ? Colors.white : AppPalette.ink(context, AppColors.primaryDark))))),
                 const SizedBox(height: 6),
                 Text(_stepLabels[index],
                   textAlign: TextAlign.center, maxLines: 2,
@@ -864,7 +864,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                     fontWeight: index == _currentStep
                       ? FontWeight.w900 : FontWeight.w500,
                     color: index == _currentStep
-                      ? AppColors.primaryDark : AppColors.muted)),
+                      ? AppPalette.ink(context, AppColors.primaryDark) : AppPalette.ink(context, AppColors.muted))),
               ]),
             )),
         ],
@@ -895,21 +895,21 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         padding: const EdgeInsets.only(top: 12),
         child: Material(
           borderRadius: BorderRadius.circular(18),
-          color: AppColors.mint,
+          color: AppPalette.surface(context, AppColors.mint),
           child: Padding(
             padding: const EdgeInsets.all(11),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('پیشنهاد از داروهای قبلی شما',
-                  style: TextStyle(color: AppColors.primaryDark,
+                Text('پیشنهاد از داروهای قبلی شما',
+                  style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                     fontWeight: FontWeight.w800)),
                 for (final value in shown)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    leading: const Icon(Icons.history_rounded,
-                      color: AppColors.primary),
+                    leading: Icon(Icons.history_rounded,
+                      color: AppPalette.ink(context, AppColors.primary)),
                     title: Text(value),
                     onTap: () {
                       _name.text = value;
@@ -918,10 +918,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                       FocusScope.of(context).unfocus();
                     },
                   ),
-                if (exact) const Text(
+                if (exact) Text(
                   'با ثبت این نام، دورهٔ جدیدی می‌سازی؛ '
                   'سوابق قبلی جدا و محفوظ می‌مانند.',
-                  style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                  style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
               ],
             ),
           ),
@@ -935,8 +935,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     children: [
       const AppSectionHeading('اطلاعات دارو', icon: Icons.medication_outlined),
       const SizedBox(height: 9),
-      const Text('نام دارو را مانند نسخه وارد کن؛ تصویر اختیاری است.',
-        style: TextStyle(color: AppColors.muted)),
+      Text('نام دارو را مانند نسخه وارد کن؛ تصویر اختیاری است.',
+        style: TextStyle(color: AppPalette.ink(context, AppColors.muted))),
       const SizedBox(height: 20),
       Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
         InkWell(onTap: _chooseArtwork,
@@ -950,9 +950,9 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                   height: _nameControlHeight,
                   fit: BoxFit.cover, errorBuilder: (_, _, _) =>
                     MedicineArtwork(seed: _artwork, size: _nameControlHeight))),
-            const Positioned(left: 0, bottom: 0,
+            Positioned(left: 0, bottom: 0,
               child: CircleAvatar(radius: 13,
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppPalette.surface(context, AppColors.primary),
                 child: Icon(Icons.add, color: Colors.white, size: 18))),
           ])),
         const SizedBox(width: 12),
@@ -964,7 +964,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           inputFormatters: const [EnglishDigitsInputFormatter()],
           textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
-            filled: true, fillColor: AppColors.mint,
+            filled: true, fillColor: AppPalette.surface(context, AppColors.mint),
             labelText: '* نام دارو', hintText: 'مثلاً استامینوفن 500',
             counterText: '',
             border: OutlineInputBorder(borderRadius:
@@ -976,12 +976,12 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       ]),
       _nameSuggestions(),
       const SizedBox(height: 30),
-      const Text('واحد پایه دارو', style: TextStyle(
-        fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
+      Text('واحد پایه دارو', style: TextStyle(
+        fontWeight: FontWeight.w800, color: AppPalette.ink(context, AppColors.primaryDark))),
       const SizedBox(height: 8),
-      const Text('تعدادی: قرص، کپسول و مشابه آن. حجمی: شربت و محلول. '
+      Text('تعدادی: قرص، کپسول و مشابه آن. حجمی: شربت و محلول. '
         'این انتخاب برای همه نوبت‌ها و محاسبه موجودی ثابت می‌ماند.',
-        style: TextStyle(color: AppColors.muted, fontSize: 12)),
+        style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
       const SizedBox(height: 12),
       MedicationChoiceField(
         value: _baseUnit,
@@ -992,9 +992,9 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       ),
       if (MedicationUnits.isLiquid(_baseUnit)) ...[
         const SizedBox(height: 9),
-        const Text('موجودی با میلی‌لیتر ثبت می‌شود. ۱ سی‌سی = ۱ میلی‌لیتر. '
+        Text('موجودی با میلی‌لیتر ثبت می‌شود. ۱ سی‌سی = ۱ میلی‌لیتر. '
           'فقط از سرنگ یا قاشق مدرج دارو استفاده کن.',
-          style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
         if (_baseUnit == MedicationUnits.teaSpoon)
           const Text('هر قاشق چای‌خوری مدرج: ۵ میلی‌لیتر.'),
         if (_baseUnit == MedicationUnits.tableSpoon)
@@ -1004,19 +1004,19 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           _numberField(_spoonVolume,
             label: '* ظرفیت مدرج هر قاشق (میلی‌لیتر)',
             hint: 'طبق درجه ابزار مصرف'),
-          const Text('حجم قاشق را از روی درجه ابزار وارد کن؛ '
+          Text('حجم قاشق را از روی درجه ابزار وارد کن؛ '
             'هیچ ظرفیت پیش‌فرضی فرض نمی‌شود.',
-            style: TextStyle(color: AppColors.muted, fontSize: 12)),
+            style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
         ],
       ],
       if (_baseUnit == 'قطره')
-        const Text('موجودی و مصرف بر حسب تعداد قطره است؛ '
+        Text('موجودی و مصرف بر حسب تعداد قطره است؛ '
           'تبدیل خودکار قطره به میلی‌لیتر انجام نمی‌شود.',
-          style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
       if (MedicationUnits.mass.contains(_baseUnit))
-        const Text('این واحد برای وزن واقعی قابل‌اندازه‌گیری است، '
+        Text('این واحد برای وزن واقعی قابل‌اندازه‌گیری است، '
           'نه قدرت دارو یا تبدیل غلظت به حجم.',
-          style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
     ],
   );
 
@@ -1025,8 +1025,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     children: [
       const AppSectionHeading('برنامه مصرف', icon: Icons.schedule_outlined),
       const SizedBox(height: 8),
-      const Text('زمان و مقدار هر نوبت را مشخص کن.',
-        maxLines: 2, style: TextStyle(color: AppColors.muted)),
+      Text('زمان و مقدار هر نوبت را مشخص کن.',
+        maxLines: 2, style: TextStyle(color: AppPalette.ink(context, AppColors.muted))),
       const SizedBox(height: 14),
       for (var i = 0; i < _slots.length; i++) ...[
         _slotCard(i), const SizedBox(height: 10),
@@ -1042,9 +1042,9 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     children: [
       const AppSectionHeading('موجودی', icon: Icons.inventory_2_outlined),
       const SizedBox(height: 9),
-      const Text('ورق و بسته فقط برای محاسبه هستند؛ '
+      Text('ورق و بسته فقط برای محاسبه هستند؛ '
         'کسر موجودی همیشه با تعداد یا حجم انجام می‌شود.',
-        style: TextStyle(color: AppColors.muted)),
+        style: TextStyle(color: AppPalette.ink(context, AppColors.muted))),
       const SizedBox(height: 16),
       if (_editing)
         const Text('برای حفظ سوابق موجودی، بسته‌های قبلی را از صفحهٔ '
@@ -1065,9 +1065,9 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     children: [
       const AppSectionHeading('هشدار کمبود', icon: Icons.inventory_outlined),
       const SizedBox(height: 10),
-      const Text('اگر موجودی بسته انتخابی به حد تعیین‌شده برسد، '
+      Text('اگر موجودی بسته انتخابی به حد تعیین‌شده برسد، '
         'در برنامه با نشان کمبود مشخص می‌شود.',
-        style: TextStyle(color: AppColors.muted)),
+        style: TextStyle(color: AppPalette.ink(context, AppColors.muted))),
       const SizedBox(height: 13),
       SwitchListTile.adaptive(contentPadding: EdgeInsets.zero,
         title: const Text('فعال‌سازی هشدار کمبود'),
@@ -1086,7 +1086,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       ),
       if (_nearestExpiryDays != null) ...[
         const SizedBox(height: 16),
-        const Divider(color: AppColors.outline),
+        Divider(color: AppPalette.surface(context, AppColors.outline)),
         SwitchListTile.adaptive(contentPadding: EdgeInsets.zero,
           title: const Text('هشدار نزدیک‌شدن انقضا'),
           subtitle: const Text('با نزدیک‌شدن انقضای بسته، در زنگوله و فهرست داروها هشدار می‌بینی.'),
@@ -1105,7 +1105,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                   onPressed: () => setState(() => _expiryLead.text = '$days')),
           ]),
           Text('تا نزدیک‌ترین انقضا ${PersianDate.displayDigits('$_nearestExpiryDays')} روز مانده.',
-            style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+            style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
         ],
       ],
     ],
@@ -1147,9 +1147,9 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     children: [
       const AppSectionHeading('یادآور', icon: Icons.notifications_active_outlined),
       const SizedBox(height: 10),
-      const Text('اعلان و هشدار تمام‌صفحه اختیاری هستند؛ '
+      Text('اعلان و هشدار تمام‌صفحه اختیاری هستند؛ '
         'می‌توانی مصرف را فقط داخل برنامه ثبت کنی.',
-        style: TextStyle(color: AppColors.muted)),
+        style: TextStyle(color: AppPalette.ink(context, AppColors.muted))),
       const SizedBox(height: 15),
       SwitchListTile.adaptive(
         contentPadding: EdgeInsets.zero,
@@ -1157,7 +1157,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         value: _notify,
         onChanged: _requestingPermission ? null
             : (v) => _changeReminder(v, fullScreen: false)),
-      const Divider(color: AppColors.outline),
+      Divider(color: AppPalette.surface(context, AppColors.outline)),
       SwitchListTile.adaptive(
         contentPadding: EdgeInsets.zero,
         title: const Text('زنگ هشدار (آلارم تمام‌صفحه)'),
@@ -1173,8 +1173,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           padding: const EdgeInsets.only(top: 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('توضیح روی صفحهٔ هشدار (اختیاری)',
-                style: TextStyle(color: AppColors.primaryDark,
+              Text('توضیح روی صفحهٔ هشدار (اختیاری)',
+                style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                   fontWeight: FontWeight.w700)),
               const SizedBox(height: 10),
               TextField(
@@ -1183,7 +1183,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                 decoration: InputDecoration(
                   hintText: 'مثلاً با آب فراوان مصرف شود',
                   helperText: 'این متن هنگام نمایش هشدار دیده می‌شود.',
-                  filled: true, fillColor: AppColors.mint,
+                  filled: true, fillColor: AppPalette.surface(context, AppColors.mint),
                   contentPadding: const EdgeInsets.all(14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -1206,11 +1206,11 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.background,
+    backgroundColor: AppPalette.surface(context, AppColors.background),
     appBar: AppBar(
       title: Text(_editing ? 'ویرایش دارو' : 'افزودن دارو'),
-      backgroundColor: AppColors.background,
-      foregroundColor: AppColors.primaryDark,
+      backgroundColor: AppPalette.surface(context, AppColors.background),
+      foregroundColor: AppPalette.ink(context, AppColors.primaryDark),
     ),
     bottomNavigationBar: SafeArea(top: false, child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 9, 16, 12),
@@ -1223,7 +1223,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             label: const Text('قبلی'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(50),
-              backgroundColor: AppColors.mint),
+              backgroundColor: AppPalette.surface(context, AppColors.mint)),
           )),
           const SizedBox(width: 9),
         ],
@@ -1240,7 +1240,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     body: Column(children: [
       Padding(padding: const EdgeInsets.only(top: 10, bottom: 12),
         child: _wizardProgress()),
-      const Divider(color: AppColors.outline, height: 1),
+      Divider(color: AppPalette.surface(context, AppColors.outline), height: 1),
       Expanded(child: AnimatedSwitcher(
         duration: MediaQuery.of(context).disableAnimations
           ? Duration.zero : const Duration(milliseconds: 290),

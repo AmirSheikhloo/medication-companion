@@ -51,39 +51,39 @@ class _MedicationPlanHistoryPanelState
         }
         if (versions.isEmpty) return const SizedBox.shrink();
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('تاریخچهٔ تغییر برنامه',
+          Text('تاریخچهٔ تغییر برنامه',
             style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900,
-              color: AppColors.primaryDark)),
+              color: AppPalette.ink(context, AppColors.primaryDark))),
           const SizedBox(height: 5),
-          const Text('هر نسخه نشان می‌دهد از چه تاریخ و ساعتی، چه نوبت‌ها و مقدارهایی ثبت شده‌اند. سوابق قبلی تغییر نمی‌کنند.',
-            style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          Text('هر نسخه نشان می‌دهد از چه تاریخ و ساعتی، چه نوبت‌ها و مقدارهایی ثبت شده‌اند. سوابق قبلی تغییر نمی‌کنند.',
+            style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
           const SizedBox(height: 8),
           for (final entry in versions.entries)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: ExpansionTile(
                 initiallyExpanded: entry.key == versions.keys.first,
-                backgroundColor: AppColors.lightMint,
-                collapsedBackgroundColor: AppColors.mint,
+                backgroundColor: AppPalette.surface(context, AppColors.lightMint),
+                collapsedBackgroundColor: AppPalette.surface(context, AppColors.mint),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
                 collapsedShape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
                 title: Text('برنامهٔ نسخه ${entry.key}',
-                  style: const TextStyle(color: AppColors.primaryDark,
+                  style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                     fontWeight: FontWeight.w800)),
                 subtitle: Text('از ${persianDateLabel(entry.value.first.effectiveFrom)}، '
                   '${entry.value.first.effectiveFrom.toLocal().hour.toString().padLeft(2, '0')}:'
                   '${entry.value.first.effectiveFrom.toLocal().minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                  style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
                 children: [
                   for (final plan in entry.value)
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 8),
                       child: Row(children: [
-                        const Icon(Icons.access_time,
-                          size: 18, color: AppColors.primary),
+                        Icon(Icons.access_time,
+                          size: 18, color: AppPalette.ink(context, AppColors.primary)),
                         const SizedBox(width: 8),
                         Text(
                           '${plan.hour.toString().padLeft(2,'0')}:'

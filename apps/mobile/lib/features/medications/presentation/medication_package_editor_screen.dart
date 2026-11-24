@@ -167,18 +167,18 @@ class _MedicationPackageEditorScreenState
   Widget build(BuildContext context) {
     final existing = widget.existing;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppPalette.surface(context, AppColors.background),
       appBar: AppBar(title: Text(existing == null
           ? 'افزودن بسته جدید' : 'جزئیات بسته')),
       body: ListView(padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
         children: [
-          const Text('مشخصات بسته', style: TextStyle(
+          Text('مشخصات بسته', style: TextStyle(
             fontSize: 21, fontWeight: FontWeight.w900,
-            color: AppColors.primaryDark)),
+            color: AppPalette.ink(context, AppColors.primaryDark))),
           const SizedBox(height: 7),
-          const Text('هر اصلاح موجودی به‌صورت رویداد جداگانه ثبت می‌شود؛ '
+          Text('هر اصلاح موجودی به‌صورت رویداد جداگانه ثبت می‌شود؛ '
             'مصرف‌های قبلی تغییر نمی‌کنند.',
-            style: TextStyle(color: AppColors.muted)),
+            style: TextStyle(color: AppPalette.ink(context, AppColors.muted))),
           const SizedBox(height: 20),
           TextField(controller: _label,
             inputFormatters: const [EnglishDigitsInputFormatter()],
@@ -256,23 +256,23 @@ class _MedicationPackageEditorScreenState
             Align(alignment: Alignment.centerRight,
               child: TextButton.icon(
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFAA4255)),
+                  foregroundColor: AppPalette.ink(context, const Color(0xFFAA4255))),
                 onPressed: _busy ? null : () => setState(() => _expiry = null),
                 icon: const Icon(Icons.close_rounded, size: 16),
                 label: const Text('حذف تاریخ'))),
           if (existing?.expired == true)
-            const Text('این بسته منقضی شده است و برای مصرف قابل انتخاب نیست.',
-              style: TextStyle(color: Color(0xFFB43B4D))),
+            Text('این بسته منقضی شده است و برای مصرف قابل انتخاب نیست.',
+              style: TextStyle(color: AppPalette.ink(context, const Color(0xFFB43B4D)))),
           if (_error != null)
             Padding(padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(_error!, style:
-                const TextStyle(color: Color(0xFFC3353A)))),
+                TextStyle(color: AppPalette.ink(context, const Color(0xFFC3353A))))),
           const SizedBox(height: 22),
           FilledButton.icon(
             onPressed: _busy ? null : _save,
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
-              backgroundColor: AppColors.primary),
+              backgroundColor: AppPalette.surface(context, AppColors.primary)),
             icon: const Icon(Icons.check_circle_outline),
             label: const Text('ذخیره تغییرات')),
           if (existing != null) ...[
@@ -281,8 +281,8 @@ class _MedicationPackageEditorScreenState
               Expanded(child: FilledButton.tonal(
                 onPressed: _busy ? null : _archiveOrRestore,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFE8C4),
-                  foregroundColor: const Color(0xFF805112),
+                  backgroundColor: AppPalette.surface(context, const Color(0xFFFFE8C4)),
+                  foregroundColor: AppPalette.ink(context, const Color(0xFF805112)),
                   minimumSize: const Size.fromHeight(51),
                   padding: const EdgeInsets.symmetric(horizontal: 6)),
                 child: Text(existing.archived
@@ -294,8 +294,8 @@ class _MedicationPackageEditorScreenState
               Expanded(child: FilledButton.tonal(
                 onPressed: _busy ? null : _delete,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFBE2E7),
-                  foregroundColor: const Color(0xFF9F2842),
+                  backgroundColor: AppPalette.surface(context, const Color(0xFFFBE2E7)),
+                  foregroundColor: AppPalette.ink(context, const Color(0xFF9F2842)),
                   minimumSize: const Size.fromHeight(51),
                   padding: const EdgeInsets.symmetric(horizontal: 6)),
                 child: const Text('حذف بسته',

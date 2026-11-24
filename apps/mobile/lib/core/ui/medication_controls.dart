@@ -34,7 +34,7 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
     try {
       final value = await showModalBottomSheet<String>(
         context: context,
-        backgroundColor: AppColors.background,
+        backgroundColor: AppPalette.surface(context, AppColors.background),
         showDragHandle: true,
         isScrollControlled: true,
         shape: const RoundedRectangleBorder(
@@ -48,8 +48,8 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(widget.label,
-                  style: const TextStyle(
-                    color: AppColors.primaryDark,
+                  style: TextStyle(
+                    color: AppPalette.ink(context, AppColors.primaryDark),
                     fontSize: 19, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 12),
                 ConstrainedBox(
@@ -63,7 +63,7 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Material(
                             color: option == widget.value
-                              ? AppColors.mint : Colors.white,
+                              ? AppPalette.surface(context, AppColors.mint) : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(16),
@@ -73,12 +73,12 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
                                   horizontal: 16, vertical: 16),
                                 child: Row(children: [
                                   Expanded(child: Text(option,
-                                    style: const TextStyle(
-                                      color: AppColors.primaryDark,
+                                    style: TextStyle(
+                                      color: AppPalette.ink(context, AppColors.primaryDark),
                                       fontWeight: FontWeight.w700))),
                                   if (option == widget.value)
-                                    const Icon(Icons.check_circle_rounded,
-                                      color: AppColors.primary),
+                                    Icon(Icons.check_circle_rounded,
+                                      color: AppPalette.ink(context, AppColors.primary)),
                                 ]),
                               ),
                             ),
@@ -105,7 +105,7 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
     button: true,
     label: '${widget.label}، ${widget.value}',
     child: Material(
-      color: widget.enabled ? AppColors.mint : const Color(0xFFEAF0F0),
+      color: widget.enabled ? AppPalette.surface(context, AppColors.mint) : AppPalette.tone(context, const Color(0xFFEAF0F0)),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: widget.enabled ? _choose : null,
@@ -121,19 +121,19 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
                 children: [
                   Text(widget.label, maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: AppColors.muted,
+                    style: TextStyle(color: AppPalette.ink(context, AppColors.muted),
                       fontSize: 11)),
                   const SizedBox(height: 2),
                   Text(widget.value, maxLines: 2,
-                    style: const TextStyle(color: AppColors.primaryDark,
+                    style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                       fontWeight: FontWeight.w800)),
                 ])),
               const SizedBox(width: 4),
               AnimatedRotation(
                 turns: _open ? .5 : 0,
                 duration: const Duration(milliseconds: 220),
-                child: const Icon(Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.primary, size: 21)),
+                child: Icon(Icons.keyboard_arrow_down_rounded,
+                  color: AppPalette.ink(context, AppColors.primary), size: 21)),
             ]),
           ),
         ),
@@ -158,14 +158,14 @@ class MedicationActionIcon extends StatelessWidget {
   Widget build(BuildContext context) => Tooltip(
     message: tooltip,
     child: Material(
-      color: destructive ? const Color(0xFFFCE0E4) : AppColors.mint,
+      color: destructive ? AppPalette.surface(context, const Color(0xFFFCE0E4)) : AppPalette.surface(context, AppColors.mint),
       borderRadius: BorderRadius.circular(13),
       child: IconButton(
         visualDensity: VisualDensity.standard,
         tooltip: tooltip,
         onPressed: onPressed,
         icon: Icon(icon, size: iconSize),
-        color: destructive ? const Color(0xFFAE3149) : AppColors.primaryDark,
+        color: destructive ? AppPalette.tone(context, const Color(0xFFAE3149)) : AppPalette.ink(context, AppColors.primaryDark),
       ),
     ),
   );

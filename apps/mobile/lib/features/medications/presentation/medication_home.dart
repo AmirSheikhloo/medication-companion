@@ -35,7 +35,6 @@ import '../../care/presentation/care_hub_screen.dart';
 import '../../care/data/care_reminder_coordinator.dart';
 import '../../backup/presentation/secure_backup_screen.dart';
 
-const _deepTeal = AppColors.primary;
 const _betaRunNumber = String.fromEnvironment(
   'BETA_RUN_NUMBER',
   defaultValue: 'محلی',
@@ -612,14 +611,14 @@ class _MedicationHomeState extends State<MedicationHome>
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppPalette.surface(context, AppColors.background),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(25)),
-        title: const Row(children: [
-          Icon(Icons.verified_rounded, color: AppColors.success),
+        title: Row(children: [
+          Icon(Icons.verified_rounded, color: AppPalette.ink(context, AppColors.success)),
           SizedBox(width: 8),
           Expanded(child: Text('خلاصهٔ پایان مصرف',
-            style: TextStyle(color: AppColors.primaryDark,
+            style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
               fontWeight: FontWeight.w900))),
         ]),
         content: SingleChildScrollView(child: Column(
@@ -627,14 +626,14 @@ class _MedicationHomeState extends State<MedicationHome>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(PersianDate.displayDigits(updated.name),
-              style: const TextStyle(color: AppColors.primaryDark,
+              style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                 fontWeight: FontWeight.w800, fontSize: 17)),
             const SizedBox(height: 10),
             Text('از ${persianDateLabel(report.started)}'
               ' تا ${persianDateLabel(report.ended ?? DateTime.now())}'),
             const SizedBox(height: 7),
             Text('${report.days} روز از شروع دوره',
-              style: const TextStyle(color: AppColors.primaryDark,
+              style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                 fontWeight: FontWeight.w800)),
             const Divider(height: 25),
             Text('ثبت مصرف‌شده: ${report.taken} نوبت'),
@@ -644,7 +643,7 @@ class _MedicationHomeState extends State<MedicationHome>
             Text('کسر واقعی از موجودی: '
               '${StockQuantity.format(report.stockDebitedMilliunits)} '
               '${updated.unit}',
-              style: const TextStyle(color: AppColors.primaryDark,
+              style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                 fontWeight: FontWeight.w800)),
             if (updated.unit == 'عدد' &&
                 report.tabletsPerStrip != null) ...[
@@ -653,10 +652,10 @@ class _MedicationHomeState extends State<MedicationHome>
                 'ورق (${report.tabletsPerStrip} عدد در هر ورق)'),
             ],
             const SizedBox(height: 10),
-            const Text('این گزارش از ثبت‌های واقعی استخراج شده است؛ '
+            Text('این گزارش از ثبت‌های واقعی استخراج شده است؛ '
               'مصرف بدون کسر موجودی به مقدار کسرشده اضافه نمی‌شود. '
               'سوابق برای گزارش پزشک محفوظ هستند.',
-              style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
           ],
         )),
         actions: [
@@ -675,7 +674,7 @@ class _MedicationHomeState extends State<MedicationHome>
     final allowed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppPalette.surface(context, AppColors.background),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24)),
         title: const Text('حذف دارو از فهرست'),
@@ -687,7 +686,7 @@ class _MedicationHomeState extends State<MedicationHome>
             child: const Text('انصراف')),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFB6374C),
+              backgroundColor: AppPalette.surface(context, const Color(0xFFB6374C)),
               foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('حذف از فهرست')),
@@ -957,7 +956,7 @@ class _MedicationHomeState extends State<MedicationHome>
       );
     }
     return Scaffold(
-      backgroundColor: _tab == 0 ? TodayPalette.page : AppColors.background,
+      backgroundColor: _tab == 0 ? AppPalette.surface(context, TodayPalette.page) : AppPalette.surface(context, AppColors.background),
       body: SafeArea(
         bottom: false,
         child: AnimatedBuilder(
@@ -994,7 +993,7 @@ class _MedicationHomeState extends State<MedicationHome>
 
   Widget _profileBar() {
     return Material(
-      color: AppColors.lightMint,
+      color: AppPalette.surface(context, AppColors.lightMint),
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         key: const Key('today-profile-selector'),
@@ -1005,22 +1004,22 @@ class _MedicationHomeState extends State<MedicationHome>
           padding: const EdgeInsets.symmetric(horizontal: 11),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.outline),
+            border: Border.all(color: AppPalette.surface(context, AppColors.outline)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.person_outline_rounded, color: _deepTeal, size: 21),
+            Icon(Icons.person_outline_rounded, color: AppPalette.ink(context, AppColors.primary), size: 21),
             const SizedBox(width: 6),
             Flexible(child: Text(
               _active!.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontFamily: 'Vazirmatn',
+              style: TextStyle(fontFamily: 'Vazirmatn',
                 fontSize: 14, fontWeight: FontWeight.bold,
-                color: AppColors.primaryDark),
+                color: AppPalette.ink(context, AppColors.primaryDark)),
             )),
             const SizedBox(width: 6),
-            const Icon(Icons.keyboard_arrow_down_rounded,
-              color: AppColors.primary, size: 20),
+            Icon(Icons.keyboard_arrow_down_rounded,
+              color: AppPalette.ink(context, AppColors.primary), size: 20),
           ]),
         ),
       ),
@@ -1031,7 +1030,7 @@ class _MedicationHomeState extends State<MedicationHome>
     final selected = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.surface(context, Colors.white),
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1042,18 +1041,18 @@ class _MedicationHomeState extends State<MedicationHome>
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
           child: Column(mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const Text('انتخاب شخص', textAlign: TextAlign.right,
+              Text('انتخاب شخص', textAlign: TextAlign.right,
                 style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 21,
-                  fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                  fontWeight: FontWeight.bold, color: AppPalette.ink(context, AppColors.primaryDark))),
               const SizedBox(height: 5),
-              const Text('برنامه و اطلاعات هر شخص جدا نگه داشته می‌شود.',
+              Text('برنامه و اطلاعات هر شخص جدا نگه داشته می‌شود.',
                 style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 13,
-                  color: AppColors.muted)),
+                  color: AppPalette.ink(context, AppColors.muted))),
               const SizedBox(height: 16),
               for (final profile in _profiles) ...[
                 Material(
                   color: profile.id == _active?.id
-                      ? AppColors.mint : AppColors.background,
+                      ? AppPalette.surface(context, AppColors.mint) : AppPalette.surface(context, AppColors.background),
                   borderRadius: BorderRadius.circular(17),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(17),
@@ -1062,19 +1061,19 @@ class _MedicationHomeState extends State<MedicationHome>
                       padding: const EdgeInsets.symmetric(
                         horizontal: 13, vertical: 12),
                       child: Row(children: [
-                        CircleAvatar(radius: 20, backgroundColor: Colors.white,
-                          child: const Icon(Icons.person_outline,
-                            color: AppColors.primary)),
+                        CircleAvatar(radius: 20, backgroundColor: AppPalette.surface(context, Colors.white),
+                          child: Icon(Icons.person_outline,
+                            color: AppPalette.ink(context, AppColors.primary))),
                         const SizedBox(width: 10),
                         Expanded(child: Text(PersianDate.displayDigits(profile.displayName),
-                          style: const TextStyle(fontFamily: 'Vazirmatn',
+                          style: TextStyle(fontFamily: 'Vazirmatn',
                             fontSize: 16, fontWeight: FontWeight.bold,
-                            color: AppColors.primaryDark))),
+                            color: AppPalette.ink(context, AppColors.primaryDark)))),
                         Icon(profile.id == _active?.id
                             ? Icons.check_circle_rounded
                             : Icons.circle_outlined,
                           color: profile.id == _active?.id
-                            ? AppColors.primary : AppColors.muted),
+                            ? AppPalette.ink(context, AppColors.primary) : AppPalette.ink(context, AppColors.muted)),
                       ]),
                     ),
                   ),
@@ -1138,10 +1137,10 @@ class _MedicationHomeState extends State<MedicationHome>
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
         children: [
           Row(children: [
-            const Expanded(child: Text('همراه دارو',
+            Expanded(child: Text('همراه دارو',
               maxLines: 1, overflow: TextOverflow.ellipsis,
               style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 18,
-                fontWeight: FontWeight.bold, color: AppColors.primaryDark))),
+                fontWeight: FontWeight.bold, color: AppPalette.ink(context, AppColors.primaryDark)))),
             const SizedBox(width: 10),
             _profileBar(),
             const SizedBox(width: 8),
@@ -1157,19 +1156,19 @@ class _MedicationHomeState extends State<MedicationHome>
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 15),
             child: Column(children: [
               Row(key: const Key('today-date-heading'), children: [
-                const Expanded(child: Text('خلاصهٔ امروز',
+                Expanded(child: Text('خلاصهٔ امروز',
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryDark))),
+                    color: AppPalette.ink(context, AppColors.primaryDark)))),
                 const SizedBox(width: 7),
-                const Icon(Icons.calendar_today_outlined,
-                  color: AppColors.primary, size: 17),
+                Icon(Icons.calendar_today_outlined,
+                  color: AppPalette.ink(context, AppColors.primary), size: 17),
                 const SizedBox(width: 5),
                 Text(todayReadablePersianDate(now),
-                  style: const TextStyle(fontFamily: 'Vazirmatn',
+                  style: TextStyle(fontFamily: 'Vazirmatn',
                     fontSize: 12, fontWeight: FontWeight.w600,
-                    color: AppColors.muted)),
+                    color: AppPalette.ink(context, AppColors.muted))),
               ]),
               const SizedBox(height: 14),
               Row(children: [
@@ -1180,8 +1179,8 @@ class _MedicationHomeState extends State<MedicationHome>
                   crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(PersianDate.displayDigits(
                       '$taken از ${_doses.length} نوبت مصرف شده'),
-                      style: const TextStyle(fontFamily: 'Vazirmatn',
-                        fontSize: 13, color: AppColors.ink)),
+                      style: TextStyle(fontFamily: 'Vazirmatn',
+                        fontSize: 13, color: AppPalette.ink(context, AppColors.ink))),
                     const SizedBox(height: 12),
                     Row(children: [
                       for (final dose in _doses)
@@ -1224,9 +1223,9 @@ class _MedicationHomeState extends State<MedicationHome>
             ),
           ] else ...[
             const SizedBox(height: 21),
-            const Text('برنامهٔ مصرف امروز',
+            Text('برنامهٔ مصرف امروز',
               style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 20,
-                fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                fontWeight: FontWeight.bold, color: AppPalette.ink(context, AppColors.primaryDark))),
             const SizedBox(height: 12),
             if (morning.isNotEmpty)
               _todayDoseGroup('صبح', Icons.wb_sunny_rounded, morning),
@@ -1258,8 +1257,8 @@ class _MedicationHomeState extends State<MedicationHome>
         decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 4),
       Text(PersianDate.displayDigits(description),
-        style: const TextStyle(fontFamily: 'Vazirmatn', fontSize: 11.5,
-          color: AppColors.ink)),
+        style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 11.5,
+          color: AppPalette.ink(context, AppColors.ink))),
     ],
   );
 
@@ -1276,10 +1275,10 @@ class _MedicationHomeState extends State<MedicationHome>
         child: Ink(
           key: const Key('today-bell-fill'),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              colors: [TodayPalette.bellHighlight, TodayPalette.bellShadow],
+              colors: [AppPalette.surface(context, TodayPalette.bellHighlight), AppPalette.surface(context, TodayPalette.bellShadow)],
             ),
             borderRadius: BorderRadius.circular(17),
           ),
@@ -1294,7 +1293,7 @@ class _MedicationHomeState extends State<MedicationHome>
                 unread ? Icons.notifications_rounded
                     : Icons.notifications_none_rounded,
                 key: ValueKey(unread),
-                color: TodayPalette.bellGold,
+                color: AppPalette.ink(context, TodayPalette.bellGold),
                 size: 25,
               ),
             ),
@@ -1310,7 +1309,7 @@ class _MedicationHomeState extends State<MedicationHome>
             key: const Key('today-unread-dot'),
             width: 10, height: 10,
             decoration: BoxDecoration(
-              color: const Color(0xFFE94E55),
+              color: AppPalette.surface(context, const Color(0xFFE94E55)),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 1.5),
             ),
@@ -1329,7 +1328,7 @@ class _MedicationHomeState extends State<MedicationHome>
       context: context,
       showDragHandle: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.surface(context, Colors.white),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -1342,28 +1341,28 @@ class _MedicationHomeState extends State<MedicationHome>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('اعلان‌های امروز', textAlign: TextAlign.right,
+            Text('اعلان‌های امروز', textAlign: TextAlign.right,
               style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 21,
-                fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                fontWeight: FontWeight.bold, color: AppPalette.ink(context, AppColors.primaryDark))),
             const SizedBox(height: 8),
             if (dueAlerts.isEmpty && _stockAlerts.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 22),
                 child: Text('فعلاً نوبت عقب‌افتاده‌ای نداری 🌿',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontFamily: 'Vazirmatn',
-                    fontSize: 15, color: AppColors.ink)),
+                    fontSize: 15, color: AppPalette.ink(context, AppColors.ink))),
               ),
             for (final item in _stockAlerts)
               Padding(padding: const EdgeInsets.only(top: 9),
                 child: Material(
                   color: item.alert.urgent
-                    ? const Color(0xFFFFE6EA) : const Color(0xFFFFF0DC),
+                    ? AppPalette.surface(context, const Color(0xFFFFE6EA)) : AppPalette.surface(context, const Color(0xFFFFF0DC)),
                   borderRadius: BorderRadius.circular(15),
                   child: ListTile(
                     leading: Icon(Icons.warning_amber_rounded,
                       color: item.alert.urgent
-                        ? const Color(0xFFB6354C) : const Color(0xFFB16D06)),
+                        ? AppPalette.ink(context, const Color(0xFFB6354C)) : AppPalette.ink(context, const Color(0xFFB16D06))),
                     title: Text('${item.medication.name} — ${item.alert.title}',
                       style: const TextStyle(fontSize: 13,
                         fontWeight: FontWeight.w800)),
@@ -1386,18 +1385,18 @@ class _MedicationHomeState extends State<MedicationHome>
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.lightMint,
+                    color: AppPalette.surface(context, AppColors.lightMint),
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.notifications_active_outlined,
-                      color: AppColors.primary),
+                    Icon(Icons.notifications_active_outlined,
+                      color: AppPalette.ink(context, AppColors.primary)),
                     const SizedBox(width: 10),
                     Expanded(child: Text(
                       '${dose.medication.name}  •  ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}',
-                      style: const TextStyle(fontFamily: 'Vazirmatn',
+                      style: TextStyle(fontFamily: 'Vazirmatn',
                         fontSize: 14, fontWeight: FontWeight.w600,
-                        color: AppColors.ink),
+                        color: AppPalette.ink(context, AppColors.ink)),
                     )),
                   ]),
                 ),
@@ -1412,16 +1411,16 @@ class _MedicationHomeState extends State<MedicationHome>
   Widget _todayDoseGroup(String label, IconData icon,
     List<DailyDose> doses, {bool recorded = false}) {
     final headerColor = recorded
-        ? const Color(0xFFEAF0F1)
-        : TodayPalette.dayPartHeader;
+        ? AppPalette.tone(context, const Color(0xFFEAF0F1))
+        : AppPalette.surface(context, TodayPalette.dayPartHeader);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
-        color: Colors.white,
+        color: AppPalette.surface(context, Colors.white),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(19),
-          side: const BorderSide(color: AppColors.outline),
+          side: BorderSide(color: AppPalette.surface(context, AppColors.outline)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
@@ -1432,24 +1431,24 @@ class _MedicationHomeState extends State<MedicationHome>
               Transform.flip(
                 flipX: label == 'عصر و شب',
                 child: Icon(icon, size: 22,
-                  color: recorded ? AppColors.primary
-                      : label == 'عصر و شب' ? AppColors.primary
-                      : const Color(0xFFBD871F)),
+                  color: recorded ? AppPalette.ink(context, AppColors.primary)
+                      : label == 'عصر و شب' ? AppPalette.ink(context, AppColors.primary)
+                      : AppPalette.tone(context, const Color(0xFFBD871F))),
               ),
               const SizedBox(width: 9),
-              Text(label, style: const TextStyle(fontFamily: 'Vazirmatn',
+              Text(label, style: TextStyle(fontFamily: 'Vazirmatn',
                 fontSize: 16, fontWeight: FontWeight.bold,
-                color: AppColors.primaryDark)),
+                color: AppPalette.ink(context, AppColors.primaryDark))),
               const Spacer(),
               Text(PersianDate.displayDigits('${doses.length} نوبت'),
-                style: const TextStyle(fontFamily: 'Vazirmatn',
-                  color: AppColors.ink, fontSize: 13)),
+                style: TextStyle(fontFamily: 'Vazirmatn',
+                  color: AppPalette.ink(context, AppColors.ink), fontSize: 13)),
             ]),
           ),
           for (var i = 0; i < doses.length; i++) ...[
-            if (i != 0) const Divider(
+            if (i != 0) Divider(
               height: 1, indent: 13, endIndent: 13,
-              color: AppColors.outline),
+              color: AppPalette.surface(context, AppColors.outline)),
             _doseCard(doses[i]),
           ],
         ]),
@@ -1461,17 +1460,17 @@ class _MedicationHomeState extends State<MedicationHome>
     final due = !dose.scheduledAt.isAfter(_now);
     final expanded = _expandedDoseKeys.contains(dose.occurrenceKey);
     final status = switch (dose.status) {
-      'taken' => ('مصرف شد', Icons.check_circle_rounded, AppColors.success),
+      'taken' => ('مصرف شد', Icons.check_circle_rounded, AppPalette.ink(context, AppColors.success)),
       'skipped' => ('مصرف نشد', Icons.cancel_rounded,
-          const Color(0xFFC23F43)),
+          AppPalette.tone(context, const Color(0xFFC23F43))),
       'unknown' => ('مطمئن نیستم', Icons.help_rounded,
-          const Color(0xFF996116)),
-      _ => ('', Icons.schedule_rounded, AppColors.muted),
+          AppPalette.tone(context, const Color(0xFF996116))),
+      _ => ('', Icons.schedule_rounded, AppPalette.ink(context, AppColors.muted)),
     };
     return AnimatedContainer(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeInOutCubic,
-      color: todayDoseCardBackground(dose.status),
+      color: AppPalette.surface(context, todayDoseCardBackground(dose.status)),
       child: Column(children: [
         InkWell(
         key: Key('today-dose-${dose.occurrenceKey}'),
@@ -1492,25 +1491,25 @@ class _MedicationHomeState extends State<MedicationHome>
               crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(PersianDate.displayDigits(dose.medication.name),
                   maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontFamily: 'Vazirmatn',
+                  style: TextStyle(fontFamily: 'Vazirmatn',
                     fontSize: 16, fontWeight: FontWeight.bold,
-                    height: 1.45, color: AppColors.ink)),
+                    height: 1.45, color: AppPalette.ink(context, AppColors.ink))),
                 const SizedBox(height: 2),
                 Wrap(spacing: 6, runSpacing: 2,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Icon(Icons.access_time_rounded,
-                      size: 15, color: AppColors.muted),
+                    Icon(Icons.access_time_rounded,
+                      size: 15, color: AppPalette.ink(context, AppColors.muted)),
                     Text(_clock(TimeOfDay.fromDateTime(dose.scheduledAt)),
                       textDirection: TextDirection.ltr,
-                      style: const TextStyle(fontFamily: 'Vazirmatn',
+                      style: TextStyle(fontFamily: 'Vazirmatn',
                         fontSize: 14, fontWeight: FontWeight.w600,
-                        color: AppColors.ink)),
+                        color: AppPalette.ink(context, AppColors.ink))),
                     Text('(${PersianDate.displayDigits(dose.plan.doseText.trim())})',
                       textDirection: TextDirection.rtl,
-                      style: const TextStyle(fontFamily: 'Vazirmatn',
+                      style: TextStyle(fontFamily: 'Vazirmatn',
                         fontSize: 13, fontWeight: FontWeight.w600,
-                        color: AppColors.ink)),
+                        color: AppPalette.ink(context, AppColors.ink))),
                   ]),
               ],
             )),
@@ -1530,8 +1529,8 @@ class _MedicationHomeState extends State<MedicationHome>
               turns: expanded ? .5 : 0,
               duration: const Duration(milliseconds: 240),
               curve: Curves.easeOutCubic,
-              child: const Icon(Icons.keyboard_arrow_down_rounded,
-                color: AppColors.primary, size: 27),
+              child: Icon(Icons.keyboard_arrow_down_rounded,
+                color: AppPalette.ink(context, AppColors.primary), size: 27),
             ),
           ]),
         ),
@@ -1556,13 +1555,13 @@ class _MedicationHomeState extends State<MedicationHome>
       curve: Curves.easeInOutCubic,
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
-      color: todayDoseCardBackground(dose.status),
+      color: AppPalette.surface(context, todayDoseCardBackground(dose.status)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Divider(height: 14, color: AppColors.outline),
+        Divider(height: 14, color: AppPalette.surface(context, AppColors.outline)),
         Text('ساعت برنامه: ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}  |  '
            'مقدار طبق نسخه: ${PersianDate.displayDigits(dose.plan.doseText)}',
-          style: const TextStyle(fontFamily: 'Vazirmatn', fontSize: 13,
-            color: AppColors.ink)),
+          style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 13,
+            color: AppPalette.ink(context, AppColors.ink))),
         const SizedBox(height: 11),
         if (dose.status == 'pending') ...[
           Row(children: [
@@ -1572,7 +1571,7 @@ class _MedicationHomeState extends State<MedicationHome>
               icon: const Icon(Icons.check_circle_outline_rounded, size: 17),
               label: const Text('مصرف کردم', textAlign: TextAlign.center),
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.success,
+                backgroundColor: AppPalette.surface(context, AppColors.success),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(0, 51),
                 padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -1586,7 +1585,7 @@ class _MedicationHomeState extends State<MedicationHome>
               icon: const Icon(Icons.close_rounded, size: 17),
               label: const Text('مصرف نکردم', textAlign: TextAlign.center),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFD34E58),
+                backgroundColor: AppPalette.surface(context, const Color(0xFFD34E58)),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(0, 51),
                 padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -1602,7 +1601,7 @@ class _MedicationHomeState extends State<MedicationHome>
               icon: const Icon(Icons.help_outline_rounded, size: 17),
               label: const Text('مطمئن نیستم', textAlign: TextAlign.center),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFCF8517),
+                backgroundColor: AppPalette.surface(context, const Color(0xFFCF8517)),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(0, 53),
                 padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -1617,8 +1616,8 @@ class _MedicationHomeState extends State<MedicationHome>
               label: const Text('مصرف بدون کسر موجودی',
                 maxLines: 2, textAlign: TextAlign.center),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE4ECEE),
-                foregroundColor: const Color(0xFF38515A),
+                backgroundColor: AppPalette.surface(context, const Color(0xFFE4ECEE)),
+                foregroundColor: AppPalette.ink(context, const Color(0xFF38515A)),
                 minimumSize: const Size(0, 53),
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 textStyle: const TextStyle(
@@ -1626,9 +1625,9 @@ class _MedicationHomeState extends State<MedicationHome>
             )),
           ]),
           const SizedBox(height: 8),
-          const Text('فقط با انتخاب «مصرف کردم» موجودی بسته کم می‌شود.',
+          Text('فقط با انتخاب «مصرف کردم» موجودی بسته کم می‌شود.',
             style: TextStyle(fontFamily: 'Vazirmatn',
-              fontSize: 12, color: AppColors.muted)),
+              fontSize: 12, color: AppPalette.ink(context, AppColors.muted))),
         ] else ...[
           TodayRecordedOutcomeBanner(status: dose.status),
           const SizedBox(height: 10),
@@ -1638,7 +1637,7 @@ class _MedicationHomeState extends State<MedicationHome>
             icon: const Icon(Icons.restart_alt_rounded),
             label: const Text('بازگرداندن ثبت'),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF006D70),
+              backgroundColor: AppPalette.surface(context, const Color(0xFF006D70)),
               foregroundColor: Colors.white,
               elevation: 1,
               minimumSize: const Size.fromHeight(48),
@@ -1675,7 +1674,7 @@ class _MedicationHomeState extends State<MedicationHome>
         Row(
           children: [
             Expanded(child: Text('داروها', style: Theme.of(context).textTheme.headlineSmall
-              ?.copyWith(color: AppColors.primaryDark, fontWeight: FontWeight.w900))),
+              ?.copyWith(color: AppPalette.ink(context, AppColors.primaryDark), fontWeight: FontWeight.w900))),
             SizedBox(width: 138, child: AppGradientButton(
               label: 'افزودن دارو', icon: Icons.add, height: 44,
               onPressed: _saving ? null : _addMedication)),
@@ -1684,8 +1683,8 @@ class _MedicationHomeState extends State<MedicationHome>
               tooltip: _searchVisible ? 'بستن جست‌وجوی دارو' : 'جست‌وجوی دارو',
               icon: Icon(_searchVisible ? Icons.close : Icons.search),
               style: IconButton.styleFrom(
-                backgroundColor: AppColors.mint,
-                foregroundColor: AppColors.primaryDark,
+                backgroundColor: AppPalette.surface(context, AppColors.mint),
+                foregroundColor: AppPalette.ink(context, AppColors.primaryDark),
                 minimumSize: const Size(46, 46),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
@@ -1712,8 +1711,8 @@ class _MedicationHomeState extends State<MedicationHome>
           const SizedBox(height: 11),
         ],
         Container(
-          decoration: BoxDecoration(color: const Color(0xFFF1F7F8),
-            border: Border.all(color: AppColors.outline),
+          decoration: BoxDecoration(color: AppPalette.surface(context, const Color(0xFFF1F7F8)),
+            border: Border.all(color: AppPalette.surface(context, AppColors.outline)),
             borderRadius: BorderRadius.circular(13)),
           child: Row(children: [
             for (final filter in ['همه', 'کم‌موجودی', 'بایگانی', 'حذف‌شده‌ها'])
@@ -1732,13 +1731,13 @@ class _MedicationHomeState extends State<MedicationHome>
                     gradient: (_showHidden ? filter == 'حذف‌شده‌ها' :
                         _showArchived ? filter == 'بایگانی' :
                         _lowStockOnly ? filter == 'کم‌موجودی' : filter == 'همه')
-                      ? const LinearGradient(colors: [AppColors.accent, Color(0xFF89E7E1)])
+                      ? LinearGradient(colors: [AppPalette.surface(context, AppColors.accent), AppPalette.surface(context, const Color(0xFF89E7E1))])
                       : null,
                     borderRadius: BorderRadius.circular(10)),
                   child: Text(filter, maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700,
-                    color: AppColors.primaryDark, fontSize: 11)),
+                    style: TextStyle(fontWeight: FontWeight.w700,
+                    color: AppPalette.ink(context, AppColors.primaryDark), fontSize: 11)),
                 ),
               )),
           ]),
@@ -1760,7 +1759,7 @@ class _MedicationHomeState extends State<MedicationHome>
           )
         else if (visible.isEmpty)
           AppPanel(child: Column(children: [
-            const Icon(Icons.search_off, size: 55, color: AppColors.primary),
+            Icon(Icons.search_off, size: 55, color: AppPalette.ink(context, AppColors.primary)),
             const SizedBox(height: 9),
             Text(_showHidden ? 'داروی حذف‌شده‌ای وجود ندارد.' :
               _showArchived ? 'هنوز دوره‌ای پایان نیافته است.' :
@@ -1771,7 +1770,7 @@ class _MedicationHomeState extends State<MedicationHome>
           AppPanel(padding: const EdgeInsets.symmetric(horizontal: 9),
             child: Column(children: [
               for (var i = 0; i < visible.length; i++) ...[
-                if (i != 0) const Divider(height: 1, color: AppColors.outline),
+                if (i != 0) Divider(height: 1, color: AppPalette.surface(context, AppColors.outline)),
                 _medicationCard(visible[i]),
               ],
             ])),
@@ -1815,30 +1814,30 @@ class _MedicationHomeState extends State<MedicationHome>
         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 7),
         decoration: BoxDecoration(
           color: alerts.isEmpty ? Colors.transparent : urgent
-            ? const Color(0xFFFFEBEF) : const Color(0xFFFFF5E4),
+            ? AppPalette.tone(context, const Color(0xFFFFEBEF)) : AppPalette.tone(context, const Color(0xFFFFF5E4)),
           borderRadius: BorderRadius.circular(15)),
         child: Row(children: [
           MedicationArtwork(name: med.name, setup: _setups[med.id], size: 51),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(PersianDate.displayDigits(med.name), maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 16, height: 1.45,
-                color: AppColors.ink, fontWeight: FontWeight.w800)),
+              style: TextStyle(fontSize: 16, height: 1.45,
+                color: AppPalette.ink(context, AppColors.ink), fontWeight: FontWeight.w800)),
             const SizedBox(height: 3),
             Text(_showHidden ? 'حذف‌شده از فهرست' :
               _showArchived ? 'بایگانی‌شده' : slots.isEmpty ? 'بدون نوبت فعال' :
               PersianDate.displayDigits('${slots.length} نوبت در روز'),
-              style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+              style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
             if (!_showArchived && !_showHidden && slots.isNotEmpty)
               Text(PersianDate.displayDigits('ساعت: $clockLabels$extraClocks'),
                 maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
             if (!_showArchived && !_showHidden && slots.isNotEmpty)
               Text(slots.map((d) => d.plan.doseText).toSet().length == 1
                 ? 'مقدار هر نوبت: ${PersianDate.displayDigits(slots.first.plan.doseText)}'
                 : 'مقدار: متفاوت در هر نوبت',
                 maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+                style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 11)),
             if (alerts.isNotEmpty)
               Padding(padding: const EdgeInsets.only(top: 5),
                 child: Wrap(spacing: 5, runSpacing: 4, children: [
@@ -1851,32 +1850,32 @@ class _MedicationHomeState extends State<MedicationHome>
                       style: const TextStyle(fontSize: 11)),
                 ])),
             if (hasPendingSchedule)
-              const Text('برنامه جدید — از فردا', style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              Text('برنامه جدید — از فردا', style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.bold, color: AppPalette.ink(context, AppColors.primary))),
           ])),
           const SizedBox(width: 5),
           if (!_showArchived) Container(
             constraints: const BoxConstraints(minWidth: 46, maxWidth: 75),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
             decoration: BoxDecoration(
-              color: lowStock ? AppColors.amberLight : AppColors.mint,
+              color: lowStock ? AppPalette.surface(context, AppColors.amberLight) : AppPalette.surface(context, AppColors.mint),
               borderRadius: BorderRadius.circular(10)),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Text('موجودی', style: TextStyle(fontSize: 9,
-                color: AppColors.muted)),
+              Text('موجودی', style: TextStyle(fontSize: 9,
+                color: AppPalette.ink(context, AppColors.muted))),
               Text(stockLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900,
-                  color: lowStock ? const Color(0xFF99520A) : AppColors.primaryDark)),
-              if (lowStock) const Text('کم‌موجودی',
-                style: TextStyle(fontSize: 9, color: Color(0xFF99520A))),
-              if (selected == null && !lowStock) const Text('ثبت نشده',
-                style: TextStyle(fontSize: 9, color: AppColors.muted)),
+                  color: lowStock ? AppPalette.ink(context, const Color(0xFF99520A)) : AppPalette.ink(context, AppColors.primaryDark))),
+              if (lowStock) Text('کم‌موجودی',
+                style: TextStyle(fontSize: 9, color: AppPalette.ink(context, const Color(0xFF99520A)))),
+              if (selected == null && !lowStock) Text('ثبت نشده',
+                style: TextStyle(fontSize: 9, color: AppPalette.ink(context, AppColors.muted))),
             ]),
           ),
           PopupMenuButton<String>(
             tooltip: 'گزینه‌های دارو',
             enabled: !_saving,
-            icon: const Icon(Icons.more_vert, size: 21, color: AppColors.muted),
+            icon: Icon(Icons.more_vert, size: 21, color: AppPalette.ink(context, AppColors.muted)),
             onSelected: (value) {
               if (value == 'stock') _openStock(med);
               if (value == 'edit') _editMedication(med);
@@ -1938,16 +1937,16 @@ class _MedicationHomeState extends State<MedicationHome>
     padding: const EdgeInsets.fromLTRB(15, 18, 15, 30),
     children: [
       Text('بیشتر', style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-        color: AppColors.primaryDark, fontWeight: FontWeight.w900)),
+        color: AppPalette.ink(context, AppColors.primaryDark), fontWeight: FontWeight.w900)),
       const SizedBox(height: 15),
       AppWaveBanner(child: Row(children: [
         const MedicineArtwork(seed: 'همراه دارو', size: 58),
         const SizedBox(width: 12),
-        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('همراه دارو', style: TextStyle(color: AppColors.primaryDark,
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('همراه دارو', style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
             fontWeight: FontWeight.w900, fontSize: 19)),
           Text('مدیریت هوشمند داروهای شما',
-            style: TextStyle(color: AppColors.muted, fontSize: 12)),
+            style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
         ])),
       ])),
       const SizedBox(height: 17),
@@ -2033,7 +2032,7 @@ class _MedicationHomeState extends State<MedicationHome>
       leading: AppIconTile(icon),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-      trailing: const Icon(Icons.chevron_left_rounded, color: AppColors.muted),
+      trailing: Icon(Icons.chevron_left_rounded, color: AppPalette.ink(context, AppColors.muted)),
       onTap: onTap,
     ),
   );
