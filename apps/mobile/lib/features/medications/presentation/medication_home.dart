@@ -141,6 +141,8 @@ class _MedicationHomeState extends State<MedicationHome>
       ];
       final rows = await _inboxRepository.reconcile(profile.id, current);
       if (mounted && _active?.id == profile.id) setState(() => _inbox = rows);
+    } catch (_) {
+      // An inbox write failure must never block the medication screen.
     } finally {
       _inboxLoading = false;
     }
@@ -975,7 +977,8 @@ class _MedicationHomeState extends State<MedicationHome>
       );
     }
     return Scaffold(
-      backgroundColor: _tab == 0 ? AppPalette.surface(context, TodayPalette.page) : AppPalette.surface(context, AppColors.background),
+      backgroundColor: AppPalette.isDark(context) ? AppPalette.darkBackground :
+        _tab == 0 ? TodayPalette.page : AppColors.background,
       body: SafeArea(
         bottom: false,
         child: AnimatedBuilder(

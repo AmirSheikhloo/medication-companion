@@ -146,11 +146,40 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
     _ => 'تغییر موجودی',
   };
 
-  String _movementTitle(StockMovement movement) {
-    if (movement.kind == 'metadata') return _movementName(movement.kind);
+  Widget _movementCard(StockMovement movement) {
+    final matches = widget.stock?.packages.where((p) =>
+      p.package.id == movement.packageId).toList() ?? [];
+    final pack = matches.isEmpty ? null : matches.first.package;
+    final color = movement.deltaMilliunits < 0
+      ? AppPalette.ink(context, const Color(0xFFC5223B))
+      : AppPalette.ink(context, AppColors.primary);
     final sign = movement.deltaMilliunits > 0 ? '+' : '';
-    return '${_movementName(movement.kind)}: $sign'
-        '${StockQuantity.format(movement.deltaMilliunits)}';
+    return Padding(padding: const EdgeInsets.only(bottom: 12),
+      child: AppPanel(color: AppColors.background, child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Icon(Icons.inventory_2_outlined, color: color),
+            const SizedBox(width: 8),
+            Expanded(child: Text(_movementName(movement.kind),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color))),
+          ]),
+          const SizedBox(height: 10),
+          Text('بسته: ${PersianDate.displayDigits(pack?.label ?? 'بسته ثبت‌شده') }'),
+          const SizedBox(height: 5),
+          Text('زمان ثبت: ${persianDateLabel(movement.createdAt, showTime: true)}',
+            style: TextStyle(color: AppPalette.ink(context, AppColors.muted))),
+          if (movement.kind != 'metadata') ...[
+            const SizedBox(height: 8),
+            Text('تغییر موجودی: $sign${StockQuantity.format(movement.deltaMilliunits)} ${pack?.unit ?? ''}',
+              style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+          ],
+          if (movement.note?.isNotEmpty == true) ...[
+            const SizedBox(height: 8),
+            const Text('توضیح ثبت‌شده', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(PersianDate.displayDigits(movement.note!)),
+          ],
+        ])));
   }
 
   Widget _eventRow({required String title, required String subtitle,
@@ -165,7 +194,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               Text(title, style: TextStyle(fontWeight: FontWeight.w800,
                 color: AppPalette.ink(context, AppColors.primaryDark), fontSize: 12)),
               Text(subtitle, style: TextStyle(
-                color: AppPalette.ink(context, AppColors.muted), fontSize: 11)),
+                color: AppPalette.ink(context, AppColors.muted), fontSize: 13)),
             ])),
         ]),
       );
@@ -176,26 +205,24 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
       children: [
       const SizedBox(height: 2),
       const SizedBox(height: 9),
-      Wrap(spacing: 5, runSpacing: 5, children: [
+      Wrap(spacing: 8, runSpacing: 8, children: [
         for (final item in const [
           (_HistoryRange.today, 'امروز'),
-          (_HistoryRange.week, '۷ روز'),
-          (_HistoryRange.month, '۳۰ روز'),
+          (_HistoryRange.week, '7 روز'),
+          (_HistoryRange.month, '30 روز'),
           (_HistoryRange.year, 'سال'),
         ])
           ChoiceChip(
-            visualDensity: VisualDensity.compact,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            label: Text(item.$2, style: const TextStyle(fontSize: 11)),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            label: Text(item.$2, style: const TextStyle(fontSize: 13)),
             selected: _range == item.$1,
             onSelected: (_) => _setRange(item.$1)),
         ActionChip(
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           backgroundColor: _range == _HistoryRange.custom
             ? AppPalette.surface(context, AppColors.mint) : AppPalette.surface(context, Colors.white),
           side: BorderSide(color: AppPalette.surface(context, AppColors.outline)),
-          label: const Text('بازه', style: TextStyle(fontSize: 11)),
+          label: const Text('بازه', style: TextStyle(fontSize: 13)),
           onPressed: _chooseRange),
       ]),
       const SizedBox(height: 6),
@@ -236,7 +263,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
                 ),
               ),
             Text('تاریخچهٔ مصرف (${PersianDate.displayDigits('${data.doses.take(_visibleLimit).length}')}${data.doses.length > _visibleLimit ? '+' : ''})',
-              style: TextStyle(fontWeight: FontWeight.w800,
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17,
                 color: AppPalette.ink(context, AppColors.primaryDark))),
             if (data.doses.isEmpty) Padding(
               padding: EdgeInsets.symmetric(vertical: 9),
@@ -248,7 +275,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               color: _doseColor(dose.action),
               icon: dose.action == 'taken' ? Icons.check_circle_outline
                   : Icons.info_outline),
-            const Divider(height: 22),
+            const Divider(height: 32),
             Text('تاریخچهٔ موجودی (${PersianDate.displayDigits('${data.movements.take(_visibleLimit).length}')}${data.movements.length > _visibleLimit ? '+' : ''})',
               style: TextStyle(fontWeight: FontWeight.w800,
                 color: AppPalette.ink(context, AppColors.primaryDark))),
@@ -256,14 +283,8 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               padding: EdgeInsets.symmetric(vertical: 9),
               child: Text('در این بازه تغییری در موجودی ثبت نشده است.',
                 style: TextStyle(color: AppPalette.ink(context, AppColors.muted)))),
-            for (final move in data.movements.take(_visibleLimit)) _eventRow(
-              title: PersianDate.displayDigits(_movementTitle(move)),
-              subtitle: '${persianDateLabel(move.createdAt, showTime: true)}'
-                  '${move.kind == 'metadata' && move.note != null
-                    ? ' — ${move.note}' : ''}',
-              color: move.deltaMilliunits < 0
-                ? AppPalette.tone(context, const Color(0xFFB55B32)) : AppPalette.ink(context, AppColors.primary),
-              icon: Icons.inventory_2_outlined),
+            const SizedBox(height: 12),
+            for (final move in data.movements.take(_visibleLimit)) _movementCard(move),
             if (hasMore) ...[
               const SizedBox(height: 10),
               OutlinedButton.icon(
@@ -272,7 +293,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
                   _future = _load();
                 }),
                 icon: const Icon(Icons.expand_more_rounded),
-                label: const Text('نمایش ۲۰ مورد بیشتر')),
+                label: const Text('نمایش 20 مورد بیشتر')),
             ],
           ]);
         },

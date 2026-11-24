@@ -212,14 +212,14 @@ class _MedicationPackageEditorScreenState
                   keyboardType: TextInputType.number,
                   inputFormatters: const [EnglishDigitsInputFormatter()],
                   decoration: const InputDecoration(
-                    labelText: 'تعداد ورق', hintText: 'مثلاً ۲'))),
+                    labelText: 'تعداد ورق', hintText: 'مثلاً 2'))),
                 const SizedBox(width: 8),
                 Expanded(child: TextField(
                   controller: _perContainer,
                   keyboardType: TextInputType.number,
                   inputFormatters: const [EnglishDigitsInputFormatter()],
                   decoration: const InputDecoration(
-                    labelText: 'تعداد در هر ورق', hintText: 'مثلاً ۱۰'))),
+                    labelText: 'تعداد در هر ورق', hintText: 'مثلاً 10'))),
               ]),
               const SizedBox(height: 7),
               FilledButton.tonal(
@@ -244,22 +244,25 @@ class _MedicationPackageEditorScreenState
             ],
           ],
           const SizedBox(height: 12),
-          Align(alignment: Alignment.centerRight,
-            child: TextButton.icon(
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
               onPressed: _busy ? null : _chooseExpiry,
-              icon: Icon(_expiry == null ? Icons.add_circle_outline :
-                Icons.edit_calendar_outlined),
-              label: Text(_expiry == null ? 'افزودن تاریخ انقضا (اختیاری)'
-                : 'انقضا: ${persianDateLabel(_expiry!)}'))),
-
-          if (_expiry != null)
-            Align(alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                style: TextButton.styleFrom(
-                  foregroundColor: AppPalette.ink(context, const Color(0xFFAA4255))),
+              icon: Icon(_expiry == null ? Icons.add_circle_outline : Icons.edit_calendar_outlined),
+              label: Text(_expiry == null ? 'افزودن تاریخ انقضا'
+                : 'انقضا: ${persianDateLabel(_expiry!)}',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 52)))),
+            if (_expiry != null) ...[
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: 'حذف تاریخ انقضا',
+                style: IconButton.styleFrom(
+                  backgroundColor: AppPalette.surface(context, const Color(0xFFFFE6EA)),
+                  foregroundColor: AppPalette.ink(context, const Color(0xFFC5223B))),
                 onPressed: _busy ? null : () => setState(() => _expiry = null),
-                icon: const Icon(Icons.close_rounded, size: 16),
-                label: const Text('حذف تاریخ'))),
+                icon: const Icon(Icons.delete_outline_rounded)),
+            ],
+          ]),
           if (existing?.expired == true)
             Text('این بسته منقضی شده است و برای مصرف قابل انتخاب نیست.',
               style: TextStyle(color: AppPalette.ink(context, const Color(0xFFB43B4D)))),

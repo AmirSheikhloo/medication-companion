@@ -13,8 +13,8 @@ abstract final class TodayPalette {
   static const page = Color(0xFFF1F8F8);
   static const summary = Color(0xFFDFF5F6);
   static const dayPartHeader = Color(0xFFE1F4F3);
-  static const bellHighlight = Color(0xFFFFFDF2);
-  static const bellShadow = Color(0xFFFFF3C7);
+  static const bellHighlight = Color(0xFFFFF2B6);
+  static const bellShadow = Color(0xFFFFDB71);
   static const bellGold = Color(0xFF977500);
 }
 

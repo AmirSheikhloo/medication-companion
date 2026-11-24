@@ -228,7 +228,7 @@ class AppBottomNav extends StatelessWidget {
       ('امروز', Icons.calendar_month_outlined),
       ('داروها', Icons.medication_outlined),
       ('سلامت', Icons.favorite_border_rounded),
-      ('بیشتر', Icons.more_horiz_rounded),
+      ('بیشتر', Icons.menu_rounded),
     ];
     return SafeArea(top: false, child: Container(
       padding: const EdgeInsets.fromLTRB(10, 7, 10, 5),

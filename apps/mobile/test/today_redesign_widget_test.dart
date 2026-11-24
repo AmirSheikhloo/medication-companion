@@ -109,7 +109,11 @@ void main() {
     // The notification panel is a modal sheet without an AppBar back button.
     await tester.tapAt(const Offset(8, 8));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('today-unread-dot')), findsNothing);
+    expect(find.byKey(const Key('today-unread-dot')), findsOneWidget);
+    expect(find.text('خواندم'), findsWidgets);
+    await tester.tap(find.text('خواندم').first);
+    await tester.pumpAndSettle();
+    expect(find.text('خوانده شده'), findsOneWidget);
 
     await tester.ensureVisible(find.text('قرص صبح'));
     expect(tester.widget<Container>(

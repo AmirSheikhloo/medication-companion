@@ -272,8 +272,11 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     super.dispose();
   }
 
-  void _showError(String message) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(message)));
+  String? _formError;
+
+  void _showError(String message) {
+    if (mounted) setState(() => _formError = PersianDate.displayDigits(message));
+  }
 
   void _normalizeClock(TextEditingController controller, int maximum) {
     final input = PersianDate.latinDigits(controller.text.trim());
@@ -800,6 +803,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     setState(() {
       _movingForward = next > _currentStep;
       _currentStep = next;
+      _formError = null;
     });
   }
 
@@ -992,13 +996,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       ),
       if (MedicationUnits.isLiquid(_baseUnit)) ...[
         const SizedBox(height: 9),
-        Text('موجودی با میلی‌لیتر ثبت می‌شود. ۱ سی‌سی = ۱ میلی‌لیتر. '
+        Text('موجودی با میلی‌لیتر ثبت می‌شود. 1 سی‌سی = 1 میلی‌لیتر. '
           'فقط از سرنگ یا قاشق مدرج دارو استفاده کن.',
           style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
         if (_baseUnit == MedicationUnits.teaSpoon)
-          const Text('هر قاشق چای‌خوری مدرج: ۵ میلی‌لیتر.'),
+          const Text('هر قاشق چای‌خوری مدرج: 5 میلی‌لیتر.'),
         if (_baseUnit == MedicationUnits.tableSpoon)
-          const Text('هر قاشق غذاخوری مدرج: ۱۵ میلی‌لیتر.'),
+          const Text('هر قاشق غذاخوری مدرج: 15 میلی‌لیتر.'),
         if (_baseUnit == MedicationUnits.dessertSpoon) ...[
           const SizedBox(height: 8),
           _numberField(_spoonVolume,
@@ -1241,6 +1245,16 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       Padding(padding: const EdgeInsets.only(top: 10, bottom: 12),
         child: _wizardProgress()),
       Divider(color: AppPalette.surface(context, AppColors.outline), height: 1),
+      if (_formError != null)
+        Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: AppPanel(color: const Color(0xFFFFE6EA), child: Row(children: [
+            Icon(Icons.error_outline, color: AppPalette.ink(context, const Color(0xFFC5223B))),
+            const SizedBox(width: 9),
+            Expanded(child: Text(_formError!, style: TextStyle(
+              color: AppPalette.ink(context, const Color(0xFFC5223B)), fontWeight: FontWeight.w700))),
+            IconButton(tooltip: 'بستن پیام', onPressed: () => setState(() => _formError = null),
+              icon: const Icon(Icons.close_rounded)),
+          ]))),
       Expanded(child: AnimatedSwitcher(
         duration: MediaQuery.of(context).disableAnimations
           ? Duration.zero : const Duration(milliseconds: 290),
