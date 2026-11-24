@@ -54,6 +54,7 @@ class MedicationHome extends StatefulWidget {
     required this.profileRepository,
     this.reminderCoordinator,
     this.careReminderCoordinator,
+    this.onThemeChanged,
     this.clock,
   });
 
@@ -61,6 +62,7 @@ class MedicationHome extends StatefulWidget {
   final ProfileRepository profileRepository;
   final ReminderCoordinator? reminderCoordinator;
   final CareReminderCoordinator? careReminderCoordinator;
+  final Future<void> Function(bool dark)? onThemeChanged;
   /// Injectable clock for daypart and notification widget tests.
   final DateTime Function()? clock;
 
@@ -1088,6 +1090,26 @@ class _MedicationHomeState extends State<MedicationHome>
     await _perform(() => widget.profileRepository.selectActiveProfile(selected));
   }
 
+  Future<void> _toggleTheme() async {
+    try {
+      await widget.onThemeChanged?.call(!AppPalette.isDark(context));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تنظیم ظاهر ذخیره نشد.')));
+      }
+    }
+  }
+
+  Widget _themeToggle() => IconButton(
+    key: const Key('app-theme-toggle'),
+    tooltip: AppPalette.isDark(context) ? 'حالت روشن' : 'حالت تاریک',
+    onPressed: _toggleTheme,
+    icon: Icon(AppPalette.isDark(context)
+      ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+      color: AppPalette.ink(context, AppColors.primary)),
+  );
+
   Widget _todayTab() {
     final taken = _doses.where((dose) => dose.status == 'taken').length;
     final pending = _doses.where((dose) => dose.status == 'pending').length;
@@ -1124,6 +1146,7 @@ class _MedicationHomeState extends State<MedicationHome>
             _profileBar(),
             const SizedBox(width: 8),
             _todayNotificationBell(dueAlerts),
+            if (widget.onThemeChanged != null) _themeToggle(),
           ]),
           const SizedBox(height: 16),
           TodaySkyGreeting(hour: now.hour, name: _active!.displayName),
@@ -1928,6 +1951,12 @@ class _MedicationHomeState extends State<MedicationHome>
         ])),
       ])),
       const SizedBox(height: 17),
+      if (widget.onThemeChanged != null)
+        _settingsTile(icon: AppPalette.isDark(context)
+          ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+          title: 'حالت روشن و تاریک',
+          subtitle: AppPalette.isDark(context) ? 'تاریک' : 'روشن',
+          onTap: _toggleTheme),
       _settingsTile(icon: Icons.people_outline_rounded,
         title: 'پروفایل‌ها', subtitle: 'مدیریت اعضای خانواده',
         onTap: () => Navigator.push(context, MaterialPageRoute<void>(
