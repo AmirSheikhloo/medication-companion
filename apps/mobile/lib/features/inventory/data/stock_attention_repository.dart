@@ -22,7 +22,7 @@ class StockAttention {
         p.package.expiryPrecision, now) && p.balanceMilliunits > 0);
     final selected = stock.selected;
     if (eligible.isEmpty) {
-      alerts.add(const StockAttention('no-usable-stock', 'موجودی قابل مصرف نیست',
+      alerts.add(const StockAttention('no-usable-stock', 'موجودی تمام شده',
         'بسته جدید اضافه کن یا وضعیت بسته‌ها را بررسی کن. این هشدار به معنی پایان درمان نیست.', 0));
     } else if (selected == null || selected.balanceMilliunits <= 0 ||
         StockQuantity.isExpired(selected.package.expiryIso,
@@ -35,7 +35,7 @@ class StockAttention {
           selected.package.expiryPrecision, now)) {
       alerts.add(StockAttention(
         'low:${selected.package.id}:${stock.thresholdMilliunits}',
-        'کم‌موجودی', 'موجودی بسته منتخب به حد هشدار رسیده است.', 3));
+        'رو به اتمام', 'موجودی بسته منتخب به حد هشدار رسیده است.', 3));
     }
     for (final pack in stock.packages) {
       final iso = pack.package.expiryIso;
@@ -51,6 +51,11 @@ class StockAttention {
         alerts.add(StockAttention('expiry:$identity:$expiryLeadDays',
           'نزدیک انقضا', '${pack.package.label}: $days روز تا انقضا باقی مانده است.', 2));
       }
+    }
+    // A primary inventory problem already explains why selection is needed.
+    if (alerts.any((a) => a.key.startsWith('expired:'))) {
+      alerts.removeWhere((a) => a.key == 'choose-package' ||
+        a.key == 'no-usable-stock');
     }
     alerts.sort((a, b) => a.priority.compareTo(b.priority));
     return alerts;

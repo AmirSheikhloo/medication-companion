@@ -56,6 +56,14 @@ class MedicationDetailScreen extends StatefulWidget {
 
 class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   StockSummary? _reloadedStock;
+  final _detailScroll = ScrollController();
+  bool _selecting = false;
+
+  @override
+  void dispose() {
+    _detailScroll.dispose();
+    super.dispose();
+  }
   late Set<String> _dismissedAttention;
 
   @override
@@ -108,11 +116,20 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             Text(alert.message),
             const SizedBox(height: 8),
             Wrap(spacing: 7, runSpacing: 6, children: [
-              OutlinedButton(onPressed: () => _openPackage(null),
+              FilledButton(onPressed: () => _openPackage(null),
+                style: FilledButton.styleFrom(backgroundColor: alert.urgent
+                  ? const Color(0xFFC5223B) : const Color(0xFF9A5800),
+                  foregroundColor: Colors.white),
                 child: const Text('افزودن بسته')),
-              TextButton(onPressed: () => _dismissAlert(alert),
+              OutlinedButton(onPressed: () => _dismissAlert(alert),
+                style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
+                  foregroundColor: tone,
+                  backgroundColor: AppPalette.surface(context, Colors.white)),
                 child: const Text('عدم نمایش این هشدار')),
-              TextButton(onPressed: onArchive,
+              OutlinedButton(onPressed: onArchive,
+                style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
+                  foregroundColor: tone,
+                  backgroundColor: AppPalette.surface(context, Colors.white)),
                 child: const Text('مدیریت پایان دوره')),
             ]),
           ])));
@@ -151,8 +168,10 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   }
 
   Future<void> _selectPackage(PackageBalance balance) async {
-    if (balance.archived || balance.expired ||
+    if (_selecting || balance.archived || balance.expired ||
         balance.balanceMilliunits <= 0) { return; }
+    _selecting = true;
+    final offset = _detailScroll.hasClients ? _detailScroll.offset : 0.0;
     try {
       await inventoryRepository.selectPackage(
         profileId: medication.profileId,
@@ -161,11 +180,16 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
       final fresh = await inventoryRepository.summary(
         medication.profileId, medication.id);
       await _applyFreshStock(fresh);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _detailScroll.hasClients) {
+          _detailScroll.jumpTo(offset.clamp(0.0, _detailScroll.position.maxScrollExtent));
+        }
+      });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('این بسته قابل انتخاب نیست؛ موجودی یا تاریخ انقضا را بررسی کن.')));
-    }
+    } finally { _selecting = false; }
   }
 
   void _openConsumptionHistory() {
@@ -366,7 +390,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             ],
           ),
         ]),
-      body: ListView(padding: const EdgeInsets.fromLTRB(16, 15, 16, 32), children: [
+      body: ListView(controller: _detailScroll, padding: const EdgeInsets.fromLTRB(16, 15, 16, 32), children: [
         Row(children: [
           MedicationArtwork(name: medication.name, setup: setup, size: 82),
           const SizedBox(width: 15),
@@ -378,6 +402,14 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               icon: archived ? Icons.archive_outlined : Icons.check, color: AppColors.primary),
           ])),
         ]),
+        if (!archived && !hidden && _currentAttention.isNotEmpty)
+          Padding(padding: const EdgeInsets.only(top: 10),
+            child: Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final alert in _currentAttention)
+                AppStatusPill(text: alert.title, color: Colors.white,
+                  background: alert.urgent ? const Color(0xFFC5223B)
+                    : const Color(0xFF9A5800)),
+            ])),
         const SizedBox(height: 22),
         if (!archived && !hidden)
           for (final alert in _currentAttention)
@@ -484,7 +516,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           Expanded(child: OutlinedButton(
             onPressed: _openCourseHistory,
             style: OutlinedButton.styleFrom(
-              backgroundColor: AppPalette.surface(context, AppColors.lightMint),
+              backgroundColor: AppPalette.surface(context, AppColors.mint),
               minimumSize: const Size(0, 62),
               padding: const EdgeInsets.symmetric(horizontal: 7)),
             child: const Text('پرونده و دوره‌های مصرف',
