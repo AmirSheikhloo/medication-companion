@@ -78,7 +78,7 @@ class ReminderPlanner {
       jobs.add(ReminderJob(
         id: id,
         localAt: date ?? slot.scheduledAt,
-        title: 'یادآور دارو',
+        title: slot.fullScreenAlert ? slot.medicationName : 'یادآور دارو',
         body: 'برای ${slot.profileName}: ${slot.medicationName} — '
             '${slot.doseText}'
             '${slot.reminderNote.isEmpty ? '' : '\n${slot.reminderNote}'}',

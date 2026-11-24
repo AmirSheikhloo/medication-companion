@@ -173,11 +173,11 @@ class AppStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    decoration: BoxDecoration(color: background ?? color.withValues(alpha: .12),
+    decoration: BoxDecoration(color: background == null ? AppPalette.ink(context, color).withValues(alpha: .12) : AppPalette.surface(context, background!),
       borderRadius: BorderRadius.circular(18)),
     child: Row(mainAxisSize: MainAxisSize.min, children: [
-      if (icon != null) ...[Icon(icon, size: 15, color: color), const SizedBox(width: 4)],
-      Text(text, style: TextStyle(fontFamily: 'Vazirmatn', color: color,
+      if (icon != null) ...[Icon(icon, size: 15, color: AppPalette.ink(context, color)), const SizedBox(width: 4)],
+      Text(text, style: TextStyle(fontFamily: 'Vazirmatn', color: AppPalette.ink(context, color),
         fontSize: fontSize, fontWeight: FontWeight.w700)),
     ]),
   );
@@ -197,19 +197,19 @@ class AppProgressRing extends StatelessWidget {
       SizedBox.expand(child: CircularProgressIndicator(
         value: progress.clamp(0, 1), strokeWidth: 8,
         strokeCap: StrokeCap.round,
-        color: AppColors.primary,
-        backgroundColor: const Color(0xFFC5EAE8),
+        color: AppPalette.ink(context, AppColors.primary),
+        backgroundColor: AppPalette.surface(context, const Color(0xFFC5EAE8)),
       )),
       Directionality(
         textDirection: TextDirection.ltr,
         child: Text(center,
           maxLines: 1,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Vazirmatn',
             fontWeight: FontWeight.bold,
             fontSize: 20,
-            color: AppColors.primaryDark,
+            color: AppPalette.ink(context, AppColors.primaryDark),
           ),
         ),
       ),
@@ -232,8 +232,8 @@ class AppBottomNav extends StatelessWidget {
     ];
     return SafeArea(top: false, child: Container(
       padding: const EdgeInsets.fromLTRB(10, 7, 10, 5),
-      decoration: const BoxDecoration(color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.outline))),
+      decoration: BoxDecoration(color: AppPalette.surface(context, Colors.white),
+        border: Border(top: BorderSide(color: AppPalette.surface(context, AppColors.outline)))),
       child: Row(children: [
         for (var i = 0; i < entries.length; i++)
           Expanded(child: InkWell(
@@ -251,11 +251,11 @@ class AppBottomNav extends StatelessWidget {
                   ),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(entries[i].$2, size: 22,
-                      color: selectedIndex == i ? Colors.white : AppColors.muted),
+                      color: selectedIndex == i ? Colors.white : AppPalette.ink(context, AppColors.muted)),
                     const SizedBox(height: 2),
                     Text(entries[i].$1, style: TextStyle(fontSize: 11,
                       fontWeight: selectedIndex == i ? FontWeight.w800 : FontWeight.w500,
-                      color: selectedIndex == i ? Colors.white : AppColors.ink)),
+                      color: selectedIndex == i ? Colors.white : AppPalette.ink(context, AppColors.ink))),
                   ]),
                 ),
               ),
@@ -273,8 +273,8 @@ class AppWaveBanner extends StatelessWidget {
   Widget build(BuildContext context) => ClipRRect(
     borderRadius: BorderRadius.circular(20),
     child: Stack(children: [
-      Container(height: 84, decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFFDAF9F6), Color(0xFFF4FAFA)]))),
+      Container(height: 84, decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [AppPalette.surface(context, const Color(0xFFDAF9F6)), AppPalette.surface(context, const Color(0xFFF4FAFA))]))),
       Positioned.directional(textDirection: Directionality.of(context),
         start: -36, bottom: -54,
         child: Transform.rotate(angle: -math.pi / 10,
