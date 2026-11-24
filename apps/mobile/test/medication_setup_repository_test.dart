@@ -18,6 +18,18 @@ void main() {
     expect(MedicationUnits.toPackageMilliunits(tinyDrop, 'لیتر'), isNull);
   });
 
+  test('base unit categories are disjoint and preserve canonical storage keys', () {
+    expect(MedicationUnits.choicesFor(0).first, 'عدد');
+    expect(MedicationUnits.choicesFor(1).first, 'میلی‌لیتر');
+    expect(MedicationUnits.choicesFor(1), isNot(contains('عدد')));
+    expect(MedicationUnits.choicesFor(0), isNot(contains('میلی‌لیتر')));
+    expect(MedicationUnits.categoryOf(MedicationUnits.teaSpoon), 1);
+    expect(MedicationUnits.categoryOf('میلی‌گرم'), 2);
+    expect(MedicationUnits.stockUnitForDose(MedicationUnits.teaSpoon), 'میلی‌لیتر');
+    const dose = ScheduledQuantity(milliunits: 1000, unit: MedicationUnits.teaSpoon);
+    expect(5000000 - MedicationUnits.toPackageMilliunits(dose, 'میلی‌لیتر')!, 4995000);
+  });
+
   test('spoon calibration, discrete units, and dimensional boundaries', () {
     const tea = ScheduledQuantity(milliunits: 1500,
       unit: MedicationUnits.teaSpoon);

@@ -1356,7 +1356,7 @@ class _MedicationHomeState extends State<MedicationHome>
                             ? null : () async {
                               await _reload();
                               if (!mounted || !sheetContext.mounted ||
-                                  _active?.id != profile.id) return;
+                                  _active?.id != profile.id) { return; }
                               if (!_inbox.any((n) => n.id == notice.id && n.active)) {
                                 update(() {}); return;
                               }

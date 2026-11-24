@@ -12,6 +12,8 @@ class MedicationChoiceField extends StatefulWidget {
     required this.onChanged,
     this.label = 'واحد',
     this.enabled = true,
+    this.optionLabels = const {},
+    this.commonOptions = const {},
   });
 
   final String value;
@@ -19,6 +21,8 @@ class MedicationChoiceField extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final String label;
   final bool enabled;
+  final Map<String, String> optionLabels;
+  final Set<String> commonOptions;
 
   @override
   State<MedicationChoiceField> createState() => _MedicationChoiceFieldState();
@@ -63,7 +67,7 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Material(
                             color: option == widget.value
-                              ? AppPalette.surface(context, AppColors.mint) : Colors.white,
+                              ? AppPalette.surface(context, AppColors.mint) : AppPalette.surface(context, Colors.white),
                             borderRadius: BorderRadius.circular(16),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(16),
@@ -72,10 +76,23 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 16),
                                 child: Row(children: [
-                                  Expanded(child: Text(option,
+                                  Expanded(child: Text(widget.optionLabels[option] ?? option,
                                     style: TextStyle(
                                       color: AppPalette.ink(context, AppColors.primaryDark),
                                       fontWeight: FontWeight.w700))),
+                                  if (widget.commonOptions.contains(option)) ...[
+                                    const SizedBox(width: 8),
+                                    Flexible(child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppPalette.isDark(context)
+                                          ? const Color(0xFF234866) : const Color(0xFFDBF1FF),
+                                        borderRadius: BorderRadius.circular(12)),
+                                      child: Text('پرکاربرد',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                                          color: AppPalette.isDark(context)
+                                            ? const Color(0xFFB7E5FF) : const Color(0xFF145B86))))),
+                                  ],
                                   if (option == widget.value)
                                     Icon(Icons.check_circle_rounded,
                                       color: AppPalette.ink(context, AppColors.primary)),
@@ -124,7 +141,7 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
                     style: TextStyle(color: AppPalette.ink(context, AppColors.muted),
                       fontSize: 11)),
                   const SizedBox(height: 2),
-                  Text(widget.value, maxLines: 2,
+                  Text(widget.optionLabels[widget.value] ?? widget.value,
                     style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
                       fontWeight: FontWeight.w800)),
                 ])),

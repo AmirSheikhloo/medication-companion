@@ -52,9 +52,25 @@ abstract final class MedicationUnits {
     teaSpoon, dessertSpoon, tableSpoon, 'ml'];
   static const mass = ['گرم', 'میلی‌گرم'];
   static const supported = [...count, ...liquid, ...mass];
-  static const selectable = ['عدد', 'قرص', 'کپسول', 'ساشه', 'شیاف',
-    'چسب دارویی', 'پاف', 'اسپری', 'قطره', 'آمپول', 'ویال',
-    'دوز', 'واحد بین‌المللی (IU)', 'میلی‌لیتر', teaSpoon, dessertSpoon, tableSpoon, ...mass];
+  static const countChoices = ['عدد', 'قرص', 'کپسول', 'قطره',
+    'پاف', 'اسپری', 'ساشه', 'شیاف', 'چسب دارویی', 'دوز',
+    'آمپول', 'ویال', 'واحد بین‌المللی (IU)'];
+  static const volumeChoices = ['میلی‌لیتر', teaSpoon, tableSpoon, dessertSpoon];
+  static const selectable = [...countChoices, ...volumeChoices, ...mass];
+  static const commonChoices = {'عدد', 'قرص', 'کپسول', 'قطره', 'میلی‌لیتر'};
+  // UI labels are separate from persistent unit keys.
+  static const displayLabels = <String, String>{
+    'میلی‌لیتر': 'میلی‌لیتر (سی‌سی)',
+    teaSpoon: 'قاشق چای‌خوری مدرج (5 mL)',
+    tableSpoon: 'قاشق غذاخوری مدرج (15 mL)',
+  };
+  static int categoryOf(String unit) =>
+    isLiquid(unit) ? 1 : mass.contains(unit) ? 2 : 0;
+  static List<String> choicesFor(int category) => switch (category) {
+    1 => volumeChoices,
+    2 => mass,
+    _ => countChoices,
+  };
 
   static bool isLiquid(String unit) => liquid.contains(unit);
   static bool isStripCount(String unit) =>
