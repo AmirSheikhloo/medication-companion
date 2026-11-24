@@ -128,8 +128,7 @@ class _MedicationCourseTimelineState extends State<MedicationCourseTimeline> {
             style: TextStyle(color: AppColors.muted, fontSize: 11)),
         ],
         const SizedBox(height: 5),
-        const Text('این مقدار فقط کسرهای واقعی موجودی را شامل می‌شود؛ '
-          'مصرف‌های ثبت‌شده بدون کسر، در این عدد محاسبه نمی‌شوند.',
+        const Text('فقط مقدار واقعاً کسرشده از موجودی.',
           style: TextStyle(color: AppColors.muted, fontSize: 11)),
         if (report.unknown > 0) ...[
           const SizedBox(height: 5),
@@ -167,8 +166,7 @@ class _MedicationCourseTimelineState extends State<MedicationCourseTimeline> {
               fontWeight: FontWeight.w900,
               color: AppColors.primaryDark)),
           const SizedBox(height: 5),
-          Text('برای این نام دقیق ${courses.length} دوره ثبت شده؛ '
-            'سوابق هر دوره مستقل است.',
+          Text('دوره‌های ثبت‌شده: ${courses.length}؛ سوابق هر دوره مستقل است.',
             style: const TextStyle(color: AppColors.muted, fontSize: 12)),
           for (var i = 0; i < courses.length && i < _visibleCourses; i++)
             _course(courses[i], courses.length - i - 1),

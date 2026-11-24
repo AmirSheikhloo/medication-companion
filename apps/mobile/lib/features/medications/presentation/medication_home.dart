@@ -387,9 +387,8 @@ class _MedicationHomeState extends State<MedicationHome>
               .write(MedicationsCompanion(
                 unit: Value(draft.packages.first.unit)));
         }
-        final ids = <String>[];
         for (final package in draft.packages) {
-          ids.add(await _inventory.addPackage(
+          await _inventory.addPackage(
             profileId: profile.id,
             medicationId: medicationId,
             label: package.label,
@@ -398,20 +397,7 @@ class _MedicationHomeState extends State<MedicationHome>
             expiryIso: package.expiry == null ? null
                 : StockQuantity.isoDate(package.expiry!),
             expiryPrecision: package.expiry == null ? 'none' : 'day',
-          ));
-        }
-        if (ids.isNotEmpty) {
-          // FEFO: known valid expiry dates first; undated packs last.
-          final candidates = List<int>.generate(ids.length, (i) => i);
-          candidates.sort((a, b) {
-            final left = draft.packages[a].expiry;
-            final right = draft.packages[b].expiry;
-            if (left == null) return right == null ? a.compareTo(b) : 1;
-            if (right == null) return -1;
-            return left.compareTo(right);
-          });
-          await _inventory.selectPackage(profileId: profile.id,
-            medicationId: medicationId, packageId: ids[candidates.first]);
+          );
         }
         await _saveSetupForPlan(profile.id, medicationId, draft,
           const MedicationSetup(), localPhotoPath: photoPath);
@@ -1651,11 +1637,12 @@ class _MedicationHomeState extends State<MedicationHome>
           ]),
         ),
         const SizedBox(height: 13),
-        Text(PersianDate.displayDigits(
-          _showHidden ? '${_hiddenMedications.length} داروی حذف‌شده از فهرست' :
-          _showArchived ? '${_archivedMedications.length} دورهٔ پایان‌یافته' :
-            '${_medications.length} داروی فعال'),
-          style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+        AppSoftHeader(
+          title: 'فهرست داروها', icon: Icons.medication_outlined,
+          subtitle: PersianDate.displayDigits(
+            _showHidden ? '(${visible.length} داروی حذف‌شده)' :
+            _showArchived ? '(${visible.length} دوره پایان‌یافته)' :
+              '(${visible.length} داروی فعال)')),
         const SizedBox(height: 9),
         if (source.isEmpty && !_showArchived && !_showHidden)
           _emptyCard(
@@ -1681,16 +1668,6 @@ class _MedicationHomeState extends State<MedicationHome>
                 _medicationCard(visible[i]),
               ],
             ])),
-        const SizedBox(height: 18),
-        if (!_showArchived && !_showHidden) AppSoftHeader(
-          title: 'موجودی هوشمند داروها', icon: Icons.inventory_2_outlined,
-          subtitle: 'مقدار ثبت‌شده، بدون تخمین خودکار یا توصیهٔ مصرف.'),
-        const SizedBox(height: 11),
-        if (!_showArchived && !_showHidden) OutlinedButton.icon(
-          onPressed: () => setState(() => _showArchived = true),
-          icon: const Icon(Icons.inventory_2_outlined),
-          label: Text(PersianDate.displayDigits(
-            'نمایش بایگانی (${_archivedMedications.length})'))),
       ],
     );
   }
@@ -1709,7 +1686,10 @@ class _MedicationHomeState extends State<MedicationHome>
         todaySlots.isNotEmpty &&
         nextDaySlots.isNotEmpty &&
         todaySlots.first.plan.version != nextDaySlots.first.plan.version;
-    final slots = hasPendingSchedule ? nextDaySlots : todaySlots;
+    final slots = nextDaySlots.isNotEmpty ? nextDaySlots : todaySlots;
+    final clockLabels = slots.take(3).map((d) =>
+      _clock(TimeOfDay.fromDateTime(d.scheduledAt))).join('، ');
+    final extraClocks = slots.length > 3 ? ' +${slots.length - 3}' : '';
     final stock = _stocks[med.id];
     final selected = stock?.selected;
     final lowStock = stock?.lowStock == true;
@@ -1729,11 +1709,20 @@ class _MedicationHomeState extends State<MedicationHome>
               style: const TextStyle(fontSize: 16, height: 1.45,
                 color: AppColors.ink, fontWeight: FontWeight.w800)),
             const SizedBox(height: 3),
-            Text(_showArchived ? 'بایگانی‌شده' : slots.isEmpty ? 'برنامه ثبت شده' :
-              PersianDate.displayDigits('${slots.length} نوبت · '
-                '${slots.map((d) => '${_clock(TimeOfDay.fromDateTime(d.scheduledAt))} ${d.plan.doseText}').join('، ')}'),
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+            Text(_showHidden ? 'حذف‌شده از فهرست' :
+              _showArchived ? 'بایگانی‌شده' : slots.isEmpty ? 'بدون نوبت فعال' :
+              PersianDate.displayDigits('${slots.length} نوبت در روز'),
+              style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+            if (!_showArchived && !_showHidden && slots.isNotEmpty)
+              Text(PersianDate.displayDigits('ساعت: $clockLabels$extraClocks'),
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+            if (!_showArchived && !_showHidden && slots.isNotEmpty)
+              Text(slots.map((d) => d.plan.doseText).toSet().length == 1
+                ? 'مقدار هر نوبت: ${PersianDate.displayDigits(slots.first.plan.doseText)}'
+                : 'مقدار: متفاوت در هر نوبت',
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: AppColors.muted, fontSize: 11)),
             if (_needsStockAttention(_stocks[med.id]) && !med.archived)
               const Padding(padding: EdgeInsets.only(top: 4),
                 child: Text('موجودی تمام‌شده / نیاز به انتخاب بسته',
@@ -1751,6 +1740,8 @@ class _MedicationHomeState extends State<MedicationHome>
               color: lowStock ? AppColors.amberLight : AppColors.mint,
               borderRadius: BorderRadius.circular(10)),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('موجودی', style: TextStyle(fontSize: 9,
+                color: AppColors.muted)),
               Text(stockLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900,
                   color: lowStock ? const Color(0xFF99520A) : AppColors.primaryDark)),
@@ -1769,8 +1760,11 @@ class _MedicationHomeState extends State<MedicationHome>
               if (value == 'edit') _editMedication(med);
               if (value == 'archive') _archiveMedication(med);
               if (value == 'restore') _restoreMedication(med);
+              if (value == 'unhide') _unhideMedication(med);
             },
-            itemBuilder: (_) => _showArchived
+            itemBuilder: (_) => _showHidden
+                ? const [PopupMenuItem(value: 'unhide', child: Text('بازگردانی'))]
+                : _showArchived
                 ? const [PopupMenuItem(value: 'restore', child: Text('بازیابی'))]
                 : const [
                     PopupMenuItem(value: 'stock', child: Text('موجودی و بسته‌ها')),
@@ -1814,6 +1808,7 @@ class _MedicationHomeState extends State<MedicationHome>
         onRestore: () { Navigator.pop(detailContext); _restoreMedication(med); },
       )),
     ));
+    if (mounted) await _reload();
   }
 
   Widget _moreTabRedesigned() => ListView(

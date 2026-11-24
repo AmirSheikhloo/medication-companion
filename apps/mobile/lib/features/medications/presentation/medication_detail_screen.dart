@@ -105,6 +105,23 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     }
   }
 
+  void _openConsumptionHistory() {
+    Navigator.of(context).push(medicationPageRoute<void>(context,
+      Scaffold(
+        appBar: AppBar(title: const Text('سوابق مصرف')),
+        body: ListView(padding: const EdgeInsets.all(16), children: [
+          AppPanel(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              AppSoftHeader(title: medication.name, icon: Icons.history_rounded),
+              const SizedBox(height: 12),
+              MedicationHistoryPanel(medication: medication,
+                medicationRepository: medicationRepository,
+                inventoryRepository: inventoryRepository, stock: stock),
+            ])),
+        ]),
+      )));
+  }
+
   void _openPlanHistory() {
     Navigator.of(context).push(medicationPageRoute<void>(context,
       Scaffold(
@@ -185,8 +202,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(children: [
-        Icon(expired ? Icons.warning_amber_rounded :
-            isSelected ? Icons.check_circle_rounded : Icons.inventory_2_outlined,
+        Icon(expired ? Icons.warning_amber_rounded : Icons.inventory_2_outlined,
           color: color, size: 22),
         const SizedBox(width: 9),
         Expanded(child: Column(
@@ -202,10 +218,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             const SizedBox(height: 3),
             Text(_expiryLabel(balance), style: TextStyle(
               color: expired ? color : AppColors.muted, fontSize: 11)),
-            if (isSelected) const Align(
-              alignment: Alignment.centerRight,
-              child: AppStatusPill(text: 'منتخب', icon: Icons.check_rounded,
-                color: AppColors.primary, fontSize: 10)),
+
             if (balance.balanceMilliunits <= 0 && !balance.archived)
               const Text('موجودی تمام شده',
                 style: TextStyle(color: Color(0xFFB04A38),
@@ -217,19 +230,23 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                 fontWeight: FontWeight.w700)),
           ],
         )),
-        if (!isSelected && !balance.archived && !expired &&
-            balance.balanceMilliunits > 0)
-          IconButton(
-            key: Key('select-package-${balance.package.id}'),
-            tooltip: 'انتخاب برای مصرف',
-            onPressed: () => _selectPackage(balance),
-            icon: const Icon(Icons.radio_button_unchecked_rounded,
-              size: 22, color: AppColors.primary))
-        else
-          Icon(isSelected ? Icons.check_circle_rounded :
-            Icons.chevron_left_rounded,
-            color: isSelected ? AppColors.primary : AppColors.muted,
-            size: 21),
+        SizedBox(width: 58, child: Column(
+          mainAxisSize: MainAxisSize.min, children: [
+            SizedBox(height: 22, child: isSelected
+              ? const AppStatusPill(text: 'منتخب',
+                  color: AppColors.primary, fontSize: 10)
+              : const SizedBox.shrink()),
+            IconButton(
+              key: Key('select-package-${balance.package.id}'),
+              tooltip: isSelected ? 'بسته منتخب' : 'انتخاب برای مصرف',
+              onPressed: isSelected || archived || balance.archived || expired ||
+                  balance.balanceMilliunits <= 0
+                ? null : () => _selectPackage(balance),
+              icon: Icon(isSelected ? Icons.radio_button_checked_rounded :
+                Icons.radio_button_unchecked_rounded,
+                size: 23, color: isSelected || (!balance.archived && !expired)
+                  ? AppColors.primary : AppColors.muted)),
+          ])),
       ]),
     ));
   }
@@ -376,32 +393,27 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             ])),
           const SizedBox(height: 12),
         ],
-        AppPanel(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const AppSoftHeader(title: 'سوابق مصرف',
-              icon: Icons.history_rounded),
-            const SizedBox(height: 11),
-            MedicationHistoryPanel(medication: medication,
-              medicationRepository: medicationRepository,
-              inventoryRepository: inventoryRepository,
-              stock: stock),
-          ])),
-        const SizedBox(height: 12),
-        AppPanel(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const AppSoftHeader(title: 'پرونده و تغییرات',
-              icon: Icons.folder_copy_outlined),
-            const SizedBox(height: 11),
-            OutlinedButton.icon(
-              onPressed: _openPlanHistory,
-              icon: const Icon(Icons.history_toggle_off_rounded),
-              label: const Text('تاریخچه تغییر برنامه')),
-            const SizedBox(height: 9),
-            OutlinedButton.icon(
-              onPressed: _openCourseHistory,
-              icon: const Icon(Icons.medical_information_outlined),
-              label: const Text('پرونده و دوره‌های مصرف')),
-          ])),
+        AppGradientButton(label: 'سوابق مصرف', icon: Icons.history_rounded,
+          onPressed: _openConsumptionHistory, height: 52),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: OutlinedButton(
+            onPressed: _openPlanHistory,
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.mint,
+              minimumSize: const Size(0, 62),
+              padding: const EdgeInsets.symmetric(horizontal: 7)),
+            child: const Text('تاریخچه برنامه', textAlign: TextAlign.center))),
+          const SizedBox(width: 8),
+          Expanded(child: OutlinedButton(
+            onPressed: _openCourseHistory,
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.lightMint,
+              minimumSize: const Size(0, 62),
+              padding: const EdgeInsets.symmetric(horizontal: 7)),
+            child: const Text('پرونده و دوره‌های مصرف',
+              textAlign: TextAlign.center))),
+        ]),
         if (hidden)
           Padding(padding: const EdgeInsets.only(top: 14),
             child: FilledButton.tonalIcon(

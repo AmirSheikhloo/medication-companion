@@ -18,6 +18,30 @@ void main() {
     expect(MedicationUnits.toPackageMilliunits(tinyDrop, 'لیتر'), isNull);
   });
 
+  test('spoon calibration, discrete units, and dimensional boundaries', () {
+    const tea = ScheduledQuantity(milliunits: 1500,
+      unit: MedicationUnits.teaSpoon);
+    expect(MedicationUnits.toPackageMilliunits(tea, 'میلی‌لیتر'), 7500);
+    const table = ScheduledQuantity(milliunits: 1000,
+      unit: MedicationUnits.tableSpoon);
+    expect(MedicationUnits.toPackageMilliunits(table, 'میلی‌لیتر'), 15000);
+    const calibrated = ScheduledQuantity(milliunits: 2000,
+      unit: MedicationUnits.dessertSpoon, calibratedMlMilliunits: 7500);
+    expect(MedicationUnits.toPackageMilliunits(calibrated, 'میلی‌لیتر'), 15000);
+    final restored = ScheduledQuantity.fromJson(calibrated.toJson())!;
+    expect(restored.calibratedMlMilliunits, 7500);
+    const uncalibrated = ScheduledQuantity(milliunits: 1000,
+      unit: MedicationUnits.dessertSpoon);
+    expect(MedicationUnits.toPackageMilliunits(uncalibrated, 'میلی‌لیتر'), isNull);
+    const drop = ScheduledQuantity(milliunits: 3000, unit: 'قطره');
+    expect(MedicationUnits.toPackageMilliunits(drop, 'قطره'), 3000);
+    expect(MedicationUnits.toPackageMilliunits(drop, 'میلی‌لیتر'), isNull);
+    const fraction = ScheduledQuantity(milliunits: 1500, unit: 'پاف');
+    expect(MedicationUnits.toPackageMilliunits(fraction, 'پاف'), isNull);
+    const mass = ScheduledQuantity(milliunits: 5000, unit: 'میلی‌گرم');
+    expect(MedicationUnits.toPackageMilliunits(mass, 'میلی‌لیتر'), isNull);
+  });
+
   test('typed quantities and optional reminder note persist without v6 migration',
       () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
