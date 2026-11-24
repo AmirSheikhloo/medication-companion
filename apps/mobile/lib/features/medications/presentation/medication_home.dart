@@ -422,7 +422,7 @@ class _MedicationHomeState extends State<MedicationHome>
         }
       });
     });
-    if (draft.notificationsEnabled) {
+    if (draft.notificationsEnabled || draft.fullScreenAlert) {
       await _activateSavedMedicationReminders();
     }
   }
@@ -515,7 +515,7 @@ class _MedicationHomeState extends State<MedicationHome>
           thresholdMilliunits: draft.lowStockThresholdMilliunits);
       });
     });
-    if (draft.notificationsEnabled) {
+    if (draft.notificationsEnabled || draft.fullScreenAlert) {
       await _activateSavedMedicationReminders();
     }
   }
@@ -1528,7 +1528,7 @@ class _MedicationHomeState extends State<MedicationHome>
               onPressed: _saving ? null :
                 () => _mark(dose, 'takenWithoutStock'),
               icon: const Icon(Icons.inventory_2_outlined, size: 16),
-              label: const Text('مصرف کردم، بدون کسر موجودی',
+              label: const Text('مصرف بدون کسر موجودی',
                 maxLines: 2, textAlign: TextAlign.center),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFE4ECEE),

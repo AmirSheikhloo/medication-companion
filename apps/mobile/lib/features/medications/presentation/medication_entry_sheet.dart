@@ -150,13 +150,34 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   final Map<int, int> _knownTabletsPerStrip = {};
   String _calculatorVolumeUnit = 'میلی‌لیتر';
   late String _baseUnit;
+  final _spoonVolume = TextEditingController();
+  String get _stockUnit => _editing
+    ? widget.initialBaseUnit ?? MedicationUnits.stockUnitForDose(_baseUnit)
+    : MedicationUnits.stockUnitForDose(_baseUnit);
+
+  int? get _calibratedVolume {
+    if (_baseUnit != MedicationUnits.dessertSpoon) return null;
+    try {
+      final value = StockQuantity.parsePositive(_spoonVolume.text);
+      return value <= 30000 ? value : null;
+    } catch (_) { return null; }
+  }
 
   void _setBaseUnit(String unit) {
     if (_editing) { return; }
     setState(() {
+      if (_baseUnit == unit) return;
       _baseUnit = unit;
-      for (final slot in _slots) { slot.unit = unit; }
-      for (final pack in _packages) { pack.unit = unit; }
+      _spoonVolume.clear();
+      for (final slot in _slots) {
+        slot.unit = unit;
+        slot.amount.clear();
+      }
+      for (final pack in _packages) {
+        pack.unit = _stockUnit;
+        pack.quantity.clear();
+      }
+      _lowStock.clear();
       _calculatorPackage = null;
       _knownTabletsPerStrip.clear();
     });
@@ -191,17 +212,23 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
                 : StockQuantity.format(slot.quantity!.milliunits),
             unit: slot.quantity?.unit ?? 'عدد',
           )];
-    _baseUnit = widget.initialBaseUnit ??
-      (initial != null && initial.isNotEmpty
-        ? initial.first.quantity?.unit : null) ?? 'عدد';
-    for (final slot in _slots) { slot.unit = _baseUnit; }
+    _baseUnit = (initial != null && initial.isNotEmpty
+        ? initial.first.quantity?.unit : null) ??
+        widget.initialBaseUnit ?? 'عدد';
+    if (initial != null && initial.isNotEmpty) {
+      final calibration = initial.first.quantity?.calibratedMlMilliunits;
+      if (calibration != null) {
+        _spoonVolume.text = StockQuantity.format(calibration);
+      }
+    }
     if (!_editing) {
-      _packages.add(_PackageEditor(number: 1, unit: _baseUnit));
+      _packages.add(_PackageEditor(number: 1, unit: _stockUnit));
     }
   }
 
   @override
   void dispose() {
+    _spoonVolume.dispose();
     _name.dispose();
     _reminderNote.dispose();
     _lowStock.dispose();
@@ -259,7 +286,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   void _addPackage() {
     setState(() => _packages.add(_PackageEditor(
       number: (_packages.isEmpty ? 0 : _packages.last.number) + 1,
-      unit: _baseUnit,
+      unit: _stockUnit,
     )));
   }
 
@@ -339,8 +366,12 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       return;
     }
     final packages = <MedicationPackageDraft>[];
-    for (final slot in _slots) { slot.unit = _baseUnit; }
-    for (final pack in _packages) { pack.unit = _baseUnit; }
+    for (final pack in _packages) { pack.unit = _stockUnit; }
+    if (_baseUnit == MedicationUnits.dessertSpoon &&
+        _calibratedVolume == null) {
+      _showError('ظرفیت مدرج قاشق را بر حسب میلی‌لیتر وارد کن.');
+      return;
+    }
     if (!_editing) {
       for (var index = 0; index < _packages.length; index++) {
         final item = _packages[index];
@@ -392,7 +423,12 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         _showError('مقدار مصرف هر نوبت باید عددی مثبت باشد.');
         return;
       }
-      final dose = ScheduledQuantity(milliunits: quantity, unit: item.unit);
+      final dose = ScheduledQuantity(milliunits: quantity,
+        unit: _baseUnit, calibratedMlMilliunits: _calibratedVolume);
+      if (MedicationUnits.toPackageMilliunits(dose, _stockUnit) == null) {
+        _showError('مقدار یا واحد نوبت با موجودی سازگار نیست.');
+        return;
+      }
       if (_editing && widget.initialBaseUnit != null &&
           MedicationUnits.toPackageMilliunits(dose,
             widget.initialBaseUnit!) == null) {
@@ -410,7 +446,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         time: TimeOfDay(hour: minuteOfDay ~/ 60,
           minute: minuteOfDay % 60),
         quantity: dose,
-        dose: '${StockQuantity.format(quantity)} ${item.unit}',
+        dose: '${StockQuantity.format(quantity)} $_baseUnit',
       ));
     }
     if (_reminderNote.text.trim().length > 500) {
@@ -459,6 +495,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   Widget _packageCard(int index) {
     final item = _packages[index];
     final liquid = MedicationUnits.isLiquid(item.unit);
+    final canCalculate = liquid || MedicationUnits.isStripCount(item.unit);
     final calc = _calculatorPackage == index;
     final stripCount = int.tryParse(PersianDate.latinDigits(_strips.text));
     int totalMilliunits = 0;
@@ -491,13 +528,13 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         const SizedBox(height: 9),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Text('واحد پایه: $_baseUnit',
+          child: Text('واحد موجودی: $_stockUnit',
             style: const TextStyle(color: AppColors.muted,
               fontSize: 12, fontWeight: FontWeight.w700))),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(flex: 3, child: _numberField(item.quantity,
-            label: 'مقدار موجودی *', hint: liquid ? 'مثلاً 1000' : 'مثلاً 100',
+            label: '* مقدار موجودی', hint: liquid ? 'مثلاً 1000' : 'مثلاً 100',
             keyName: 'med-stock-${index + 1}')),
           const SizedBox(width: 8),
           Container(
@@ -505,12 +542,12 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
               horizontal: 15, vertical: 16),
             decoration: BoxDecoration(color: AppColors.mint,
               borderRadius: BorderRadius.circular(14)),
-            child: Text(_baseUnit,
+            child: Text(_stockUnit,
               style: const TextStyle(
                 color: AppColors.primaryDark,
                 fontWeight: FontWeight.w800))),
         ]),
-        ...[
+        if (canCalculate) ...[
           const SizedBox(height: 9),
           FilledButton.tonalIcon(onPressed: () =>
               setState(() => _calculatorPackage = calc ? null : index),
@@ -555,7 +592,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             } : null, child: Text(!calculatorValid
               ? 'مقدار معتبر وارد کن'
               : 'اعمال ${StockQuantity.format(totalMilliunits)} '
-                '${liquid ? 'میلی‌لیتر' : 'عدد'}')),
+                '$_stockUnit')),
           ],
         ],
         const SizedBox(height: 8),
@@ -650,18 +687,18 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       const SizedBox(height: 10),
       Row(children: [
         Expanded(flex: 3, child: _numberField(slot.amount,
-          label: 'مقدار مصرف این نوبت *', hint: 'مثلاً 1',
+          label: '* مقدار مصرف این نوبت', hint: 'مثلاً 1',
           keyName: 'med-dose-${index + 1}')),
         const SizedBox(width: 8),
-        Container(
+        Flexible(flex: 2, child: Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: 13, vertical: 15),
+            horizontal: 10, vertical: 15),
           decoration: BoxDecoration(color: AppColors.mint,
             borderRadius: BorderRadius.circular(14)),
-          child: Text(_baseUnit,
+          child: Text(_baseUnit, textAlign: TextAlign.center,
             style: const TextStyle(
               color: AppColors.primaryDark,
-              fontWeight: FontWeight.w800))),
+              fontWeight: FontWeight.w800)))),
       ]),
     ]));
   }
@@ -670,6 +707,11 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
   bool _validateCurrent() {
     if (_currentStep == 0 && _name.text.trim().isEmpty) {
       _showError('نام دارو را وارد کن.');
+      return false;
+    }
+    if (_currentStep == 0 && _baseUnit == MedicationUnits.dessertSpoon &&
+        _calibratedVolume == null) {
+      _showError('ظرفیت واقعی مدرج قاشق را وارد کن.');
       return false;
     }
     if (_currentStep == 1) {
@@ -877,7 +919,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
             filled: true, fillColor: AppColors.mint,
-            labelText: 'نام دارو *', hintText: 'مثلاً استامینوفن 500',
+            labelText: '* نام دارو', hintText: 'مثلاً استامینوفن 500',
             counterText: '',
             border: OutlineInputBorder(borderRadius:
               BorderRadius.circular(18), borderSide: BorderSide.none),
@@ -887,24 +929,48 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         ))),
       ]),
       _nameSuggestions(),
-      const SizedBox(height: 18),
+      const SizedBox(height: 30),
       const Text('واحد پایه دارو', style: TextStyle(
         fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
-      const SizedBox(height: 6),
-      Text(_editing
-        ? 'واحد این دارو برای حفظ سوابق قابل تغییر نیست.'
-        : 'واحد را یک‌بار انتخاب کن؛ نوبت‌ها و موجودی از آن پیروی می‌کنند.',
-        style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-      const SizedBox(height: 10),
-      SegmentedButton<String>(
-        showSelectedIcon: false,
-        segments: const [
-          ButtonSegment(value: 'عدد', label: Text('تعدادی')),
-          ButtonSegment(value: 'میلی‌لیتر', label: Text('مایع / حجمی')),
+      const SizedBox(height: 8),
+      const Text('تعدادی: قرص، کپسول و مشابه آن. حجمی: شربت و محلول. '
+        'این انتخاب برای همه نوبت‌ها و محاسبه موجودی ثابت می‌ماند.',
+        style: TextStyle(color: AppColors.muted, fontSize: 12)),
+      const SizedBox(height: 12),
+      MedicationChoiceField(
+        value: _baseUnit,
+        label: 'واحد مصرف',
+        options: MedicationUnits.selectable,
+        enabled: !_editing,
+        onChanged: _setBaseUnit,
+      ),
+      if (MedicationUnits.isLiquid(_baseUnit)) ...[
+        const SizedBox(height: 9),
+        const Text('موجودی با میلی‌لیتر ثبت می‌شود. ۱ سی‌سی = ۱ میلی‌لیتر. '
+          'فقط از سرنگ یا قاشق مدرج دارو استفاده کن.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12)),
+        if (_baseUnit == MedicationUnits.teaSpoon)
+          const Text('هر قاشق چای‌خوری مدرج: ۵ میلی‌لیتر.'),
+        if (_baseUnit == MedicationUnits.tableSpoon)
+          const Text('هر قاشق غذاخوری مدرج: ۱۵ میلی‌لیتر.'),
+        if (_baseUnit == MedicationUnits.dessertSpoon) ...[
+          const SizedBox(height: 8),
+          _numberField(_spoonVolume,
+            label: '* ظرفیت مدرج هر قاشق (میلی‌لیتر)',
+            hint: 'طبق درجه ابزار مصرف'),
+          const Text('حجم قاشق را از روی درجه ابزار وارد کن؛ '
+            'هیچ ظرفیت پیش‌فرضی فرض نمی‌شود.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12)),
         ],
-        selected: {_baseUnit == 'عدد' ? 'عدد' : 'میلی‌لیتر'},
-        onSelectionChanged: _editing ? null :
-          (values) => _setBaseUnit(values.first)),
+      ],
+      if (_baseUnit == 'قطره')
+        const Text('موجودی و مصرف بر حسب تعداد قطره است؛ '
+          'تبدیل خودکار قطره به میلی‌لیتر انجام نمی‌شود.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12)),
+      if (MedicationUnits.mass.contains(_baseUnit))
+        const Text('این واحد برای وزن واقعی قابل‌اندازه‌گیری است، '
+          'نه قدرت دارو یا تبدیل غلظت به حجم.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12)),
     ],
   );
 
@@ -968,7 +1034,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         child: _lowStockEnabled
           ? Padding(padding: const EdgeInsets.only(top: 12),
             child: _numberField(_lowStock,
-              label: 'حد هشدار (${_editing ? widget.initialBaseUnit ?? 'عدد' : _packages.first.unit})',
+              label: 'حد هشدار ($_stockUnit)',
               hint: 'مثلاً 20', keyName: 'medication-low-stock-threshold'))
           : const SizedBox.shrink(),
       ),
@@ -979,7 +1045,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     if (!value) {
       setState(() {
         if (fullScreen) { _alarm = false; }
-        else { _notify = false; _alarm = false; }
+        else { _notify = false; }
       });
       return;
     }
@@ -994,8 +1060,11 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     setState(() {
       _requestingPermission = false;
       if (granted) {
-        _notify = true;
-        if (fullScreen) _alarm = true;
+        if (fullScreen) {
+          _alarm = true;
+        } else {
+          _notify = true;
+        }
       }
     });
     if (!granted) {
@@ -1021,7 +1090,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       const Divider(color: AppColors.outline),
       SwitchListTile.adaptive(
         contentPadding: EdgeInsets.zero,
-        title: const Text('هشدار تمام‌صفحه'),
+        title: const Text('زنگ هشدار (آلارم تمام‌صفحه)'),
         subtitle: const Text('در صورت پشتیبانی گوشی و داشتن مجوز'),
         value: _alarm,
         onChanged: _requestingPermission ? null
@@ -1094,7 +1163,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
               : 'مرحله بعد',
           icon: _currentStep == 4
             ? Icons.check_circle_outline : Icons.arrow_forward_rounded,
-          onPressed: _nextStep, height: 50,
+          onPressed: _nextStep, height: 50, iconAfterLabel: true,
         )),
       ]),
     )),

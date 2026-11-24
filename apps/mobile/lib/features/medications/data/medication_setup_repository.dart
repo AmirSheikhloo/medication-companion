@@ -11,12 +11,18 @@ import '../../../core/storage/app_database.dart';
 /// allowing typed dosage amounts to be associated with immutable plan IDs.
 /// No stock movement is inferred from legacy free-text descriptions.
 class ScheduledQuantity {
-  const ScheduledQuantity({required this.milliunits, required this.unit});
+  const ScheduledQuantity({required this.milliunits, required this.unit,
+    this.calibratedMlMilliunits});
 
   final int milliunits;
   final String unit;
+  final int? calibratedMlMilliunits;
 
-  Map<String, Object> toJson() => {'amount': milliunits, 'unit': unit};
+  Map<String, Object> toJson() => {
+    'amount': milliunits, 'unit': unit,
+    if (calibratedMlMilliunits != null)
+      'calibratedMlMilliunits': calibratedMlMilliunits!,
+  };
 
   static ScheduledQuantity? fromJson(Object? source) {
     if (source is! Map) return null;
@@ -26,30 +32,69 @@ class ScheduledQuantity {
         unit is! String || !MedicationUnits.supported.contains(unit)) {
       return null;
     }
-    return ScheduledQuantity(milliunits: quantity, unit: unit);
+    final calibration = source['calibratedMlMilliunits'];
+    if (unit == MedicationUnits.dessertSpoon &&
+        (calibration is! int || calibration <= 0 || calibration > 30000)) {
+      return null;
+    }
+    return ScheduledQuantity(milliunits: quantity, unit: unit,
+      calibratedMlMilliunits: calibration is int ? calibration : null);
   }
 }
 
 abstract final class MedicationUnits {
-  static const count = ['عدد', 'ورق', 'بسته'];
-  static const liquid = ['میلی‌لیتر', 'سی‌سی', 'لیتر'];
-  static const supported = [...count, ...liquid];
+  static const dessertSpoon = 'قاشق مرباخوری مدرج';
+  static const teaSpoon = 'قاشق چای‌خوری مدرج';
+  static const tableSpoon = 'قاشق غذاخوری مدرج';
+  static const count = ['عدد', 'قرص', 'کپسول', 'ساشه', 'شیاف',
+    'چسب دارویی', 'پاف', 'اسپری', 'قطره', 'آمپول', 'ویال', 'ورق', 'بسته'];
+  static const liquid = ['میلی‌لیتر', 'سی‌سی', 'لیتر',
+    teaSpoon, dessertSpoon, tableSpoon, 'ml'];
+  static const mass = ['گرم', 'میلی‌گرم'];
+  static const supported = [...count, ...liquid, ...mass];
+  static const selectable = ['عدد', 'قرص', 'کپسول', 'ساشه', 'شیاف',
+    'چسب دارویی', 'پاف', 'اسپری', 'قطره', 'آمپول', 'ویال',
+    'میلی‌لیتر', teaSpoon, dessertSpoon, tableSpoon, ...mass];
 
   static bool isLiquid(String unit) => liquid.contains(unit);
+  static bool isStripCount(String unit) =>
+      const ['عدد', 'قرص', 'کپسول'].contains(unit);
+  static bool requiresWhole(String unit) => const [
+    'قطره', 'پاف', 'اسپری', 'چسب دارویی', 'آمپول', 'ویال',
+  ].contains(unit);
+  static String stockUnitForDose(String unit) =>
+      isLiquid(unit) ? 'میلی‌لیتر' : unit;
 
-  /// Convert only exact, dimensionally meaningful amounts. A strip is not a
-  /// tablet: never guess how many tablets a user's strip contains.
+  static int? _mlFactor(ScheduledQuantity dose) => switch (dose.unit) {
+    'میلی‌لیتر' || 'سی‌سی' || 'ml' => 1000,
+    'لیتر' => 1000000,
+    teaSpoon => 5000,
+    tableSpoon => 15000,
+    dessertSpoon => dose.calibratedMlMilliunits,
+    _ => null,
+  };
+
+  // Exact arithmetic; no guessed drop volume or concentration conversion.
   static int? toPackageMilliunits(ScheduledQuantity dose, String packageUnit) {
-    if (dose.unit == packageUnit) return dose.milliunits;
-    if (!isLiquid(dose.unit) || !isLiquid(packageUnit)) return null;
-    final doseMillilitres = dose.unit == 'لیتر'
-        ? dose.milliunits * 1000
-        : dose.milliunits;
-    if (packageUnit == 'لیتر') {
-      if (doseMillilitres % 1000 != 0) return null;
-      return doseMillilitres ~/ 1000;
+    if (dose.milliunits <= 0 || dose.milliunits > 999999999 ||
+        (requiresWhole(dose.unit) && dose.milliunits % 1000 != 0)) {
+      return null;
     }
-    return doseMillilitres;
+    if (dose.unit == packageUnit) {
+      return dose.unit == dessertSpoon ? null : dose.milliunits;
+    }
+    final factor = _mlFactor(dose);
+    if (factor == null || factor <= 0 ||
+        (dose.unit == dessertSpoon && factor > 30000)) return null;
+    final numerator = dose.milliunits * factor;
+    final divisor = switch (packageUnit) {
+      'میلی‌لیتر' || 'سی‌سی' || 'ml' => 1000,
+      'لیتر' => 1000000,
+      _ => 0,
+    };
+    if (divisor == 0 || numerator % divisor != 0) return null;
+    final result = numerator ~/ divisor;
+    return result > 0 && result <= 999999999 ? result : null;
   }
 }
 

@@ -76,13 +76,14 @@ class MedicineArtwork extends StatelessWidget {
 
 class AppGradientButton extends StatelessWidget {
   const AppGradientButton({super.key, required this.label, required this.icon, required this.onPressed,
-    this.light = false, this.height = 48});
+    this.light = false, this.height = 48, this.iconAfterLabel = false});
 
   final String label;
   final IconData icon;
   final VoidCallback? onPressed;
   final bool light;
   final double height;
+  final bool iconAfterLabel;
 
   @override
   Widget build(BuildContext context) => Opacity(
@@ -103,12 +104,18 @@ class AppGradientButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 21, color: light ? AppColors.primaryDark : Colors.white),
-              const SizedBox(width: 8),
+              if (!iconAfterLabel) ...[
+                Icon(icon, size: 21, color: light ? AppColors.primaryDark : Colors.white),
+                const SizedBox(width: 8),
+              ],
               Flexible(child: Text(label, style: TextStyle(
                 color: light ? AppColors.primaryDark : Colors.white,
                 fontWeight: FontWeight.w800, fontSize: 14),
                 maxLines: 1, overflow: TextOverflow.ellipsis)),
+              if (iconAfterLabel) ...[
+                const SizedBox(width: 8),
+                Icon(icon, size: 21, color: light ? AppColors.primaryDark : Colors.white),
+              ],
             ],
           ),
         ),

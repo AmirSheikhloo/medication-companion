@@ -197,7 +197,8 @@ class _MedicationPackageEditorScreenState
                 labelText: 'دلیل اصلاح موجودی (در صورت تغییر)')),
           ],
           const SizedBox(height: 12),
-          if (existing == null && widget.unit == 'عدد') ...[
+          if (existing == null &&
+              const ['عدد', 'قرص', 'کپسول'].contains(widget.unit)) ...[
             OutlinedButton.icon(
               onPressed: _busy ? null : () =>
                 setState(() => _calculatorOpen = !_calculatorOpen),
