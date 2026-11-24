@@ -457,6 +457,7 @@ class _MedicationHomeState extends State<MedicationHome>
         reminderNote: draft.reminderNote,
         notificationsEnabled: draft.notificationsEnabled,
         fullScreenAlert: draft.fullScreenAlert,
+        expiryLeadDays: draft.expiryLeadDays,
         tabletsPerStrip: draft.tabletsPerStrip ?? previous.tabletsPerStrip,
       ));
   }
@@ -481,6 +482,12 @@ class _MedicationHomeState extends State<MedicationHome>
       initialSetup: previous,
       initialThresholdMilliunits: _stocks[medication.id]?.thresholdMilliunits,
       initialBaseUnit: medication.unit,
+      initialExpiryDates: [
+        for (final package in _stocks[medication.id]?.packages ?? <PackageBalance>[])
+          if (!package.archived && package.package.expiryIso != null)
+            StockQuantity.expiryDay(package.package.expiryIso!,
+              package.package.expiryPrecision),
+      ],
       initialSlots: [
         for (final dose in doses)
           MedicationSlotDraft(

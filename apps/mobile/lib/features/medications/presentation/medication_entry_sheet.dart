@@ -42,7 +42,7 @@ class MedicationDraft {
     this.lowStockThresholdMilliunits,
     this.notificationsEnabled = false,
     this.fullScreenAlert = false,
-    this.tabletsPerStrip});
+    this.tabletsPerStrip, this.expiryLeadDays});
 
   final String name;
   final List<MedicationSlotDraft> slots;
@@ -54,6 +54,7 @@ class MedicationDraft {
   final bool notificationsEnabled;
   final bool fullScreenAlert;
   final int? tabletsPerStrip;
+  final int? expiryLeadDays;
 }
 
 Future<MedicationDraft?> showMedicationEntrySheet(
@@ -64,6 +65,7 @@ Future<MedicationDraft?> showMedicationEntrySheet(
   MedicationSetup? initialSetup,
   int? initialThresholdMilliunits,
   String? initialBaseUnit,
+  List<DateTime> initialExpiryDates = const [],
   List<String> suggestedMedicationNames = const [],
   Future<bool> Function({bool fullScreen})? requestReminderPermission,
 }) => Navigator.of(context).push<MedicationDraft>(MaterialPageRoute(
@@ -74,6 +76,7 @@ Future<MedicationDraft?> showMedicationEntrySheet(
     initialSetup: initialSetup,
     initialThresholdMilliunits: initialThresholdMilliunits,
     initialBaseUnit: initialBaseUnit,
+    initialExpiryDates: initialExpiryDates,
     suggestedMedicationNames: suggestedMedicationNames,
     requestReminderPermission: requestReminderPermission,
   ),
@@ -115,6 +118,7 @@ class _MedicationEntryScreen extends StatefulWidget {
     this.initialName, this.initialSlots, this.initialSetup,
     this.initialThresholdMilliunits, this.initialBaseUnit,
     this.requestReminderPermission,
+    this.initialExpiryDates = const [],
     this.suggestedMedicationNames = const []});
 
   final String profileName;
@@ -123,6 +127,7 @@ class _MedicationEntryScreen extends StatefulWidget {
   final MedicationSetup? initialSetup;
   final int? initialThresholdMilliunits;
   final String? initialBaseUnit;
+  final List<DateTime> initialExpiryDates;
   final List<String> suggestedMedicationNames;
   final Future<bool> Function({bool fullScreen})? requestReminderPermission;
 
@@ -145,6 +150,29 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     'اطلاعات دارو', 'برنامه مصرف', 'موجودی', 'هشدار کمبود', 'یادآور',
   ];
   bool _lowStockEnabled = false;
+  bool _expiryAlertEnabled = false;
+  final _expiryLead = TextEditingController();
+
+  int? get _nearestExpiryDays {
+    final now = DateTime.now();
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final dates = _editing ? widget.initialExpiryDates :
+      _packages.map((p) => p.expiry).whereType<DateTime>();
+    final remaining = dates.map((date) =>
+      DateTime.utc(date.year, date.month, date.day)
+        .difference(today).inDays)
+      .where((days) => days >= 0).toList()..sort();
+    return remaining.isEmpty ? null : remaining.first;
+  }
+
+  int? get _validExpiryLead {
+    final max = _nearestExpiryDays;
+    final days = int.tryParse(PersianDate.latinDigits(_expiryLead.text.trim()));
+    if (days == null || days < 0 || days > 3650) return null;
+    // A saved rule naturally enters its reminder window as time passes.
+    if (_editing && days == widget.initialSetup?.expiryLeadDays) return days;
+    return max != null && days <= max ? days : null;
+  }
   late final TextEditingController _lowStock;
   int? _calculatorPackage;
   final Map<int, int> _knownTabletsPerStrip = {};
@@ -196,6 +224,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     _name = TextEditingController(text: widget.initialName ?? '');
     _reminderNote = TextEditingController(text: widget.initialSetup?.reminderNote ?? '');
     _lowStockEnabled = widget.initialThresholdMilliunits != null;
+    _expiryAlertEnabled = widget.initialSetup?.expiryLeadDays != null;
+    _expiryLead.text = widget.initialSetup?.expiryLeadDays?.toString() ?? '';
     _lowStock = TextEditingController(text:
       widget.initialThresholdMilliunits == null ? '20' :
       StockQuantity.format(widget.initialThresholdMilliunits!));
@@ -228,6 +258,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
 
   @override
   void dispose() {
+    _expiryLead.dispose();
     _spoonVolume.dispose();
     _name.dispose();
     _reminderNote.dispose();
@@ -446,7 +477,10 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         time: TimeOfDay(hour: minuteOfDay ~/ 60,
           minute: minuteOfDay % 60),
         quantity: dose,
-        dose: '${StockQuantity.format(quantity)} $_baseUnit',
+        dose: _baseUnit == MedicationUnits.dessertSpoon
+          ? '${StockQuantity.format(quantity)} $_baseUnit '
+            '(${StockQuantity.format(_calibratedVolume!)} میلی‌لیتر در هر قاشق)'
+          : '${StockQuantity.format(quantity)} $_baseUnit',
       ));
     }
     if (_reminderNote.text.trim().length > 500) {
@@ -461,8 +495,15 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         return;
       }
     }
+    final expiryLead = _expiryAlertEnabled && _nearestExpiryDays != null
+      ? _validExpiryLead : null;
+    if (_expiryAlertEnabled && _nearestExpiryDays != null && expiryLead == null) {
+      _showError('فاصله هشدار انقضا را بین صفر و روزهای باقی‌مانده تعیین کن.');
+      return;
+    }
     Navigator.of(context).pop(MedicationDraft(
       name: name, slots: slots, packages: packages,
+      expiryLeadDays: expiryLead,
       reminderNote: _reminderNote.text.trim(),
       artwork: _artwork, imagePath: _imagePath,
       lowStockThresholdMilliunits: threshold,
@@ -730,6 +771,11 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
           return false;
         }
       }
+    }
+    if (_currentStep == 3 && _expiryAlertEnabled &&
+        _nearestExpiryDays != null && _validExpiryLead == null) {
+      _showError('فاصله هشدار انقضا از زمان باقی‌مانده بیشتر است یا معتبر نیست.');
+      return false;
     }
     if (_currentStep == 2 && !_editing) {
       for (final pack in _packages) {
@@ -1038,6 +1084,30 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
               hint: 'مثلاً 20', keyName: 'medication-low-stock-threshold'))
           : const SizedBox.shrink(),
       ),
+      if (_nearestExpiryDays != null) ...[
+        const SizedBox(height: 16),
+        const Divider(color: AppColors.outline),
+        SwitchListTile.adaptive(contentPadding: EdgeInsets.zero,
+          title: const Text('هشدار نزدیک‌شدن انقضا'),
+          subtitle: const Text('با نزدیک‌شدن انقضای بسته، در زنگوله و فهرست داروها هشدار می‌بینی.'),
+          value: _expiryAlertEnabled,
+          onChanged: (value) => setState(() => _expiryAlertEnabled = value)),
+        if (_expiryAlertEnabled) ...[
+          const SizedBox(height: 8),
+          _numberField(_expiryLead, label: '* چند روز قبل از انقضا؟',
+            hint: 'تعداد روز', rebuildOnChange: true),
+          const SizedBox(height: 7),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final days in [0, 7, 30, 90, 180])
+              if (days <= _nearestExpiryDays!)
+                ActionChip(label: Text(days == 0 ? 'روز انقضا' :
+                  '${PersianDate.displayDigits('$days')} روز'),
+                  onPressed: () => setState(() => _expiryLead.text = '$days')),
+          ]),
+          Text('تا نزدیک‌ترین انقضا ${PersianDate.displayDigits('$_nearestExpiryDays')} روز مانده.',
+            style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+        ],
+      ],
     ],
   );
 

@@ -107,6 +107,7 @@ class MedicationSetup {
     this.notificationsEnabled = true,
     this.fullScreenAlert = false,
     this.tabletsPerStrip,
+    this.expiryLeadDays,
   });
 
   final String reminderNote;
@@ -116,6 +117,7 @@ class MedicationSetup {
   final bool notificationsEnabled;
   final bool fullScreenAlert;
   final int? tabletsPerStrip;
+  final int? expiryLeadDays;
 
   MedicationSetup copyWith({
     String? reminderNote,
@@ -125,6 +127,7 @@ class MedicationSetup {
     bool? notificationsEnabled,
     bool? fullScreenAlert,
     int? tabletsPerStrip,
+    int? expiryLeadDays,
   }) => MedicationSetup(
     reminderNote: reminderNote ?? this.reminderNote,
     artwork: artwork ?? this.artwork,
@@ -133,6 +136,7 @@ class MedicationSetup {
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     fullScreenAlert: fullScreenAlert ?? this.fullScreenAlert,
     tabletsPerStrip: tabletsPerStrip ?? this.tabletsPerStrip,
+    expiryLeadDays: expiryLeadDays ?? this.expiryLeadDays,
   );
 }
 
@@ -180,6 +184,9 @@ class MedicationSetupRepository {
         doses: doses,
         notificationsEnabled: data['notificationsEnabled'] != false,
         fullScreenAlert: data['fullScreenAlert'] == true,
+        expiryLeadDays: data['expiryLeadDays'] is int &&
+            data['expiryLeadDays'] >= 0 && data['expiryLeadDays'] <= 3650
+          ? data['expiryLeadDays'] as int : null,
         tabletsPerStrip: data['tabletsPerStrip'] is int &&
           data['tabletsPerStrip'] > 0 && data['tabletsPerStrip'] <= 1000
             ? data['tabletsPerStrip'] as int : null,
@@ -195,6 +202,10 @@ class MedicationSetupRepository {
     required MedicationSetup setup,
   }) async {
     await _assertOwned(profileId, medicationId);
+    if (setup.expiryLeadDays != null &&
+        (setup.expiryLeadDays! < 0 || setup.expiryLeadDays! > 3650)) {
+      throw ArgumentError('فاصله هشدار انقضا معتبر نیست.');
+    }
     if (setup.reminderNote.length > 500) {
       throw ArgumentError('متن یادآور بیش از 500 نویسه است.');
     }
@@ -208,6 +219,7 @@ class MedicationSetupRepository {
           'imagePath': setup.localImagePath,
           'notificationsEnabled': setup.notificationsEnabled,
           'fullScreenAlert': setup.fullScreenAlert,
+          'expiryLeadDays': setup.expiryLeadDays,
           'tabletsPerStrip': setup.tabletsPerStrip,
           'doses': {for (final e in setup.doses.entries) e.key: e.value.toJson()},
         }),
