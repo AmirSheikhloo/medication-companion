@@ -8,6 +8,32 @@ Future<void> next(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('base-unit categories filter choices and show canonical volume equivalents',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(
+      builder: (context) => FilledButton(
+        onPressed: () => showMedicationEntrySheet(context, profileName: 'بیمار'),
+        child: const Text('باز کردن فرم'),
+      )))));
+    await tester.tap(find.text('باز کردن فرم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('dose-unit-category-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('میلی‌لیتر (سی‌سی)'));
+    await tester.pumpAndSettle();
+    expect(find.text('قاشق چای‌خوری مدرج (5 mL)'), findsOneWidget);
+    expect(find.text('قاشق غذاخوری مدرج (15 mL)'), findsOneWidget);
+    expect(find.text('عدد'), findsNothing);
+    await tester.tap(find.text('قاشق چای‌خوری مدرج (5 mL)'));
+    await tester.pumpAndSettle();
+    expect(find.text('قاشق چای‌خوری مدرج (5 mL)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('wizard preserves quantities across back navigation and declines unavailable notification permission',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);

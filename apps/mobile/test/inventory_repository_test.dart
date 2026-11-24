@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
 import 'package:medication_companion/features/inventory/data/inventory_repository.dart';
 import 'package:medication_companion/features/medications/data/medication_repository.dart';
+import 'package:medication_companion/features/medications/data/medication_setup_repository.dart';
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
 
 void main() {
@@ -66,6 +67,26 @@ void main() {
     expect(summary.thresholdMilliunits, isNull); // No unit conversion.
     await inventory.clearSelection(profileId: profileId, medicationId: medId);
     expect((await inventory.summary(profileId, medId)).selected, isNull);
+  });
+
+  test('one calibrated teaspoon debits 5 mL and undo restores original volume', () async {
+    final (profileId, medId) = await setupMedication();
+    final packId = await inventory.addPackage(
+      profileId: profileId, medicationId: medId,
+      label: 'آزمایشی', unit: 'میلی‌لیتر',
+      initialMilliunits: 5000000, selectForUse: true,
+    );
+    const amount = ScheduledQuantity(milliunits: 1000, unit: MedicationUnits.teaSpoon);
+    final debit = MedicationUnits.toPackageMilliunits(amount, 'میلی‌لیتر')!;
+    expect(debit, 5000);
+    final dose = (await medications.dosesForDay(profileId, DateTime.now())).single;
+    expect(await medications.recordDose(dose: dose, profileId: profileId,
+      action: 'taken', stockPackageId: packId, stockQuantityMilliunits: debit), isTrue);
+    expect((await inventory.summary(profileId, medId)).selected?.balanceMilliunits, 4995000);
+    final latest = (await medications.dosesForDay(profileId, DateTime.now())).single;
+    expect(await medications.recordDose(dose: latest, profileId: profileId,
+      action: 'undo'), isTrue);
+    expect((await inventory.summary(profileId, medId)).selected?.balanceMilliunits, 5000000);
   });
 
   test('debit/undo is atomic, exactly once and preserves append-only history',
