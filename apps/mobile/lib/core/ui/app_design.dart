@@ -23,10 +23,10 @@ abstract final class AppPalette {
   static bool isDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
 
-  static const darkBackground = Color(0xFF111E23);
-  static const darkSurface = Color(0xFF1B2C32);
-  static const darkMint = Color(0xFF244346);
-  static const darkOutline = Color(0xFF3D565B);
+  static const darkBackground = Color(0xFF101820);
+  static const darkSurface = Color(0xFF202E38);
+  static const darkMint = Color(0xFF315257);
+  static const darkOutline = Color(0xFF526873);
   static const darkInk = Color(0xFFE7F2F2);
   static const darkMuted = Color(0xFFB1C5C8);
   static const darkAccent = Color(0xFF75DAD1);
@@ -53,7 +53,7 @@ abstract final class AppPalette {
     if (color == AppColors.background) return darkBackground;
     if (color == Colors.white) return darkSurface;
     if (color == AppColors.mint) return darkMint;
-    if (color == AppColors.lightMint) return const Color(0xFF20363A);
+    if (color == AppColors.lightMint) return const Color(0xFF293E48);
     if (color == AppColors.outline) return darkOutline;
     if (color.computeLuminance() < .15) return color;
     final hsl = HSLColor.fromColor(color);

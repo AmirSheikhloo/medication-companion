@@ -20,6 +20,7 @@ import 'medication_expiry_dialog.dart';
 import 'today_visuals.dart';
 import 'settings_screens.dart';
 import '../data/medication_repository.dart';
+import '../data/notification_inbox_repository.dart';
 import '../data/medication_setup_repository.dart';
 import '../data/medication_photo_storage.dart';
 import '../../reminders/data/reminder_coordinator.dart';
@@ -78,6 +79,7 @@ class _MedicationHomeState extends State<MedicationHome>
   int _tabMotionDirection = 1;
 
   void _selectTab(int next) {
+    if (next == 3) { _openMenu(); return; }
     if (_tab == next) return;
     setState(() {
       _tabMotionDirection = next > _tab ? 1 : -1;
@@ -100,30 +102,54 @@ class _MedicationHomeState extends State<MedicationHome>
   Map<String, StockSummary> _stocks = {};
   Map<String, MedicationSetup> _setups = {};
   final Set<String> _expandedDoseKeys = {};
-  final Set<String> _seenDueAlertKeys = {};
-  final Set<String> _seenStockAlertIds = {};
   Map<String, List<StockAttention>> _stockAttentions = {};
   Map<String, Set<String>> _dismissedAttentions = {};
+  List<InboxNotice> _inbox = [];
+  Future<void> _inboxTail = Future<void>.value();
 
   StockAttentionRepository get _attentionRepository =>
       StockAttentionRepository(widget.repository.db);
+  NotificationInboxRepository get _inboxRepository =>
+      NotificationInboxRepository(widget.repository.db);
 
   List<StockAttention> _visibleAttentions(String medicationId) =>
-    (_stockAttentions[medicationId] ?? []).where((a) =>
-      !(_dismissedAttentions[medicationId]?.contains(a.key) ?? false)).toList();
-
-  List<({Medication medication, StockAttention alert})> get _stockAlerts => [
-    for (final med in _medications)
-      for (final alert in _visibleAttentions(med.id))
-        (medication: med, alert: alert),
-  ];
-
-  String _attentionId(Medication med, StockAttention alert) =>
-    '${med.profileId}:${med.id}:${alert.key}';
+    _stockAttentions[medicationId] ?? [];
 
   int _attentionRank(Medication med) {
     final alerts = _visibleAttentions(med.id);
     return alerts.isEmpty ? 100 : alerts.first.priority;
+  }
+
+  Future<void> _refreshInbox() {
+    final next = _inboxTail.then((_) => _reconcileInbox());
+    _inboxTail = next;
+    return next;
+  }
+
+  Future<void> _reconcileInbox() async {
+    if (!mounted) return;
+    final profile = _active;
+    if (profile == null) return;
+    try {
+      final current = <InboxNotice>[
+        for (final med in _medications)
+          for (final alert in _visibleAttentions(med.id))
+            InboxNotice(condition: 'stock:${med.id}:${alert.key}',
+              medicationId: med.id, title: '${med.name} — ${alert.title}',
+              message: alert.message, urgent: alert.urgent),
+        for (final dose in _doses)
+          if (dose.status == 'pending' && !dose.scheduledAt.isAfter(_now))
+            InboxNotice(condition: 'dose:${dose.occurrenceKey}',
+              medicationId: dose.medication.id,
+              title: dose.medication.name,
+              message: 'زمان مصرف: ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}',
+              urgent: false),
+      ];
+      final rows = await _inboxRepository.reconcile(profile.id, current);
+      if (mounted && _active?.id == profile.id) setState(() => _inbox = rows);
+    } catch (_) {
+      // An inbox write failure must never block the medication screen.
+    }
   }
 
   Timer? _todayClockTicker;
@@ -147,7 +173,10 @@ class _MedicationHomeState extends State<MedicationHome>
       value: 1);
     WidgetsBinding.instance.addObserver(this);
     _todayClockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted && _tab == 0) setState(() {});
+      if (mounted && _tab == 0) {
+        setState(() {});
+        unawaited(_reload());
+      }
     });
     _reload();
     _syncReminders();
@@ -286,6 +315,7 @@ class _MedicationHomeState extends State<MedicationHome>
       if (!mounted) return;
       setState(() {
         if (_active?.id != profile?.id) {
+          _inbox = [];
           _medicineSearch.clear();
           _searchVisible = false;
           _lowStockOnly = false;
@@ -302,14 +332,12 @@ class _MedicationHomeState extends State<MedicationHome>
         _stocks = stocks;
         _stockAttentions = attentions;
         _dismissedAttentions = dismissed;
-        final currentIds = _stockAlerts.map((item) =>
-          _attentionId(item.medication, item.alert)).toSet();
-        _seenStockAlertIds.removeWhere((id) => !currentIds.contains(id));
         _setups = setups;
         _remindersEnabled = remindersEnabled;
         _loading = false;
         _error = null;
       });
+      await _refreshInbox();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -956,7 +984,8 @@ class _MedicationHomeState extends State<MedicationHome>
       );
     }
     return Scaffold(
-      backgroundColor: _tab == 0 ? AppPalette.surface(context, TodayPalette.page) : AppPalette.surface(context, AppColors.background),
+      backgroundColor: AppPalette.isDark(context) ? AppPalette.darkBackground :
+        _tab == 0 ? TodayPalette.page : AppColors.background,
       body: SafeArea(
         bottom: false,
         child: AnimatedBuilder(
@@ -980,7 +1009,6 @@ class _MedicationHomeState extends State<MedicationHome>
               repository: HealthRepository(widget.repository.db),
               onOpenCareHub: _openCareHub,
             ),
-            _moreTabRedesigned(),
           ]),
         ),
       ),
@@ -1100,7 +1128,7 @@ class _MedicationHomeState extends State<MedicationHome>
     }
   }
 
-  Widget _themeToggle() => IconButton(
+  Widget _themeToggle() => IconButton.filledTonal(
     key: const Key('app-theme-toggle'),
     tooltip: AppPalette.isDark(context) ? 'حالت روشن' : 'حالت تاریک',
     onPressed: _toggleTheme,
@@ -1128,8 +1156,6 @@ class _MedicationHomeState extends State<MedicationHome>
     final evening = waiting
         .where((dose) => dose.scheduledAt.hour >= 17 || dose.scheduledAt.hour < 5)
         .toList();
-    final dueAlerts = waiting
-        .where((dose) => !dose.scheduledAt.isAfter(now)).toList();
     return DefaultTextStyle.merge(
       style: const TextStyle(fontFamily: 'Vazirmatn'),
       child: ListView(
@@ -1144,8 +1170,7 @@ class _MedicationHomeState extends State<MedicationHome>
             const SizedBox(width: 10),
             _profileBar(),
             const SizedBox(width: 8),
-            _todayNotificationBell(dueAlerts),
-            if (widget.onThemeChanged != null) _themeToggle(),
+            _todayNotificationBell(),
           ]),
           const SizedBox(height: 16),
           TodaySkyGreeting(hour: now.hour, name: _active!.displayName),
@@ -1262,150 +1287,122 @@ class _MedicationHomeState extends State<MedicationHome>
     ],
   );
 
-  Widget _todayNotificationBell(List<DailyDose> dueAlerts) {
-    final unread = dueAlerts
-        .any((dose) => !_seenDueAlertKeys.contains(dose.occurrenceKey)) ||
-      _stockAlerts.any((item) => !_seenStockAlertIds.contains(
-        _attentionId(item.medication, item.alert)));
+  Widget _todayNotificationBell() {
+    final unread = _inbox.where((n) => n.active && !n.read).length;
     return Stack(clipBehavior: Clip.none, children: [
       Material(
         key: const Key('today-bell-surface'),
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(17),
+        color: Colors.transparent, borderRadius: BorderRadius.circular(17),
         child: Ink(
           key: const Key('today-bell-fill'),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-              colors: [AppPalette.surface(context, TodayPalette.bellHighlight), AppPalette.surface(context, TodayPalette.bellShadow)],
-            ),
-            borderRadius: BorderRadius.circular(17),
-          ),
+            gradient: const LinearGradient(colors: [
+              TodayPalette.bellHighlight, TodayPalette.bellShadow]),
+            borderRadius: BorderRadius.circular(17)),
           child: IconButton(
             key: const Key('today-notifications-button'),
-            tooltip: 'اعلان‌های نوبت مصرف',
-            icon: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation, child: child),
-              child: Icon(
-                unread ? Icons.notifications_rounded
-                    : Icons.notifications_none_rounded,
-                key: ValueKey(unread),
-                color: AppPalette.ink(context, TodayPalette.bellGold),
-                size: 25,
-              ),
-            ),
-            onPressed: () => _showTodayNotifications(dueAlerts),
+            tooltip: 'اعلان‌ها',
+            icon: const Icon(Icons.notifications_rounded,
+              color: Color(0xFF966000), size: 26),
+            onPressed: _showTodayNotifications,
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          ),
-        ),
-      ),
-      if (unread)
-        PositionedDirectional(
-          top: 6, start: 7,
-          child: Container(
-            key: const Key('today-unread-dot'),
-            width: 10, height: 10,
-            decoration: BoxDecoration(
-              color: AppPalette.surface(context, const Color(0xFFE94E55)),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 1.5),
-            ),
-          ),
-        ),
+          ))),
+      if (unread > 0)
+        Positioned(top: -4, left: -4, child: Container(
+          key: const Key('today-unread-dot'),
+          constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(color: const Color(0xFFC5223B),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white, width: 1.5)),
+          child: Text(unread > 99 ? '99+' : '$unread',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 11,
+              fontWeight: FontWeight.bold)))),
     ]);
   }
 
-  Future<void> _showTodayNotifications(List<DailyDose> dueAlerts) async {
-    setState(() {
-      _seenDueAlertKeys.addAll(dueAlerts.map((dose) => dose.occurrenceKey));
-      _seenStockAlertIds.addAll(_stockAlerts.map((item) =>
-        _attentionId(item.medication, item.alert)));
-    });
+  Future<void> _showTodayNotifications() async {
+    final profile = _active;
+    if (profile == null) return;
+    await _refreshInbox();
+    if (!mounted || _active?.id != profile.id) return;
+    var limit = 20;
     await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      useSafeArea: true,
-      backgroundColor: AppPalette.surface(context, Colors.white),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(22, 3, 22, 30),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * .72),
-          child: SingleChildScrollView(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('اعلان‌های امروز', textAlign: TextAlign.right,
-              style: TextStyle(fontFamily: 'Vazirmatn', fontSize: 21,
-                fontWeight: FontWeight.bold, color: AppPalette.ink(context, AppColors.primaryDark))),
-            const SizedBox(height: 8),
-            if (dueAlerts.isEmpty && _stockAlerts.isEmpty)
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 22),
-                child: Text('فعلاً نوبت عقب‌افتاده‌ای نداری 🌿',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontFamily: 'Vazirmatn',
-                    fontSize: 15, color: AppPalette.ink(context, AppColors.ink))),
-              ),
-            for (final item in _stockAlerts)
-              Padding(padding: const EdgeInsets.only(top: 9),
-                child: Material(
-                  color: item.alert.urgent
-                    ? AppPalette.surface(context, const Color(0xFFFFE6EA)) : AppPalette.surface(context, const Color(0xFFFFF0DC)),
-                  borderRadius: BorderRadius.circular(15),
-                  child: ListTile(
-                    leading: Icon(Icons.warning_amber_rounded,
-                      color: item.alert.urgent
-                        ? AppPalette.ink(context, const Color(0xFFB6354C)) : AppPalette.ink(context, const Color(0xFFB16D06))),
-                    title: Text('${item.medication.name} — ${item.alert.title}',
-                      style: const TextStyle(fontSize: 13,
-                        fontWeight: FontWeight.w800)),
-                    subtitle: Text(item.alert.message),
-                    trailing: const Icon(Icons.chevron_left_rounded),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      final med = item.medication;
-                      final today = _doses.where((d) => d.medication.id == med.id).toList();
-                      final next = _nextDayDoses.where((d) => d.medication.id == med.id).toList();
-                      _openMedicationDetail(med, next.isNotEmpty ? next : today,
-                        today, _stocks[med.id], next.isNotEmpty &&
-                          next.first.plan.effectiveFrom.toLocal().isAfter(_now));
-                    },
-                  ),
-                )),
-            for (final dose in dueAlerts)
-              Padding(
-                padding: const EdgeInsets.only(top: 9),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppPalette.surface(context, AppColors.lightMint),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Row(children: [
-                    Icon(Icons.notifications_active_outlined,
-                      color: AppPalette.ink(context, AppColors.primary)),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(
-                      '${dose.medication.name}  •  ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}',
-                      style: TextStyle(fontFamily: 'Vazirmatn',
-                        fontSize: 14, fontWeight: FontWeight.w600,
-                        color: AppPalette.ink(context, AppColors.ink)),
-                    )),
-                  ]),
-                ),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ))),
-      ),
-    );
+      context: context, showDragHandle: true, useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(builder: (ctx, update) {
+        final sorted = [..._inbox]..sort((a, b) {
+          final active = (b.active ? 1 : 0).compareTo(a.active ? 1 : 0);
+          if (active != 0) { return active; }
+          final read = (a.read ? 1 : 0).compareTo(b.read ? 1 : 0);
+          return read != 0 ? read : int.parse(b.id).compareTo(int.parse(a.id));
+        });
+        return SizedBox(height: MediaQuery.sizeOf(ctx).height * .76,
+          child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            children: [
+              Text('اعلان‌های امروز', style: Theme.of(ctx).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              if (sorted.isEmpty) const Text('اعلانی برای نمایش وجود ندارد.'),
+              for (final notice in sorted.take(limit))
+                Padding(padding: const EdgeInsets.only(bottom: 10),
+                  child: AppPanel(color: !notice.active ? AppColors.background
+                    : notice.urgent ? const Color(0xFFFFE6EA)
+                    : const Color(0xFFFFF3D2), child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        InkWell(
+                          onTap: !notice.active || notice.condition.startsWith('dose:')
+                            ? null : () async {
+                              await _reload();
+                              if (!mounted || !sheetContext.mounted ||
+                                  _active?.id != profile.id) { return; }
+                              if (!_inbox.any((n) => n.id == notice.id && n.active)) {
+                                update(() {}); return;
+                              }
+                              final meds = _medications.where((m) => m.id == notice.medicationId);
+                              if (meds.isEmpty) { return; }
+                              final med = meds.first;
+                              Navigator.pop(sheetContext);
+                              final today = _doses.where((d) => d.medication.id == med.id).toList();
+                              final next = _nextDayDoses.where((d) => d.medication.id == med.id).toList();
+                              await _openMedicationDetail(med, next.isNotEmpty ? next : today,
+                                today, _stocks[med.id], next.isNotEmpty &&
+                                next.first.plan.effectiveFrom.toLocal().isAfter(_now));
+                            },
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(PersianDate.displayDigits(notice.title),
+                              style: TextStyle(fontWeight: FontWeight.w800,
+                                color: AppPalette.ink(ctx, notice.active
+                                  ? AppColors.ink : AppColors.muted))),
+                            const SizedBox(height: 5),
+                            Text(PersianDate.displayDigits(notice.message)),
+                            if (!notice.active) const Text('پایان‌یافته؛ دیگر نیاز به اقدام ندارد'),
+                            if (notice.active && !notice.condition.startsWith('dose:'))
+                              const Text('مشاهده جزئیات دارو', style: TextStyle(fontWeight: FontWeight.w700)),
+                          ])),
+                        const SizedBox(height: 10),
+                        Align(alignment: AlignmentDirectional.centerEnd,
+                          child: FilledButton.tonal(
+                            onPressed: notice.read ? null : () async {
+                              try {
+                                await _inboxRepository.markRead(profile.id, notice.id);
+                                await _refreshInbox();
+                                if (ctx.mounted) update(() {});
+                              } catch (_) {
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    const SnackBar(content: Text('وضعیت خواندن ذخیره نشد. دوباره تلاش کن.')));
+                                }
+                              }
+                            },
+                            child: Text(notice.read ? 'خوانده شده' : 'خواندم'))),
+                      ]))),
+              if (sorted.length > limit) OutlinedButton(
+                onPressed: () => update(() => limit += 20),
+                child: const Text('نمایش 20 مورد بیشتر')),
+            ]));
+      }));
   }
 
   Widget _todayDoseGroup(String label, IconData icon,
@@ -1843,8 +1840,9 @@ class _MedicationHomeState extends State<MedicationHome>
                 child: Wrap(spacing: 5, runSpacing: 4, children: [
                   for (final alert in alerts.take(2))
                     AppStatusPill(text: alert.title,
-                      color: alert.urgent ? const Color(0xFFB6354C)
-                        : const Color(0xFF996116), fontSize: 10),
+                      color: Colors.white,
+                      background: alert.urgent ? const Color(0xFFC5223B)
+                        : const Color(0xFF9A5800), fontSize: 10),
                   if (alerts.length > 2)
                     Text('+${alerts.length - 2}',
                       style: const TextStyle(fontSize: 11)),
@@ -1933,12 +1931,17 @@ class _MedicationHomeState extends State<MedicationHome>
     if (mounted) await _reload();
   }
 
+  Future<void> _openMenu() => Navigator.of(context).push<void>(
+    MaterialPageRoute(builder: (_) => Scaffold(
+      appBar: AppBar(title: const Text('منو'), actions: [
+        if (widget.onThemeChanged != null) _themeToggle(),
+      ]),
+      body: _moreTabRedesigned(),
+    )));
+
   Widget _moreTabRedesigned() => ListView(
     padding: const EdgeInsets.fromLTRB(15, 18, 15, 30),
     children: [
-      Text('بیشتر', style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-        color: AppPalette.ink(context, AppColors.primaryDark), fontWeight: FontWeight.w900)),
-      const SizedBox(height: 15),
       AppWaveBanner(child: Row(children: [
         const MedicineArtwork(seed: 'همراه دارو', size: 58),
         const SizedBox(width: 12),

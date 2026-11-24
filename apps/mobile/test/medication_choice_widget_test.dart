@@ -18,6 +18,8 @@ void main() {
             value: selected,
             label: 'واحد مصرف',
             options: const ['عدد', 'میلی‌لیتر', 'لیتر'],
+            optionLabels: const {'میلی‌لیتر': 'میلی‌لیتر (سی‌سی)'},
+            commonOptions: const {'میلی‌لیتر'},
             onChanged: (v) => setState(() => selected = v),
           )),
         )),
@@ -26,6 +28,8 @@ void main() {
     await tester.tap(find.text('عدد'));
     await tester.pumpAndSettle();
     expect(find.text('لیتر'), findsOneWidget);
+    expect(find.text('میلی‌لیتر (سی‌سی)'), findsOneWidget);
+    expect(find.text('پرکاربرد'), findsOneWidget);
     await tester.tap(find.text('لیتر'));
     await tester.pumpAndSettle();
     expect(selected, 'لیتر');

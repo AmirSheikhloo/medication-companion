@@ -272,8 +272,11 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     super.dispose();
   }
 
-  void _showError(String message) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(message)));
+  String? _formError;
+
+  void _showError(String message) {
+    if (mounted) setState(() => _formError = PersianDate.displayDigits(message));
+  }
 
   void _normalizeClock(TextEditingController controller, int maximum) {
     final input = PersianDate.latinDigits(controller.text.trim());
@@ -578,15 +581,15 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             label: '* مقدار موجودی', hint: liquid ? 'مثلاً 1000' : 'مثلاً 100',
             keyName: 'med-stock-${index + 1}')),
           const SizedBox(width: 8),
-          Container(
+          Flexible(flex: 2, child: Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: 15, vertical: 16),
+              horizontal: 10, vertical: 16),
             decoration: BoxDecoration(color: AppPalette.surface(context, AppColors.mint),
               borderRadius: BorderRadius.circular(14)),
-            child: Text(_stockUnit,
+            child: Text(MedicationUnits.displayLabels[_stockUnit] ?? _stockUnit,
               style: TextStyle(
                 color: AppPalette.ink(context, AppColors.primaryDark),
-                fontWeight: FontWeight.w800))),
+                fontWeight: FontWeight.w800)))),
         ]),
         if (canCalculate) ...[
           const SizedBox(height: 9),
@@ -800,6 +803,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     setState(() {
       _movingForward = next > _currentStep;
       _currentStep = next;
+      _formError = null;
     });
   }
 
@@ -979,43 +983,49 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       Text('واحد پایه دارو', style: TextStyle(
         fontWeight: FontWeight.w800, color: AppPalette.ink(context, AppColors.primaryDark))),
       const SizedBox(height: 8),
-      Text('تعدادی: قرص، کپسول و مشابه آن. حجمی: شربت و محلول. '
-        'این انتخاب برای همه نوبت‌ها و محاسبه موجودی ثابت می‌ماند.',
+      Text('واحد مشترک تمام نوبت‌های مصرف را انتخاب کن.',
         style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
       const SizedBox(height: 12),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final item in const [(0, 'تعدادی / واحدی'), (1, 'حجمی'), (2, 'وزنی')])
+          ChoiceChip(
+            key: ValueKey('dose-unit-category-${item.$1}'),
+            label: Text(item.$2),
+            selected: MedicationUnits.categoryOf(_baseUnit) == item.$1,
+            onSelected: _editing ? null : (selected) {
+              if (selected && MedicationUnits.categoryOf(_baseUnit) != item.$1) {
+                _setBaseUnit(MedicationUnits.choicesFor(item.$1).first);
+              }
+            }),
+      ]),
+      const SizedBox(height: 10),
       MedicationChoiceField(
         value: _baseUnit,
         label: 'واحد مصرف',
-        options: MedicationUnits.selectable,
+        options: MedicationUnits.choicesFor(MedicationUnits.categoryOf(_baseUnit)),
+        optionLabels: MedicationUnits.displayLabels,
+        commonOptions: MedicationUnits.commonChoices,
         enabled: !_editing,
         onChanged: _setBaseUnit,
       ),
       if (MedicationUnits.isLiquid(_baseUnit)) ...[
         const SizedBox(height: 9),
-        Text('موجودی با میلی‌لیتر ثبت می‌شود. ۱ سی‌سی = ۱ میلی‌لیتر. '
-          'فقط از سرنگ یا قاشق مدرج دارو استفاده کن.',
+        Text('موجودی: میلی‌لیتر؛ فقط از ابزار مدرج استفاده کن.',
           style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
-        if (_baseUnit == MedicationUnits.teaSpoon)
-          const Text('هر قاشق چای‌خوری مدرج: ۵ میلی‌لیتر.'),
-        if (_baseUnit == MedicationUnits.tableSpoon)
-          const Text('هر قاشق غذاخوری مدرج: ۱۵ میلی‌لیتر.'),
         if (_baseUnit == MedicationUnits.dessertSpoon) ...[
           const SizedBox(height: 8),
           _numberField(_spoonVolume,
             label: '* ظرفیت مدرج هر قاشق (میلی‌لیتر)',
             hint: 'طبق درجه ابزار مصرف'),
-          Text('حجم قاشق را از روی درجه ابزار وارد کن؛ '
-            'هیچ ظرفیت پیش‌فرضی فرض نمی‌شود.',
+          Text('ظرفیت را از روی درجه ابزار وارد کن.',
             style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
         ],
       ],
       if (_baseUnit == 'قطره')
-        Text('موجودی و مصرف بر حسب تعداد قطره است؛ '
-          'تبدیل خودکار قطره به میلی‌لیتر انجام نمی‌شود.',
+        Text('موجودی بر حسب تعداد قطره، نه حجم بطری.',
           style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
       if (MedicationUnits.mass.contains(_baseUnit))
-        Text('این واحد برای وزن واقعی قابل‌اندازه‌گیری است، '
-          'نه قدرت دارو یا تبدیل غلظت به حجم.',
+        Text('وزن واقعی دارو، نه قدرت درج‌شده روی بسته.',
           style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
     ],
   );
@@ -1241,6 +1251,16 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
       Padding(padding: const EdgeInsets.only(top: 10, bottom: 12),
         child: _wizardProgress()),
       Divider(color: AppPalette.surface(context, AppColors.outline), height: 1),
+      if (_formError != null)
+        Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: AppPanel(color: const Color(0xFFFFE6EA), child: Row(children: [
+            Icon(Icons.error_outline, color: AppPalette.ink(context, const Color(0xFFC5223B))),
+            const SizedBox(width: 9),
+            Expanded(child: Text(_formError!, style: TextStyle(
+              color: AppPalette.ink(context, const Color(0xFFC5223B)), fontWeight: FontWeight.w700))),
+            IconButton(tooltip: 'بستن پیام', onPressed: () => setState(() => _formError = null),
+              icon: const Icon(Icons.close_rounded)),
+          ]))),
       Expanded(child: AnimatedSwitcher(
         duration: MediaQuery.of(context).disableAnimations
           ? Duration.zero : const Duration(milliseconds: 290),

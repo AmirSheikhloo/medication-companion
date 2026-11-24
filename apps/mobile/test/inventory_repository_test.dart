@@ -2,7 +2,9 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
 import 'package:medication_companion/features/inventory/data/inventory_repository.dart';
+import 'package:medication_companion/features/inventory/data/stock_attention_repository.dart';
 import 'package:medication_companion/features/medications/data/medication_repository.dart';
+import 'package:medication_companion/features/medications/data/medication_setup_repository.dart';
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
 
 void main() {
@@ -66,6 +68,41 @@ void main() {
     expect(summary.thresholdMilliunits, isNull); // No unit conversion.
     await inventory.clearSelection(profileId: profileId, medicationId: medId);
     expect((await inventory.summary(profileId, medId)).selected, isNull);
+  });
+
+  test('expired stock alert includes selection guidance without duplicate warning', () async {
+    final (profileId, medId) = await setupMedication();
+    await inventory.addPackage(profileId: profileId, medicationId: medId,
+      label: 'گذشته', unit: 'عدد', initialMilliunits: 5000,
+      expiryIso: '2000-01-01', expiryPrecision: 'day');
+    await inventory.addPackage(profileId: profileId, medicationId: medId,
+      label: 'معتبر', unit: 'عدد', initialMilliunits: 5000);
+    await inventory.clearSelection(profileId: profileId, medicationId: medId);
+    final stock = await inventory.summary(profileId, medId);
+    final alerts = StockAttention.evaluate(stock, null, DateTime.now());
+    expect(alerts, hasLength(1));
+    expect(alerts.single.key, startsWith('expired:'));
+    expect(alerts.single.message, contains('یک بسته معتبر دیگر انتخاب کن'));
+  });
+
+  test('one calibrated teaspoon debits 5 mL and undo restores original volume', () async {
+    final (profileId, medId) = await setupMedication();
+    final packId = await inventory.addPackage(
+      profileId: profileId, medicationId: medId,
+      label: 'آزمایشی', unit: 'میلی‌لیتر',
+      initialMilliunits: 5000000, selectForUse: true,
+    );
+    const amount = ScheduledQuantity(milliunits: 1000, unit: MedicationUnits.teaSpoon);
+    final debit = MedicationUnits.toPackageMilliunits(amount, 'میلی‌لیتر')!;
+    expect(debit, 5000);
+    final dose = (await medications.dosesForDay(profileId, DateTime.now())).single;
+    expect(await medications.recordDose(dose: dose, profileId: profileId,
+      action: 'taken', stockPackageId: packId, stockQuantityMilliunits: debit), isTrue);
+    expect((await inventory.summary(profileId, medId)).selected?.balanceMilliunits, 4995000);
+    final latest = (await medications.dosesForDay(profileId, DateTime.now())).single;
+    expect(await medications.recordDose(dose: latest, profileId: profileId,
+      action: 'undo'), isTrue);
+    expect((await inventory.summary(profileId, medId)).selected?.balanceMilliunits, 5000000);
   });
 
   test('debit/undo is atomic, exactly once and preserves append-only history',

@@ -40,6 +40,13 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
       title: 'همراه دارو',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF17484C),
+          contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+          actionTextColor: const Color(0xFFFFDF8A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          insetPadding: const EdgeInsets.all(16)),
         useMaterial3: true,
         fontFamily: 'Vazirmatn',
         // One consistent Persian text font; Latin digits keep their ASCII shape.
@@ -149,6 +156,13 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         ),
       ),
       darkTheme: ThemeData(
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF315257),
+          contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+          actionTextColor: const Color(0xFFFFDF8A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          insetPadding: const EdgeInsets.all(16)),
         useMaterial3: true,
         fontFamily: 'Vazirmatn',
         fontFamilyFallback: const ['NotoSansArabic'],

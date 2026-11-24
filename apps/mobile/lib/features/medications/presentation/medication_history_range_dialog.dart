@@ -256,10 +256,10 @@ class _RangeDialogState extends State<_RangeDialog> {
             const SizedBox(height: 14),
             Wrap(spacing: 8, runSpacing: 8, children: [
               ActionChip(
-                label: Text(_jalali ? '6 ماه اخیر' : '۶ ماه اخیر'),
+                label: const Text('6 ماه اخیر'),
                 onPressed: () => _presetMonths(6)),
               ActionChip(
-                label: Text(_jalali ? '12 ماه اخیر' : '۱۲ ماه اخیر'),
+                label: const Text('12 ماه اخیر'),
                 onPressed: () => _presetMonths(12)),
             ]),
             const SizedBox(height: 14),
