@@ -5,6 +5,7 @@ import '../../../core/storage/app_database.dart';
 import '../../../core/ui/app_design.dart';
 import '../../../core/ui/redesign_widgets.dart';
 import '../../inventory/data/inventory_repository.dart';
+import '../../inventory/data/stock_attention_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
 import '../data/medication_repository.dart';
 import '../data/medication_setup_repository.dart';
@@ -20,7 +21,7 @@ import '../../../core/ui/medication_controls.dart';
 class MedicationDetailScreen extends StatefulWidget {
   const MedicationDetailScreen({super.key, required this.medication,
     required this.slots, required this.todaySlots, required this.stock,
-    this.setup,
+    this.setup, this.dismissedAttentionKeys = const {},
     required this.medicationRepository, required this.inventoryRepository,
     required this.pendingSchedule, required this.archived,
     required this.onEdit, required this.onStock,
@@ -33,6 +34,7 @@ class MedicationDetailScreen extends StatefulWidget {
   final List<DailyDose> todaySlots;
   final StockSummary? stock;
   final MedicationSetup? setup;
+  final Set<String> dismissedAttentionKeys;
   final MedicationRepository medicationRepository;
   final InventoryRepository inventoryRepository;
   final bool pendingSchedule;
@@ -54,6 +56,63 @@ class MedicationDetailScreen extends StatefulWidget {
 
 class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   StockSummary? _reloadedStock;
+  late Set<String> _dismissedAttention;
+
+  @override
+  void initState() {
+    super.initState();
+    _dismissedAttention = Set.of(widget.dismissedAttentionKeys);
+  }
+
+  List<StockAttention> get _currentAttention =>
+    StockAttention.evaluate(stock, setup?.expiryLeadDays, DateTime.now());
+
+  Future<void> _dismissAlert(StockAttention alert) async {
+    try {
+      await StockAttentionRepository(medicationRepository.db).dismiss(
+        medication.profileId, medication.id, alert.key);
+      if (mounted) setState(() => _dismissedAttention.add(alert.key));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تنظیم هشدار ذخیره نشد.')));
+    }
+  }
+
+  Future<void> _applyFreshStock(StockSummary fresh) async {
+    final retained = await StockAttentionRepository(medicationRepository.db)
+      .reconcile(medication.profileId, medication.id,
+        StockAttention.evaluate(fresh, setup?.expiryLeadDays, DateTime.now()));
+    if (mounted) setState(() {
+      _reloadedStock = fresh;
+      _dismissedAttention = retained;
+    });
+  }
+
+  Widget _attentionPanel(StockAttention alert) {
+    final tone = alert.urgent ? const Color(0xFFB6354C) : const Color(0xFF996116);
+    return Padding(padding: const EdgeInsets.only(bottom: 9),
+      child: AppPanel(color: alert.urgent ? const Color(0xFFFFEBEF)
+        : const Color(0xFFFFF5E4), child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Icon(Icons.warning_amber_rounded, color: tone),
+              const SizedBox(width: 8),
+              Expanded(child: Text(alert.title,
+                style: TextStyle(color: tone, fontWeight: FontWeight.w800))),
+            ]),
+            const SizedBox(height: 6),
+            Text(alert.message),
+            const SizedBox(height: 8),
+            Wrap(spacing: 7, runSpacing: 6, children: [
+              OutlinedButton(onPressed: () => _openPackage(null),
+                child: const Text('افزودن بسته')),
+              TextButton(onPressed: () => _dismissAlert(alert),
+                child: const Text('عدم نمایش این هشدار')),
+              TextButton(onPressed: onArchive,
+                child: const Text('مدیریت پایان دوره')),
+            ]),
+          ])));
+  }
   Medication get medication => widget.medication;
   List<DailyDose> get slots => widget.slots;
   StockSummary? get stock => _reloadedStock ?? widget.stock;
@@ -84,7 +143,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     if (!mounted || result != true) return;
     final latest = await inventoryRepository.summary(
       medication.profileId, medication.id);
-    if (mounted) setState(() => _reloadedStock = latest);
+    await _applyFreshStock(latest);
   }
 
   Future<void> _selectPackage(PackageBalance balance) async {
@@ -97,7 +156,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         packageId: balance.package.id);
       final fresh = await inventoryRepository.summary(
         medication.profileId, medication.id);
-      if (mounted) setState(() => _reloadedStock = fresh);
+      await _applyFreshStock(fresh);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -314,6 +373,10 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           ])),
         ]),
         const SizedBox(height: 22),
+        if (!archived && !hidden)
+          for (final alert in _currentAttention)
+            if (!_dismissedAttention.contains(alert.key))
+              _attentionPanel(alert),
         AppPanel(padding: const EdgeInsets.all(12), child: Column(children: [
           const AppSoftHeader(title: 'برنامه مصرف', icon: Icons.calendar_month_outlined),
           if (pendingSchedule) const Padding(padding: EdgeInsets.only(top: 8),

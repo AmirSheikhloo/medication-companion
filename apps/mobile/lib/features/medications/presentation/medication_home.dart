@@ -24,6 +24,7 @@ import '../data/medication_setup_repository.dart';
 import '../data/medication_photo_storage.dart';
 import '../../reminders/data/reminder_coordinator.dart';
 import '../../inventory/data/inventory_repository.dart';
+import '../../inventory/data/stock_attention_repository.dart';
 import '../../inventory/domain/stock_quantity.dart';
 import '../../inventory/presentation/stock_management_sheet.dart';
 import '../../inventory/presentation/dose_stock_dialog.dart';
@@ -100,19 +101,30 @@ class _MedicationHomeState extends State<MedicationHome>
   final Set<String> _expandedDoseKeys = {};
   final Set<String> _seenDueAlertKeys = {};
   final Set<String> _seenStockAlertIds = {};
+  Map<String, List<StockAttention>> _stockAttentions = {};
+  Map<String, Set<String>> _dismissedAttentions = {};
 
-  bool _needsStockAttention(StockSummary? stock) {
-    if (stock == null || stock.packages.isEmpty) return false;
-    return stock.selected == null ||
-      stock.selected!.balanceMilliunits <= 0 ||
-      !stock.packages.any((pack) => !pack.archived && !pack.expired &&
-        pack.balanceMilliunits > 0);
+  StockAttentionRepository get _attentionRepository =>
+      StockAttentionRepository(widget.repository.db);
+
+  List<StockAttention> _visibleAttentions(String medicationId) =>
+    (_stockAttentions[medicationId] ?? []).where((a) =>
+      !(_dismissedAttentions[medicationId]?.contains(a.key) ?? false)).toList();
+
+  List<({Medication medication, StockAttention alert})> get _stockAlerts => [
+    for (final med in _medications)
+      for (final alert in _visibleAttentions(med.id))
+        (medication: med, alert: alert),
+  ];
+
+  String _attentionId(Medication med, StockAttention alert) =>
+    '${med.profileId}:${med.id}:${alert.key}';
+
+  int _attentionRank(Medication med) {
+    final alerts = _visibleAttentions(med.id);
+    return alerts.isEmpty ? 100 : alerts.first.priority;
   }
 
-  List<Medication> get _stockAlerts => [
-    for (final med in _medications)
-      if (_needsStockAttention(_stocks[med.id])) med,
-  ];
   Timer? _todayClockTicker;
 
   DateTime get _now => widget.clock?.call() ?? DateTime.now();
@@ -257,6 +269,17 @@ class _MedicationHomeState extends State<MedicationHome>
           setups[med.id] = await _setupRepository.read(profile.id, med.id);
         }
       }
+      final attentions = <String, List<StockAttention>>{};
+      final dismissed = <String, Set<String>>{};
+      if (profile != null) {
+        for (final med in meds) {
+          final alerts = StockAttention.evaluate(stocks[med.id],
+            setups[med.id]?.expiryLeadDays, today);
+          attentions[med.id] = alerts;
+          dismissed[med.id] = await _attentionRepository.reconcile(
+            profile.id, med.id, alerts);
+        }
+      }
       final remindersEnabled =
           await widget.reminderCoordinator?.isEnabled() ?? false;
       if (!mounted) return;
@@ -276,8 +299,11 @@ class _MedicationHomeState extends State<MedicationHome>
         _doses = doses;
         _nextDayDoses = nextDayDoses;
         _stocks = stocks;
-        _seenStockAlertIds.removeWhere((id) =>
-          !_needsStockAttention(stocks[id]));
+        _stockAttentions = attentions;
+        _dismissedAttentions = dismissed;
+        final currentIds = _stockAlerts.map((item) =>
+          _attentionId(item.medication, item.alert)).toSet();
+        _seenStockAlertIds.removeWhere((id) => !currentIds.contains(id));
         _setups = setups;
         _remindersEnabled = remindersEnabled;
         _loading = false;
@@ -1205,7 +1231,8 @@ class _MedicationHomeState extends State<MedicationHome>
   Widget _todayNotificationBell(List<DailyDose> dueAlerts) {
     final unread = dueAlerts
         .any((dose) => !_seenDueAlertKeys.contains(dose.occurrenceKey)) ||
-      _stockAlerts.any((med) => !_seenStockAlertIds.contains(med.id));
+      _stockAlerts.any((item) => !_seenStockAlertIds.contains(
+        _attentionId(item.medication, item.alert)));
     return Stack(clipBehavior: Clip.none, children: [
       Material(
         key: const Key('today-bell-surface'),
@@ -1260,7 +1287,8 @@ class _MedicationHomeState extends State<MedicationHome>
   Future<void> _showTodayNotifications(List<DailyDose> dueAlerts) async {
     setState(() {
       _seenDueAlertKeys.addAll(dueAlerts.map((dose) => dose.occurrenceKey));
-      _seenStockAlertIds.addAll(_stockAlerts.map((med) => med.id));
+      _seenStockAlertIds.addAll(_stockAlerts.map((item) =>
+        _attentionId(item.medication, item.alert)));
     });
     await showModalBottomSheet<void>(
       context: context,
@@ -1291,27 +1319,29 @@ class _MedicationHomeState extends State<MedicationHome>
                   style: TextStyle(fontFamily: 'Vazirmatn',
                     fontSize: 15, color: AppColors.ink)),
               ),
-            for (final medication in _stockAlerts)
+            for (final item in _stockAlerts)
               Padding(padding: const EdgeInsets.only(top: 9),
                 child: Material(
-                  color: const Color(0xFFFFF0DC),
+                  color: item.alert.urgent
+                    ? const Color(0xFFFFE6EA) : const Color(0xFFFFF0DC),
                   borderRadius: BorderRadius.circular(15),
                   child: ListTile(
-                    leading: const Icon(Icons.inventory_2_outlined,
-                      color: Color(0xFFB16D06)),
-                    title: Text('موجودی ${medication.name} نیاز به رسیدگی دارد',
+                    leading: Icon(Icons.warning_amber_rounded,
+                      color: item.alert.urgent
+                        ? const Color(0xFFB6354C) : const Color(0xFFB16D06)),
+                    title: Text('${item.medication.name} — ${item.alert.title}',
                       style: const TextStyle(fontSize: 13,
                         fontWeight: FontWeight.w800)),
-                    subtitle: const Text('برای انتخاب یا افزودن بسته لمس کن.'),
+                    subtitle: Text(item.alert.message),
                     trailing: const Icon(Icons.chevron_left_rounded),
                     onTap: () {
                       Navigator.of(sheetContext).pop();
-                      _openMedicationDetail(medication,
-                        _doses.where((dose) =>
-                          dose.medication.id == medication.id).toList(),
-                        _doses.where((dose) =>
-                          dose.medication.id == medication.id).toList(),
-                        _stocks[medication.id], false);
+                      final med = item.medication;
+                      final today = _doses.where((d) => d.medication.id == med.id).toList();
+                      final next = _nextDayDoses.where((d) => d.medication.id == med.id).toList();
+                      _openMedicationDetail(med, next.isNotEmpty ? next : today,
+                        today, _stocks[med.id], next.isNotEmpty &&
+                          next.first.plan.effectiveFrom.toLocal().isAfter(_now));
                     },
                   ),
                 )),
@@ -1597,6 +1627,13 @@ class _MedicationHomeState extends State<MedicationHome>
             _normalizeMedicineSearch(med.name).contains(query) &&
             (!_lowStockOnly || _showArchived || (_stocks[med.id]?.lowStock ?? false)))
         .toList();
+    if (!_showArchived && !_showHidden) {
+      visible.sort((a, b) {
+        final priority = _attentionRank(a).compareTo(_attentionRank(b));
+        return priority != 0 ? priority :
+          _normalizeMedicineSearch(a.name).compareTo(_normalizeMedicineSearch(b.name));
+      });
+    }
     return ListView(
       padding: const EdgeInsets.fromLTRB(15, 17, 15, 26),
       children: [
@@ -1728,6 +1765,8 @@ class _MedicationHomeState extends State<MedicationHome>
     final extraClocks = slots.length > 3 ? ' +${slots.length - 3}' : '';
     final stock = _stocks[med.id];
     final selected = stock?.selected;
+    final alerts = med.archived ? <StockAttention>[] : _visibleAttentions(med.id);
+    final urgent = alerts.any((a) => a.urgent);
     final lowStock = stock?.lowStock == true;
     final stockLabel = selected == null
         ? '—'
@@ -1735,8 +1774,14 @@ class _MedicationHomeState extends State<MedicationHome>
     return InkWell(
       onTap: () => _openMedicationDetail(med, slots, todaySlots,
         stock, hasPendingSchedule),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 2),
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 7),
+        decoration: BoxDecoration(
+          color: alerts.isEmpty ? Colors.transparent : urgent
+            ? const Color(0xFFFFEBEF) : const Color(0xFFFFF5E4),
+          borderRadius: BorderRadius.circular(15)),
         child: Row(children: [
           MedicationArtwork(name: med.name, setup: _setups[med.id], size: 51),
           const SizedBox(width: 10),
@@ -1759,11 +1804,17 @@ class _MedicationHomeState extends State<MedicationHome>
                 : 'مقدار: متفاوت در هر نوبت',
                 maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: AppColors.muted, fontSize: 11)),
-            if (_needsStockAttention(_stocks[med.id]) && !med.archived)
-              const Padding(padding: EdgeInsets.only(top: 4),
-                child: Text('موجودی تمام‌شده / نیاز به انتخاب بسته',
-                  style: TextStyle(color: Color(0xFFAB5D18),
-                    fontSize: 11, fontWeight: FontWeight.w800))),
+            if (alerts.isNotEmpty)
+              Padding(padding: const EdgeInsets.only(top: 5),
+                child: Wrap(spacing: 5, runSpacing: 4, children: [
+                  for (final alert in alerts.take(2))
+                    AppStatusPill(text: alert.title,
+                      color: alert.urgent ? const Color(0xFFB6354C)
+                        : const Color(0xFF996116), fontSize: 10),
+                  if (alerts.length > 2)
+                    Text('+${alerts.length - 2}',
+                      style: const TextStyle(fontSize: 11)),
+                ])),
             if (hasPendingSchedule)
               const Text('برنامه جدید — از فردا', style: TextStyle(
                 fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
@@ -1822,6 +1873,7 @@ class _MedicationHomeState extends State<MedicationHome>
         todaySlots: todaySlots,
         stock: stock,
         setup: _setups[med.id],
+        dismissedAttentionKeys: _dismissedAttentions[med.id] ?? const {},
         medicationRepository: widget.repository,
         inventoryRepository: _inventory,
         pendingSchedule: pendingSchedule,
