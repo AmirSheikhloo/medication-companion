@@ -307,25 +307,30 @@ class _MedicationHomeState extends State<MedicationHome>
     );
   }
 
-  Future<void> _perform(Future<dynamic> Function() action) async {
-    if (_saving) return;
-    setState(() => _saving = true);
-    try {
-      await action();
+  Future<void> _reminderTail = Future<void>.value();
+
+  void _queueReminderRefresh() {
+    _reminderTail = _reminderTail.then((_) async {
       try {
         await widget.reminderCoordinator?.refreshIfEnabled();
         if (mounted) setState(() => _reminderError = null);
       } catch (error) {
         if (mounted) {
           setState(() => _reminderError = '$error');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('تغییر ذخیره شد ولی یادآور به‌روز نشد: $error'),
-            ),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('تغییر ذخیره شد ولی یادآور به‌روز نشد: $error')));
         }
       }
+    });
+  }
+
+  Future<void> _perform(Future<dynamic> Function() action) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await action();
       await _reload();
+      _queueReminderRefresh();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -439,7 +444,9 @@ class _MedicationHomeState extends State<MedicationHome>
       if (matched.length != 1) {
         throw StateError('برنامهٔ مصرف ذخیره شد اما شناسهٔ نوبت یکتا نیست.');
       }
-      if (slot.quantity != null) doses[matched.single.id] = slot.quantity!;
+      if (slot.quantity != null) {
+        doses.putIfAbsent(matched.single.id, () => slot.quantity!);
+      }
     }
     await _setupRepository.save(profileId: profileId,
       medicationId: medicationId,
@@ -484,6 +491,27 @@ class _MedicationHomeState extends State<MedicationHome>
       ],
     );
     if (!mounted || draft == null) return;
+    if (draft.name.trim() != medication.name.trim()) {
+      final sameIdentity = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('اصلاح نام یا داروی متفاوت؟'),
+          content: const Text('فقط اگر نام همان دارو با همان ماده مؤثره، '
+            'قدرت و شکل دارویی را اصلاح می‌کنی، ادامه بده. '
+            'برای داروی متفاوت یا قدرت دیگر، یک داروی جدید ثبت کن؛ '
+            'بسته‌ها و سوابق قدیمی نباید منتقل شوند.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('داروی متفاوت / قدرت دیگر')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('اصلاح نام همان دارو')),
+          ]));
+      if (!mounted || sameIdentity == null) return;
+      if (!sameIdentity) {
+        await _addMedication();
+        return;
+      }
+    }
     await _perform(() async {
       final photoPath = draft.imagePath == null ? null
           : await const MedicationPhotoStorage().store(draft.imagePath!);
@@ -1685,7 +1713,8 @@ class _MedicationHomeState extends State<MedicationHome>
     final hasPendingSchedule =
         todaySlots.isNotEmpty &&
         nextDaySlots.isNotEmpty &&
-        todaySlots.first.plan.version != nextDaySlots.first.plan.version;
+        nextDaySlots.first.plan.effectiveFrom.toLocal().isAfter(_now) &&
+        nextDaySlots.first.plan.version != todaySlots.first.plan.version;
     final slots = nextDaySlots.isNotEmpty ? nextDaySlots : todaySlots;
     final clockLabels = slots.take(3).map((d) =>
       _clock(TimeOfDay.fromDateTime(d.scheduledAt))).join('، ');

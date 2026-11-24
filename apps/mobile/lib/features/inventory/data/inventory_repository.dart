@@ -94,11 +94,11 @@ class InventoryRepository {
   }
 
   Future<int> _balanceForPackage(String packageId) async {
-    final movements = await (db.select(db.stockMovements)
-          ..where((t) => t.packageId.equals(packageId)))
-        .get();
-    return movements.fold<int>(
-        0, (sum, movement) => sum + movement.deltaMilliunits);
+    final delta = db.stockMovements.deltaMilliunits.sum();
+    final query = db.selectOnly(db.stockMovements)
+      ..addColumns([delta])
+      ..where(db.stockMovements.packageId.equals(packageId));
+    return (await query.getSingle()).read(delta) ?? 0;
   }
 
   Future<StockSummary> summary(String profileId, String medicationId) async {
@@ -108,10 +108,13 @@ class InventoryRepository {
               t.medicationId.equals(medicationId))
           ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
         .get();
-    final movements = await (db.select(db.stockMovements)
-          ..where((t) => t.profileId.equals(profileId) &
-              t.medicationId.equals(medicationId)))
-        .get();
+    final packageColumn = db.stockMovements.packageId;
+    final delta = db.stockMovements.deltaMilliunits.sum();
+    final movements = await (db.selectOnly(db.stockMovements)
+      ..addColumns([packageColumn, delta])
+      ..where(db.stockMovements.profileId.equals(profileId) &
+        db.stockMovements.medicationId.equals(medicationId))
+      ..groupBy([packageColumn])).get();
     final archiveKeys = [for (final pack in packs)
       _archiveKey(profileId, medicationId, pack.id)];
     final archivedRows = archiveKeys.isEmpty ? <AppSetting>[] :
@@ -120,8 +123,7 @@ class InventoryRepository {
     final archivedKeys = archivedRows.map((row) => row.key).toSet();
     final balances = <String, int>{};
     for (final row in movements) {
-      balances.update(row.packageId, (v) => v + row.deltaMilliunits,
-          ifAbsent: () => row.deltaMilliunits);
+      balances[row.read(packageColumn)!] = row.read(delta) ?? 0;
     }
     final selected = await (db.select(db.stockSelections)
           ..where((t) => t.medicationId.equals(medicationId) &

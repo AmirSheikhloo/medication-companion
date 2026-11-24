@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -36,9 +37,11 @@ class DoseSlotInput {
 /// Owns all offline medication mutations and append-only dose history.
 /// All operations involving a medication verify its profile ownership.
 class MedicationRepository {
-  MedicationRepository(this.db);
+  MedicationRepository(this.db, {DateTime Function()? clock})
+    : _clock = clock ?? DateTime.now;
 
   final AppDatabase db;
+  final DateTime Function() _clock;
   final Uuid _uuid = Uuid();
 
   String _hiddenKey(String profileId, String medicationId) =>
@@ -141,9 +144,9 @@ class MedicationRepository {
     return medicationId;
   }
 
-  /// Edits take effect at the next local midnight, keeping today's recorded
-  /// occurrences intact. Re-editing on the same day supersedes the pending
-  /// version for tomorrow without deleting earlier versions or dose events.
+  /// Change only future, unrecorded occurrences today. Protected or changed
+  /// past occurrences defer the complete edit to the following local day.
+  /// Every plan row and every historical dose event remains immutable.
   Future<void> updateMedicationSchedule({
     required String profileId,
     required String medicationId,
@@ -152,7 +155,7 @@ class MedicationRepository {
   }) async {
     final cleanedName = _validateName(name);
     final validatedSlots = _validateSlots(slots);
-    final now = DateTime.now();
+    final now = _clock().toLocal();
     final tomorrow = DateTime(now.year, now.month, now.day + 1).toUtc();
     await db.transaction(() async {
       final medication = await _ownedMedication(profileId, medicationId);
@@ -163,18 +166,56 @@ class MedicationRepository {
             ..where((t) => t.medicationId.equals(medicationId)))
           .get();
       if (plans.isEmpty) throw StateError('برنامه قبلی دارو پیدا نشد.');
-      final nextVersion = plans
-              .map((plan) => plan.version)
-              .reduce((a, b) => a > b ? a : b) +
-          1;
-      await (db.update(db.medications)
-            ..where((t) =>
-                t.id.equals(medicationId) & t.profileId.equals(profileId)))
+      final latestVersion = plans.map((p) => p.version)
+        .reduce((a, b) => a > b ? a : b);
+      final latest = plans.where((p) => p.version == latestVersion).toList();
+      final nextByClock = {
+        for (final slot in validatedSlots)
+          slot.time.hour * 60 + slot.time.minute: slot.doseText,
+      };
+      final unchanged = latest.length == nextByClock.length &&
+        latest.every((p) => nextByClock[p.hour * 60 + p.minute] == p.doseText);
+      if (medication.name != cleanedName) {
+        // Keep the actual old name and new name in a separate append-only log.
+        await db.into(db.appSettings).insert(AppSettingsCompanion.insert(
+          key: 'medication-name-audit:v1:$profileId:$medicationId:${_uuid.v4()}',
+          value: jsonEncode({
+            'from': medication.name, 'to': cleanedName,
+            'at': now.toUtc().toIso8601String(),
+          })));
+        await (db.update(db.medications)
+          ..where((t) => t.id.equals(medicationId) &
+            t.profileId.equals(profileId)))
           .write(MedicationsCompanion(name: Value(cleanedName)));
+      }
+      if (unchanged) return;
+      final today = await dosesForMedicationOnDay(profileId, medicationId, now);
+      final past = {
+        for (final dose in today)
+          if (!dose.scheduledAt.isAfter(now))
+            dose.plan.hour * 60 + dose.plan.minute: dose.plan.doseText,
+      };
+      final proposedPast = {
+        for (final slot in validatedSlots)
+          if (!DateTime(now.year, now.month, now.day,
+              slot.time.hour, slot.time.minute).isAfter(now))
+            slot.time.hour * 60 + slot.time.minute: slot.doseText,
+      };
+      final pastConflict = past.length != proposedPast.length ||
+        past.entries.any((e) => proposedPast[e.key] != e.value);
+      final futureKeys = today.where((d) => d.scheduledAt.isAfter(now))
+        .map((d) => d.occurrenceKey).toList();
+      // Even a reverted future event remains a protected historical record.
+      final futureEvents = futureKeys.isEmpty ? <DoseEvent>[] :
+        await (db.select(db.doseEvents)
+          ..where((t) => t.profileId.equals(profileId) &
+            t.medicationId.equals(medicationId) &
+            t.occurrenceKey.isIn(futureKeys))..limit(1)).get();
       await _appendPlan(
         medicationId: medicationId,
-        version: nextVersion,
-        effectiveFrom: tomorrow,
+        version: latestVersion + 1,
+        effectiveFrom: pastConflict || futureEvents.isNotEmpty
+          ? tomorrow : now.toUtc(),
         slots: validatedSlots,
       );
     });
@@ -282,28 +323,30 @@ class MedicationRepository {
           ..where((t) => t.medicationId.isIn(ids)))
         .get();
 
-    // First versions remain available for existing M1 test and historical
-    // data, even when the queried local day predates first installation.
-    // Later versions activate from the next local day after an edit.
-    final endOfDay = DateTime(day.year, day.month, day.day + 1).toUtc();
-    final chosenVersions = <String, int>{};
+    // A plan version is effective from a civil timestamp. For a same-day
+    // edit retain the old occurrence IDs before that timestamp; after it use
+    // the most recent eligible version. Version 1 remains readable for
+    // historical compatibility with existing local data.
+    final versions = <String, Map<int, DateTime>>{};
     for (final plan in plans) {
-      if (plan.version != 1 && !plan.effectiveFrom.isBefore(endOfDay)) {
-        continue;
-      }
-      final previous = chosenVersions[plan.medicationId] ?? 0;
-      if (plan.version > previous) {
-        chosenVersions[plan.medicationId] = plan.version;
-      }
+      versions.putIfAbsent(plan.medicationId, () => {})[plan.version] =
+        plan.effectiveFrom;
     }
     final byMedication = {for (final med in meds) med.id: med};
     final candidates = <DailyDose>[];
     for (final plan in plans) {
-      if (chosenVersions[plan.medicationId] != plan.version) continue;
       final med = byMedication[plan.medicationId];
       if (med == null) continue;
       final scheduledAt =
           DateTime(day.year, day.month, day.day, plan.hour, plan.minute);
+      var chosen = 0;
+      for (final version in versions[plan.medicationId]!.entries) {
+        if (version.key == 1 ||
+            !version.value.isAfter(scheduledAt.toUtc())) {
+          if (version.key > chosen) { chosen = version.key; }
+        }
+      }
+      if (chosen != plan.version) continue;
       candidates.add(DailyDose(
         medication: med,
         plan: plan,

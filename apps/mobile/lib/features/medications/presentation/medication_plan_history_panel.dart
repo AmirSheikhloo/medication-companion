@@ -55,7 +55,7 @@ class _MedicationPlanHistoryPanelState
             style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900,
               color: AppColors.primaryDark)),
           const SizedBox(height: 5),
-          const Text('ساعت‌ها و مقدارهای دوره‌های قبلی حذف نمی‌شوند.',
+          const Text('هر نسخه نشان می‌دهد از چه تاریخ و ساعتی، چه نوبت‌ها و مقدارهایی ثبت شده‌اند. سوابق قبلی تغییر نمی‌کنند.',
             style: TextStyle(color: AppColors.muted, fontSize: 12)),
           const SizedBox(height: 8),
           for (final entry in versions.entries)
@@ -72,7 +72,9 @@ class _MedicationPlanHistoryPanelState
                 title: Text('برنامهٔ نسخه ${entry.key}',
                   style: const TextStyle(color: AppColors.primaryDark,
                     fontWeight: FontWeight.w800)),
-                subtitle: Text('از ${persianDateLabel(entry.value.first.effectiveFrom)}',
+                subtitle: Text('از ${persianDateLabel(entry.value.first.effectiveFrom)}، '
+                  '${entry.value.first.effectiveFrom.toLocal().hour.toString().padLeft(2, '0')}:'
+                  '${entry.value.first.effectiveFrom.toLocal().minute.toString().padLeft(2, '0')}',
                   style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                 children: [
                   for (final plan in entry.value)

@@ -86,12 +86,12 @@ void main() {
     // The inline action panel stays expanded after an undo so the user can
     // choose the correct state immediately, without opening another sheet.
     expect(find.text('مصرف کردم'), findsOneWidget);
-    await tester.ensureVisible(find.text('مصرف کردم، بدون کسر موجودی'));
+    await tester.ensureVisible(find.text('مصرف بدون کسر موجودی'));
     await tester.pumpAndSettle();
     // The fixed bottom navigation can overlay the button's lower edge.
     await tester.drag(find.byType(ListView).first, const Offset(0, -220));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('مصرف کردم، بدون کسر موجودی'));
+    await tester.tap(find.text('مصرف بدون کسر موجودی'));
     await tester.pumpAndSettle();
     expect(find.text('مصرف شد'), findsOneWidget);
     final stockNoDebit = await InventoryRepository(db).summary(active.id, medicine.id);
@@ -140,7 +140,10 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final medications = MedicationRepository(db);
+    final medications = MedicationRepository(db, clock: () {
+      final now = DateTime.now();
+      return DateTime(now.year, now.month, now.day, 23, 59);
+    });
     await tester.pumpWidget(
       MaterialApp(
         home: Directionality(
@@ -192,12 +195,14 @@ void main() {
     await tester.ensureVisible(find.text('ذخیره تغییرات'));
     await tester.tap(find.text('ذخیره تغییرات'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('اصلاح نام همان دارو'));
+    await tester.pumpAndSettle();
     expect(
       (await medications.medicationsFor(profile.id)).single.name,
       'داروی اصلاح‌شده',
     );
     expect(find.text('برنامه جدید — از فردا'), findsOneWidget);
-    expect(find.textContaining('4 عدد'), findsWidgets);
+    expect(find.text('مقدار: متفاوت در هر نوبت'), findsOneWidget);
     final today = DateTime.now();
     final tomorrow = DateTime(today.year, today.month, today.day + 1);
     expect(
@@ -225,8 +230,7 @@ void main() {
     await tester.ensureVisible(find.text('ذخیره تغییرات'));
     await tester.tap(find.text('ذخیره تغییرات'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('5 عدد'), findsWidgets);
-    expect(find.textContaining('4 عدد'), findsNothing);
+    expect(find.text('مقدار: متفاوت در هر نوبت'), findsOneWidget);
     expect(
       (await medications.dosesForDay(profile.id, tomorrow)).first.plan.doseText,
       '5 عدد',
@@ -246,7 +250,7 @@ void main() {
     await tester.tap(find.text('مشاهده بعداً در پرونده'));
     await tester.pumpAndSettle();
     expect(await medications.medicationsFor(profile.id), isEmpty);
-    await tester.tap(find.text('نمایش بایگانی (1)'));
+    await tester.tap(find.text('بایگانی'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();
