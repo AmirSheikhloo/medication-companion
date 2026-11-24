@@ -57,7 +57,7 @@ abstract final class MedicationUnits {
     'آمپول', 'ویال', 'واحد بین‌المللی (IU)'];
   static const volumeChoices = ['میلی‌لیتر', teaSpoon, tableSpoon, dessertSpoon];
   static const selectable = [...countChoices, ...volumeChoices, ...mass];
-  static const commonChoices = {'عدد', 'قرص', 'کپسول', 'قطره', 'میلی‌لیتر'};
+  static const commonChoices = {'عدد', 'قرص', 'کپسول', 'قطره', 'میلی‌لیتر', teaSpoon};
   // UI labels are separate from persistent unit keys.
   static const displayLabels = <String, String>{
     'میلی‌لیتر': 'میلی‌لیتر (سی‌سی)',

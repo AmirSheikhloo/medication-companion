@@ -142,7 +142,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
     'taken' => 'کسر بابت مصرف',
     'undo' => 'بازگشت موجودی',
     'adjustment' => 'اصلاح دستی موجودی',
-    'metadata' => 'ویرایش یا بایگانی بسته',
+    'metadata' => 'تغییر وضعیت یا مشخصات بسته',
     _ => 'تغییر موجودی',
   };
 
@@ -164,7 +164,7 @@ class _MedicationHistoryPanelState extends State<MedicationHistoryPanel> {
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color))),
           ]),
           const SizedBox(height: 10),
-          Text('بسته: ${PersianDate.displayDigits(pack?.label ?? 'بسته ثبت‌شده') }'),
+          Text('نام فعلی بسته: ${PersianDate.displayDigits(pack?.label ?? 'بسته ثبت‌شده')}'),
           const SizedBox(height: 5),
           Text('زمان ثبت: ${persianDateLabel(movement.createdAt, showTime: true)}',
             style: TextStyle(color: AppPalette.ink(context, AppColors.muted))),

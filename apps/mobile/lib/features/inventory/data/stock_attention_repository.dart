@@ -53,7 +53,15 @@ class StockAttention {
       }
     }
     // A primary inventory problem already explains why selection is needed.
-    if (alerts.any((a) => a.key.startsWith('expired:'))) {
+    final expiredIndex = alerts.indexWhere((a) => a.key.startsWith('expired:'));
+    if (expiredIndex >= 0) {
+      final primary = alerts[expiredIndex];
+      final action = alerts.any((a) => a.key == 'choose-package')
+        ? ' یک بسته معتبر دیگر انتخاب کن.'
+        : alerts.any((a) => a.key == 'no-usable-stock')
+          ? ' بسته قابل مصرف دیگری وجود ندارد؛ موجودی را بررسی کن.' : '';
+      alerts[expiredIndex] = StockAttention(primary.key, primary.title,
+        '${primary.message}$action', primary.priority);
       alerts.removeWhere((a) => a.key == 'choose-package' ||
         a.key == 'no-usable-stock');
     }
