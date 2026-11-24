@@ -149,8 +149,8 @@ class _MedicationPackageEditorScreenState
     final agreed = await showDialog<bool>(context: context,
       builder: (context) => AlertDialog(
         title: const Text('حذف بسته'),
-        content: const Text('فقط بستهٔ بدون سابقهٔ موجودی یا مصرف '
-          'قابل حذف است. بسته‌های دارای سابقه باید بایگانی شوند.'),
+        content: const Text('بسته از فهرست فعال حذف می‌شود؛ '
+          'تمام سوابق حفظ می‌شوند و از بخش بسته‌های بایگانی قابل بازگردانی است.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false),
             child: const Text('انصراف')),
@@ -158,9 +158,9 @@ class _MedicationPackageEditorScreenState
             child: const Text('حذف بسته')),
         ]));
     if (!mounted || agreed != true) return;
-    await _run(() => widget.repository.deleteUnusedPackage(
+    await _run(() => widget.repository.archivePackage(
       profileId: widget.profileId, medicationId: widget.medicationId,
-      packageId: pack.package.id));
+      packageId: pack.package.id, deleted: true));
   }
 
   @override

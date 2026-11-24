@@ -289,10 +289,10 @@ void main() {
     expect((await inventory.summary(profileId, medId)).selectedPackageId, first);
     await inventory.archivePackage(profileId: profileId,
       medicationId: medId, packageId: first);
-    expect((await inventory.summary(profileId, medId)).selected, isNull);
+    expect((await inventory.summary(profileId, medId)).selectedPackageId, second);
     await inventory.restorePackage(profileId: profileId,
       medicationId: medId, packageId: first);
-    expect((await inventory.summary(profileId, medId)).selectedPackageId, first);
+    expect((await inventory.summary(profileId, medId)).selectedPackageId, second);
     await inventory.selectPackage(profileId: profileId,
       medicationId: medId, packageId: second);
     await inventory.archivePackage(profileId: profileId,
@@ -337,6 +337,24 @@ void main() {
     expect(await inventory.movementsForPackage(
       profileId: profileId, medicationId: medId, packageId: first),
       hasLength(2));
+  });
+
+  test('soft removal keeps package and ledger and can be restored', () async {
+    final (profileId, medId) = await setupMedication();
+    final id = await inventory.addPackage(profileId: profileId,
+      medicationId: medId, label: 'بسته', unit: 'عدد',
+      initialMilliunits: 5000);
+    await inventory.archivePackage(profileId: profileId,
+      medicationId: medId, packageId: id, deleted: true);
+    var state = await inventory.summary(profileId, medId);
+    expect(state.packages.single.deleted, isTrue);
+    expect(state.packages.single.balanceMilliunits, 5000);
+    expect(state.selectedPackageId, isNull);
+    await inventory.restorePackage(profileId: profileId,
+      medicationId: medId, packageId: id);
+    state = await inventory.summary(profileId, medId);
+    expect(state.packages.single.deleted, isFalse);
+    expect(state.selectedPackageId, id);
   });
 
   test('empty package without movements can be deleted', () async {

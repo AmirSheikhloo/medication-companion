@@ -696,6 +696,18 @@ class _MedicationHomeState extends State<MedicationHome>
     await _perform(() => widget.repository.setHidden(
       profileId: profile.id,
       medicationId: medication.id, hidden: true));
+    if (!mounted || !_hiddenMedications.any((m) => m.id == medication.id)) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Text('دارو از فهرست حذف شد؛ سوابق محفوظ است.'),
+      action: SnackBarAction(label: 'بازگردانی', onPressed: () async {
+        if (_active?.id != profile.id || _saving) return;
+        await _perform(() => widget.repository.db.transaction(() async {
+          await widget.repository.setHidden(profileId: profile.id,
+            medicationId: medication.id, hidden: false);
+          await widget.repository.setArchived(profileId: profile.id,
+            medicationId: medication.id, archived: medication.archived);
+        }));
+      })));
   }
 
   Future<void> _unhideMedication(Medication medication) async {

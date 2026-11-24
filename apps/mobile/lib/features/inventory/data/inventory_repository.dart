@@ -5,11 +5,13 @@ import '../../../core/storage/app_database.dart';
 import '../domain/stock_quantity.dart';
 
 class PackageBalance {
-  const PackageBalance(this.package, this.balanceMilliunits, {this.archived = false});
+  const PackageBalance(this.package, this.balanceMilliunits,
+    {this.archived = false, this.deleted = false});
 
   final StockPackage package;
   final int balanceMilliunits;
   final bool archived;
+  final bool deleted;
 
   bool get expired =>
       StockQuantity.isExpired(package.expiryIso, package.expiryPrecision, DateTime.now());
@@ -51,6 +53,9 @@ class InventoryRepository {
 
   String _archiveKey(String profileId, String medicationId, String packageId) =>
       'stock-package-archived:v1:$profileId:$medicationId:$packageId';
+
+  String _deletedKey(String profileId, String medicationId, String packageId) =>
+    'stock-package-deleted:v1:$profileId:$medicationId:$packageId';
 
   Future<bool> _isArchived(String profileId, String medicationId,
       String packageId) async =>
@@ -115,8 +120,10 @@ class InventoryRepository {
       ..where(db.stockMovements.profileId.equals(profileId) &
         db.stockMovements.medicationId.equals(medicationId))
       ..groupBy([packageColumn])).get();
-    final archiveKeys = [for (final pack in packs)
-      _archiveKey(profileId, medicationId, pack.id)];
+    final archiveKeys = [for (final pack in packs) ...[
+      _archiveKey(profileId, medicationId, pack.id),
+      _deletedKey(profileId, medicationId, pack.id),
+    ]];
     final archivedRows = archiveKeys.isEmpty ? <AppSetting>[] :
         await (db.select(db.appSettings)
           ..where((s) => s.key.isIn(archiveKeys))).get();
@@ -141,6 +148,8 @@ class InventoryRepository {
       packages: [for (final pack in packs)
         PackageBalance(pack, balances[pack.id] ?? 0,
           archived: archivedKeys.contains(_archiveKey(
+            profileId, medicationId, pack.id)),
+          deleted: archivedKeys.contains(_deletedKey(
             profileId, medicationId, pack.id)))],
       selectedPackageId: selected?.packageId,
       // Never re-interpret a threshold for tablets as millilitres or vice versa.
@@ -254,6 +263,9 @@ class InventoryRepository {
           pack.expiryIso, pack.expiryPrecision, DateTime.now())) {
         throw StateError('این بسته منقضی شده است.');
       }
+      if (await _balanceForPackage(packageId) <= 0) {
+        throw StateError('بسته بدون موجودی قابل انتخاب نیست.');
+      }
       await db.into(db.stockSelections).insertOnConflictUpdate(
         StockSelectionsCompanion.insert(
           medicationId: medicationId,
@@ -306,20 +318,56 @@ class InventoryRepository {
     });
   }
 
+  Future<void> _reconcileSelection(String profileId, String medicationId,
+      String unit) async {
+    final fresh = await summary(profileId, medicationId);
+    final selected = fresh.selected;
+    if (selected != null && !selected.expired &&
+        selected.balanceMilliunits > 0) return;
+    final candidates = fresh.packages.where((p) => !p.archived &&
+      !p.expired && p.balanceMilliunits > 0 &&
+      p.package.unit == unit).toList();
+    candidates.sort((a, b) {
+      final x = a.package.expiryIso;
+      final y = b.package.expiryIso;
+      if (x == null) return y == null
+        ? a.package.createdAt.compareTo(b.package.createdAt) : 1;
+      if (y == null) return -1;
+      final order = x.compareTo(y);
+      return order == 0
+        ? a.package.createdAt.compareTo(b.package.createdAt) : order;
+    });
+    if (candidates.isEmpty) {
+      await (db.delete(db.stockSelections)..where((s) =>
+        s.profileId.equals(profileId) & s.medicationId.equals(medicationId))).go();
+    } else {
+      await db.into(db.stockSelections).insertOnConflictUpdate(
+        StockSelectionsCompanion.insert(profileId: profileId,
+          medicationId: medicationId, packageId: candidates.first.package.id));
+    }
+  }
+
   /// Soft archive keeps consumption and stock history intact.
   Future<void> archivePackage({required String profileId,
-      required String medicationId, required String packageId}) async {
+      required String medicationId, required String packageId,
+      bool deleted = false}) async {
     await db.transaction(() async {
-      await _ownedPackage(profileId, medicationId, packageId);
+      final pack = await _ownedPackage(profileId, medicationId, packageId);
       await db.into(db.appSettings).insertOnConflictUpdate(
         AppSettingsCompanion.insert(key: _archiveKey(
             profileId, medicationId, packageId), value: '1'));
+      if (deleted) {
+        await db.into(db.appSettings).insertOnConflictUpdate(
+          AppSettingsCompanion.insert(key: _deletedKey(
+            profileId, medicationId, packageId), value: '1'));
+      }
       await (db.delete(db.stockSelections)..where((s) =>
         s.profileId.equals(profileId) & s.medicationId.equals(medicationId) &
         s.packageId.equals(packageId))).go();
       await _insertMovement(profileId: profileId, medicationId: medicationId,
         packageId: packageId, kind: 'metadata', delta: 0,
-        note: 'بسته بایگانی شد');
+        note: deleted ? 'بسته از فهرست حذف نرم شد' : 'بسته بایگانی شد');
+      await _reconcileSelection(profileId, medicationId, pack.unit);
     });
   }
 
@@ -329,6 +377,8 @@ class InventoryRepository {
       await _ownedPackage(profileId, medicationId, packageId);
       await (db.delete(db.appSettings)..where((s) => s.key.equals(
         _archiveKey(profileId, medicationId, packageId)))).go();
+      await (db.delete(db.appSettings)..where((s) => s.key.equals(
+        _deletedKey(profileId, medicationId, packageId)))).go();
       final current = await (db.select(db.stockSelections)
         ..where((t) => t.profileId.equals(profileId) &
           t.medicationId.equals(medicationId))).getSingleOrNull();
@@ -436,7 +486,10 @@ class InventoryRepository {
       throw ArgumentError('تغییر موجودی باید عددی غیرصفر و معتبر باشد.');
     }
     await db.transaction(() async {
-      await _ownedPackage(profileId, medicationId, packageId);
+      final pack = await _ownedPackage(profileId, medicationId, packageId);
+      if (await _isArchived(profileId, medicationId, packageId)) {
+        throw StateError('ابتدا بسته را از بایگانی بازگردان.');
+      }
       final balance = await _balanceForPackage(packageId);
       if (balance + deltaMilliunits < 0 ||
           balance + deltaMilliunits > StockQuantity.maxMilliunits) {
@@ -446,6 +499,7 @@ class InventoryRepository {
         profileId: profileId, medicationId: medicationId, packageId: packageId,
         kind: 'adjustment', delta: deltaMilliunits, note: cleanReason,
       );
+      await _reconcileSelection(profileId, medicationId, pack.unit);
     });
   }
 
@@ -546,6 +600,8 @@ class InventoryRepository {
       reversesMovementId: debit.id,
       note: 'جبران دقیق کسر هنگام بازگرداندن ثبت',
     );
+    final pack = await _ownedPackage(profileId, medicationId, debit.packageId);
+    await _reconcileSelection(profileId, medicationId, pack.unit);
   }
 
   void _validateQuantity(int value, {required bool allowZero}) {

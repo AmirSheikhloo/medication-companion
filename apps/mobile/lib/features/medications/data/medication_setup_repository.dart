@@ -20,8 +20,7 @@ class ScheduledQuantity {
 
   Map<String, Object> toJson() => {
     'amount': milliunits, 'unit': unit,
-    if (calibratedMlMilliunits != null)
-      'calibratedMlMilliunits': calibratedMlMilliunits!,
+    'calibratedMlMilliunits': ?calibratedMlMilliunits,
   };
 
   static ScheduledQuantity? fromJson(Object? source) {
@@ -47,14 +46,15 @@ abstract final class MedicationUnits {
   static const teaSpoon = 'قاشق چای‌خوری مدرج';
   static const tableSpoon = 'قاشق غذاخوری مدرج';
   static const count = ['عدد', 'قرص', 'کپسول', 'ساشه', 'شیاف',
-    'چسب دارویی', 'پاف', 'اسپری', 'قطره', 'آمپول', 'ویال', 'ورق', 'بسته'];
+    'چسب دارویی', 'پاف', 'اسپری', 'قطره', 'آمپول', 'ویال',
+    'دوز', 'واحد بین‌المللی (IU)', 'ورق', 'بسته'];
   static const liquid = ['میلی‌لیتر', 'سی‌سی', 'لیتر',
     teaSpoon, dessertSpoon, tableSpoon, 'ml'];
   static const mass = ['گرم', 'میلی‌گرم'];
   static const supported = [...count, ...liquid, ...mass];
   static const selectable = ['عدد', 'قرص', 'کپسول', 'ساشه', 'شیاف',
     'چسب دارویی', 'پاف', 'اسپری', 'قطره', 'آمپول', 'ویال',
-    'میلی‌لیتر', teaSpoon, dessertSpoon, tableSpoon, ...mass];
+    'دوز', 'واحد بین‌المللی (IU)', 'میلی‌لیتر', teaSpoon, dessertSpoon, tableSpoon, ...mass];
 
   static bool isLiquid(String unit) => liquid.contains(unit);
   static bool isStripCount(String unit) =>
@@ -85,7 +85,7 @@ abstract final class MedicationUnits {
     }
     final factor = _mlFactor(dose);
     if (factor == null || factor <= 0 ||
-        (dose.unit == dessertSpoon && factor > 30000)) return null;
+        (dose.unit == dessertSpoon && factor > 30000)) { return null; }
     final numerator = dose.milliunits * factor;
     final divisor = switch (packageUnit) {
       'میلی‌لیتر' || 'سی‌سی' || 'ml' => 1000,

@@ -73,8 +73,10 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         medication.profileId, medication.id, alert.key);
       if (mounted) setState(() => _dismissedAttention.add(alert.key));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تنظیم هشدار ذخیره نشد.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تنظیم هشدار ذخیره نشد.')));
+      }
     }
   }
 
@@ -82,10 +84,12 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     final retained = await StockAttentionRepository(medicationRepository.db)
       .reconcile(medication.profileId, medication.id,
         StockAttention.evaluate(fresh, setup?.expiryLeadDays, DateTime.now()));
-    if (mounted) setState(() {
-      _reloadedStock = fresh;
-      _dismissedAttention = retained;
-    });
+    if (mounted) {
+      setState(() {
+        _reloadedStock = fresh;
+        _dismissedAttention = retained;
+      });
+    }
   }
 
   Widget _attentionPanel(StockAttention alert) {
@@ -282,8 +286,10 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               const Text('موجودی تمام شده',
                 style: TextStyle(color: Color(0xFFB04A38),
                   fontWeight: FontWeight.w800, fontSize: 11)),
-            if (balance.archived) const Text('بایگانی‌شده؛ در مصرف و موجودی فعال استفاده نمی‌شود',
-              style: TextStyle(color: AppColors.muted, fontSize: 11)),
+            if (balance.archived) Text(balance.deleted
+              ? 'حذف‌شده از فهرست؛ قابل بازگردانی'
+              : 'بایگانی‌شده؛ خارج از موجودی فعال',
+              style: const TextStyle(color: AppColors.muted, fontSize: 11)),
             if (expired) const Text('منقضی‌شده؛ قابل انتخاب برای مصرف نیست',
               style: TextStyle(color: Color(0xFFBB4356), fontSize: 11,
                 fontWeight: FontWeight.w700)),
@@ -435,8 +441,15 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               icon: Icons.warning_amber_rounded, color: Color(0xFFB16D06)),
           ],
           const SizedBox(height: 12),
-          for (final pack in packages)
+          for (final pack in packages.where((p) => !p.archived))
             _packageRow(pack, pack.package.id == stock?.selectedPackageId),
+          if (packages.any((p) => p.archived))
+            ExpansionTile(
+              title: const Text('بسته‌های بایگانی و حذف‌شده'),
+              children: [
+                for (final pack in packages.where((p) => p.archived))
+                  _packageRow(pack, false),
+              ]),
           if (packages.isEmpty)
             const Padding(padding: EdgeInsets.symmetric(vertical: 12),
               child: Text('برای این دارو هنوز بسته‌ای ثبت نشده است.',
