@@ -105,7 +105,7 @@ class _MedicationHomeState extends State<MedicationHome>
   Map<String, List<StockAttention>> _stockAttentions = {};
   Map<String, Set<String>> _dismissedAttentions = {};
   List<InboxNotice> _inbox = [];
-  bool _inboxLoading = false;
+  Future<void> _inboxTail = Future<void>.value();
 
   StockAttentionRepository get _attentionRepository =>
       StockAttentionRepository(widget.repository.db);
@@ -120,10 +120,16 @@ class _MedicationHomeState extends State<MedicationHome>
     return alerts.isEmpty ? 100 : alerts.first.priority;
   }
 
-  Future<void> _refreshInbox() async {
+  Future<void> _refreshInbox() {
+    final next = _inboxTail.then((_) => _reconcileInbox());
+    _inboxTail = next;
+    return next;
+  }
+
+  Future<void> _reconcileInbox() async {
+    if (!mounted) return;
     final profile = _active;
-    if (profile == null || _inboxLoading) return;
-    _inboxLoading = true;
+    if (profile == null) return;
     try {
       final current = <InboxNotice>[
         for (final med in _medications)
@@ -143,8 +149,6 @@ class _MedicationHomeState extends State<MedicationHome>
       if (mounted && _active?.id == profile.id) setState(() => _inbox = rows);
     } catch (_) {
       // An inbox write failure must never block the medication screen.
-    } finally {
-      _inboxLoading = false;
     }
   }
 
@@ -169,7 +173,10 @@ class _MedicationHomeState extends State<MedicationHome>
       value: 1);
     WidgetsBinding.instance.addObserver(this);
     _todayClockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted && _tab == 0) { setState(() {}); unawaited(_refreshInbox()); }
+      if (mounted && _tab == 0) {
+        setState(() {});
+        unawaited(_reload());
+      }
     });
     _reload();
     _syncReminders();
@@ -1327,7 +1334,7 @@ class _MedicationHomeState extends State<MedicationHome>
       builder: (sheetContext) => StatefulBuilder(builder: (ctx, update) {
         final sorted = [..._inbox]..sort((a, b) {
           final active = (b.active ? 1 : 0).compareTo(a.active ? 1 : 0);
-          if (active != 0) return active;
+          if (active != 0) { return active; }
           final read = (a.read ? 1 : 0).compareTo(b.read ? 1 : 0);
           return read != 0 ? read : int.parse(b.id).compareTo(int.parse(a.id));
         });
@@ -1354,7 +1361,7 @@ class _MedicationHomeState extends State<MedicationHome>
                                 update(() {}); return;
                               }
                               final meds = _medications.where((m) => m.id == notice.medicationId);
-                              if (meds.isEmpty) return;
+                              if (meds.isEmpty) { return; }
                               final med = meds.first;
                               Navigator.pop(sheetContext);
                               final today = _doses.where((d) => d.medication.id == med.id).toList();
@@ -1378,10 +1385,16 @@ class _MedicationHomeState extends State<MedicationHome>
                         Align(alignment: AlignmentDirectional.centerEnd,
                           child: FilledButton.tonal(
                             onPressed: notice.read ? null : () async {
-                              final rows = await _inboxRepository.markRead(profile.id, notice.id);
-                              if (!mounted || _active?.id != profile.id) return;
-                              setState(() => _inbox = rows);
-                              if (ctx.mounted) update(() {});
+                              try {
+                                await _inboxRepository.markRead(profile.id, notice.id);
+                                await _refreshInbox();
+                                if (ctx.mounted) update(() {});
+                              } catch (_) {
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    const SnackBar(content: Text('وضعیت خواندن ذخیره نشد. دوباره تلاش کن.')));
+                                }
+                              }
                             },
                             child: Text(notice.read ? 'خوانده شده' : 'خواندم'))),
                       ]))),

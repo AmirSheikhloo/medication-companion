@@ -600,7 +600,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                     _load();
                   },
                   icon: const Icon(Icons.expand_more_rounded),
-                  label: const Text('نمایش ۲۰ تغییر بیشتر')),
+                  label: const Text('نمایش 20 تغییر بیشتر')),
             ],
             if (_adjustingPackageId == pack.id) ...[
               const SizedBox(height: 8),

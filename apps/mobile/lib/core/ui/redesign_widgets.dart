@@ -173,12 +173,14 @@ class AppStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    decoration: BoxDecoration(color: background == null ? AppPalette.ink(context, color).withValues(alpha: .12) : AppPalette.surface(context, background!),
+    decoration: BoxDecoration(color: background == null ? AppPalette.ink(context, color).withValues(alpha: .12)
+      : color == Colors.white ? background! : AppPalette.surface(context, background!),
       borderRadius: BorderRadius.circular(18)),
     child: Row(mainAxisSize: MainAxisSize.min, children: [
       if (icon != null) ...[Icon(icon, size: 15, color: AppPalette.ink(context, color)), const SizedBox(width: 4)],
-      Text(text, style: TextStyle(fontFamily: 'Vazirmatn', color: AppPalette.ink(context, color),
-        fontSize: fontSize, fontWeight: FontWeight.w700)),
+      Flexible(child: Text(text, softWrap: true,
+        style: TextStyle(fontFamily: 'Vazirmatn', color: AppPalette.ink(context, color),
+          fontSize: fontSize, fontWeight: FontWeight.w700))),
     ]),
   );
 }

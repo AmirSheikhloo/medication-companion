@@ -101,10 +101,11 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   }
 
   Widget _attentionPanel(StockAttention alert) {
-    final tone = alert.urgent ? AppPalette.tone(context, const Color(0xFFB6354C)) : AppPalette.tone(context, const Color(0xFF996116));
+    final tone = AppPalette.ink(context, alert.urgent
+      ? const Color(0xFFC5223B) : const Color(0xFF9A5800));
     return Padding(padding: const EdgeInsets.only(bottom: 9),
       child: AppPanel(color: alert.urgent ? const Color(0xFFFFEBEF)
-        : const Color(0xFFFFF5E4), child: Column(
+        : const Color(0xFFFFEDC0), child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               Icon(Icons.warning_amber_rounded, color: tone),
@@ -182,7 +183,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
       await _applyFreshStock(fresh);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _detailScroll.hasClients) {
-          _detailScroll.jumpTo(offset.clamp(0.0, _detailScroll.position.maxScrollExtent));
+          _detailScroll.jumpTo(offset.clamp(0.0, _detailScroll.position.maxScrollExtent).toDouble());
         }
       });
     } catch (_) {

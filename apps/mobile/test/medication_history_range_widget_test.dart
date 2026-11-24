@@ -27,7 +27,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('از تاریخ'), findsOneWidget);
     expect(find.text('تا تاریخ'), findsOneWidget);
-    await tester.tap(find.text('۶ ماه اخیر'));
+    await tester.tap(find.text('6 ماه اخیر'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('نمایش گزارش'));
     await tester.pumpAndSettle();
