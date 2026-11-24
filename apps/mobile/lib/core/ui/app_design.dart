@@ -34,7 +34,9 @@ abstract final class AppPalette {
   static Color ink(BuildContext context, Color color) {
     if (!isDark(context) || color.a == 0) return color;
     if (color == Colors.white || color == darkInk || color == darkMuted ||
-        color == darkAccent) return color;
+        color == darkAccent) {
+      return color;
+    }
     if (color == AppColors.ink || color == AppColors.primaryDark) {
       return darkInk;
     }

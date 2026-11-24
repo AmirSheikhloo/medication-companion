@@ -323,15 +323,18 @@ class InventoryRepository {
     final fresh = await summary(profileId, medicationId);
     final selected = fresh.selected;
     if (selected != null && !selected.expired &&
-        selected.balanceMilliunits > 0) return;
+        selected.balanceMilliunits > 0) {
+      return;
+    }
     final candidates = fresh.packages.where((p) => !p.archived &&
       !p.expired && p.balanceMilliunits > 0 &&
       p.package.unit == unit).toList();
     candidates.sort((a, b) {
       final x = a.package.expiryIso;
       final y = b.package.expiryIso;
-      if (x == null) return y == null
-        ? a.package.createdAt.compareTo(b.package.createdAt) : 1;
+      if (x == null) {
+        return y == null ? a.package.createdAt.compareTo(b.package.createdAt) : 1;
+      }
       if (y == null) return -1;
       final order = x.compareTo(y);
       return order == 0
