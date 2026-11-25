@@ -56,6 +56,7 @@ class MedicationHome extends StatefulWidget {
     this.reminderCoordinator,
     this.careReminderCoordinator,
     this.onThemeChanged,
+    this.onPaletteChanged,
     this.clock,
   });
 
@@ -64,6 +65,7 @@ class MedicationHome extends StatefulWidget {
   final ReminderCoordinator? reminderCoordinator;
   final CareReminderCoordinator? careReminderCoordinator;
   final Future<void> Function(bool dark)? onThemeChanged;
+  final Future<void> Function(AppThemeChoice)? onPaletteChanged;
   /// Injectable clock for daypart and notification widget tests.
   final DateTime Function()? clock;
 
@@ -1028,8 +1030,10 @@ class _MedicationHomeState extends State<MedicationHome>
       );
     }
     return Scaffold(
-      backgroundColor: AppPalette.isDark(context) ? AppPalette.darkBackground :
-        _tab == 0 ? TodayPalette.page : AppColors.background,
+      backgroundColor: AppPalette.selected(context) != null
+        ? AppPalette.surface(context, AppColors.background)
+        : AppPalette.isDark(context) ? AppPalette.darkBackground :
+          _tab == 0 ? TodayPalette.page : AppColors.background,
       body: SafeArea(
         bottom: false,
         child: AnimatedBuilder(
@@ -1516,7 +1520,7 @@ class _MedicationHomeState extends State<MedicationHome>
       'skipped' => ('مصرف نشد', Icons.cancel_rounded,
           AppPalette.tone(context, const Color(0xFFC23F43))),
       'unknown' => ('مطمئن نیستم', Icons.help_rounded,
-          AppPalette.tone(context, const Color(0xFF996116))),
+          AppPalette.tone(context, const Color(0xFF1D4ED8))),
       _ => ('', Icons.schedule_rounded, AppPalette.ink(context, AppColors.muted)),
     };
     return AnimatedContainer(
@@ -1866,7 +1870,7 @@ class _MedicationHomeState extends State<MedicationHome>
         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 7),
         decoration: BoxDecoration(
           color: alerts.isEmpty ? Colors.transparent : urgent
-            ? AppPalette.tone(context, const Color(0xFFFFEBEF)) : AppPalette.tone(context, const Color(0xFFFFF5E4)),
+            ? AppPalette.tone(context, const Color(0xFFFFE4E9)) : AppPalette.tone(context, const Color(0xFFE5EFFF)),
           borderRadius: BorderRadius.circular(15)),
         child: Row(children: [
           MedicationArtwork(name: med.name, setup: _setups[med.id], size: 51),
@@ -1897,7 +1901,7 @@ class _MedicationHomeState extends State<MedicationHome>
                     AppStatusPill(text: alert.title,
                       color: Colors.white,
                       background: alert.urgent ? const Color(0xFFC5223B)
-                        : const Color(0xFF9A5800), fontSize: 10),
+                        : const Color(0xFF1D4ED8), fontSize: 10),
                   if (alerts.length > 2)
                     Text('+${alerts.length - 2}',
                       style: const TextStyle(fontSize: 11)),
@@ -1918,9 +1922,9 @@ class _MedicationHomeState extends State<MedicationHome>
                 color: AppPalette.ink(context, AppColors.muted))),
               Text(stockLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900,
-                  color: lowStock ? AppPalette.ink(context, const Color(0xFF99520A)) : AppPalette.ink(context, AppColors.primaryDark))),
+                  color: lowStock ? AppPalette.ink(context, const Color(0xFF1D4ED8)) : AppPalette.ink(context, AppColors.primaryDark))),
               if (lowStock) Text('کم‌موجودی',
-                style: TextStyle(fontSize: 9, color: AppPalette.ink(context, const Color(0xFF99520A)))),
+                style: TextStyle(fontSize: 9, color: AppPalette.ink(context, const Color(0xFF1D4ED8)))),
               if (selected == null && !lowStock) Text('ثبت نشده',
                 style: TextStyle(fontSize: 9, color: AppPalette.ink(context, AppColors.muted))),
             ]),
@@ -1994,6 +1998,35 @@ class _MedicationHomeState extends State<MedicationHome>
       body: _moreTabRedesigned(),
     )));
 
+  Future<void> _choosePalette() async {
+    final selected = await showModalBottomSheet<AppThemeChoice>(
+      context: context, showDragHandle: true, isScrollControlled: true,
+      builder: (ctx) => SafeArea(child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('پالت رنگی برنامه', style: Theme.of(ctx).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          for (final choice in AppThemeChoice.values)
+            Card(child: ListTile(
+              leading: CircleAvatar(backgroundColor: choice.primary),
+              title: Text(choice.label),
+              trailing: Icon(AppPalette.selected(ctx) == choice
+                ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: choice.primary),
+              onTap: () => Navigator.pop(ctx, choice))),
+        ]))));
+    if (selected != null && mounted) {
+      try {
+        await widget.onPaletteChanged?.call(selected);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('پالت رنگی ذخیره نشد.')));
+        }
+      }
+    }
+  }
+
   Widget _moreTabRedesigned() => ListView(
     padding: const EdgeInsets.fromLTRB(15, 18, 15, 30),
     children: [
@@ -2014,6 +2047,10 @@ class _MedicationHomeState extends State<MedicationHome>
           title: 'حالت روشن و تاریک',
           subtitle: AppPalette.isDark(context) ? 'تاریک' : 'روشن',
           onTap: _toggleTheme),
+      if (widget.onPaletteChanged != null)
+        _settingsTile(icon: Icons.palette_outlined,
+          title: 'پالت رنگی', subtitle: 'انتخاب رنگ اصلی برنامه',
+          onTap: _choosePalette),
       _settingsTile(icon: Icons.people_outline_rounded,
         title: 'پروفایل‌ها', subtitle: 'مدیریت اعضای خانواده',
         onTap: () => Navigator.push(context, MaterialPageRoute<void>(

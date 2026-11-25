@@ -33,6 +33,7 @@ class MedicationBetaApp extends StatefulWidget {
 
 class _MedicationBetaAppState extends State<MedicationBetaApp> {
   bool _darkMode = false;
+  AppThemeChoice _palette = AppThemeChoice.blue;
 
   @override
   Widget build(BuildContext context) {
@@ -40,9 +41,10 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
       title: 'همراه دارو',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        extensions: [AppAppearance(_palette)],
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF17484C),
+          backgroundColor: _palette.primary,
           contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
           actionTextColor: const Color(0xFFFFDF8A),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -52,22 +54,22 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         // One consistent Persian text font; Latin digits keep their ASCII shape.
         fontFamilyFallback: const ['NotoSansArabic'],
         colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-          primary: AppColors.primary,
+          seedColor: _palette.primary,
+          primary: _palette.primary,
           onPrimary: Colors.white,
-          secondary: AppColors.accent,
+          secondary: _palette.primary,
           surface: Colors.white,
-          onSurface: AppColors.ink,
+          onSurface: const Color(0xFF1E293B),
         ),
-        scaffoldBackgroundColor: AppColors.background,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.background,
+        scaffoldBackgroundColor: _palette.page,
+        appBarTheme: AppBarTheme(
+          backgroundColor: _palette.page,
           surfaceTintColor: Colors.transparent,
-          foregroundColor: AppColors.primaryDark,
+          foregroundColor: const Color(0xFF1E293B),
           centerTitle: false,
           titleTextStyle: TextStyle(
             fontFamily: 'Vazirmatn',
-            color: AppColors.primaryDark,
+            color: const Color(0xFF1E293B),
             fontSize: 21,
             fontWeight: FontWeight.bold,
           ),
@@ -89,7 +91,7 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            borderSide: BorderSide(color: _palette.primary, width: 1.5),
           ),
         ),
         cardTheme: CardThemeData(
@@ -103,7 +105,7 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
+            backgroundColor: _palette.primary,
             foregroundColor: Colors.white,
             minimumSize: const Size(0, 46),
             shape: RoundedRectangleBorder(
@@ -117,9 +119,9 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
+            foregroundColor: _palette.primary,
             minimumSize: const Size(0, 44),
-            side: const BorderSide(color: AppColors.primary),
+            side: BorderSide(color: _palette.primary),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(13),
             ),
@@ -127,19 +129,19 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Colors.white,
-          indicatorColor: AppColors.mint,
+          indicatorColor: _palette.tint,
           elevation: 0,
           height: 70,
           labelTextStyle: WidgetStateProperty.all(
             const TextStyle(
               fontFamily: 'Vazirmatn',
               fontSize: 11,
-              color: AppColors.primaryDark,
+              color: Color(0xFF1E293B),
             ),
           ),
         ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          backgroundColor: AppColors.background,
+        bottomSheetTheme: BottomSheetThemeData(
+          backgroundColor: _palette.page,
           surfaceTintColor: Colors.transparent,
           showDragHandle: true,
           shape: RoundedRectangleBorder(
@@ -147,8 +149,8 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
           ),
         ),
         chipTheme: ChipThemeData(
-          backgroundColor: AppColors.lightMint,
-          selectedColor: AppColors.mint,
+          backgroundColor: _palette.page,
+          selectedColor: _palette.tint,
           side: const BorderSide(color: AppColors.outline),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -156,9 +158,10 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         ),
       ),
       darkTheme: ThemeData(
+        extensions: [AppAppearance(_palette)],
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF315257),
+          backgroundColor: _palette.primary,
           contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
           actionTextColor: const Color(0xFFFFDF8A),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -166,9 +169,9 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         useMaterial3: true,
         fontFamily: 'Vazirmatn',
         fontFamilyFallback: const ['NotoSansArabic'],
-        colorScheme: ColorScheme.fromSeed(seedColor: AppPalette.darkAccent,
+        colorScheme: ColorScheme.fromSeed(seedColor: _palette.darkAccent,
           brightness: Brightness.dark,
-          primary: AppPalette.darkAccent,
+          primary: _palette.darkAccent,
           onPrimary: AppPalette.darkBackground,
           surface: AppPalette.darkSurface,
           onSurface: AppPalette.darkInk),
@@ -187,13 +190,13 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: AppPalette.darkOutline)),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppPalette.darkAccent, width: 1.5))),
+            borderSide: BorderSide(color: _palette.darkAccent, width: 1.5))),
         filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF176B68), foregroundColor: Colors.white,
+          backgroundColor: _palette.primary, foregroundColor: Colors.white,
           minimumSize: const Size(0, 46),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)))),
         outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(
-          foregroundColor: AppPalette.darkAccent,
+          foregroundColor: _palette.darkAccent,
           side: const BorderSide(color: AppPalette.darkOutline),
           minimumSize: const Size(0, 44),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)))),
@@ -206,9 +209,9 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
           surfaceTintColor: Colors.transparent, showDragHandle: true,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(26)))),
-        navigationBarTheme: const NavigationBarThemeData(
+        navigationBarTheme: NavigationBarThemeData(
           backgroundColor: AppPalette.darkSurface,
-          indicatorColor: AppPalette.darkMint, elevation: 0, height: 70),
+          indicatorColor: _palette.darkTint, elevation: 0, height: 70),
       ),
       themeMode: _darkMode ? ThemeMode.dark : ThemeMode.light,
       builder: (context, child) => Directionality(
@@ -216,6 +219,9 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         child: child ?? const SizedBox.shrink(),
       ),
       home: MedicationBetaHome(databaseFactory: widget.databaseFactory,
+        onPaletteChanged: (palette) {
+          if (mounted && _palette != palette) { setState(() => _palette = palette); }
+        },
         onThemeChanged: (dark) {
           if (mounted && _darkMode != dark) setState(() => _darkMode = dark);
         }),
@@ -225,9 +231,10 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
 
 class MedicationBetaHome extends StatefulWidget {
   const MedicationBetaHome({super.key, this.databaseFactory,
-    this.onThemeChanged});
+    this.onThemeChanged, this.onPaletteChanged});
   final AppDatabase Function()? databaseFactory;
   final ValueChanged<bool>? onThemeChanged;
+  final ValueChanged<AppThemeChoice>? onPaletteChanged;
 
   @override
   State<MedicationBetaHome> createState() => _MedicationBetaHomeState();
@@ -281,6 +288,7 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
         reminderCoordinator: reminders,
         careReminderCoordinator: careReminders,
         onThemeChanged: _saveTheme,
+        onPaletteChanged: _savePalette,
       );
     } catch (_) {
       if (db != null) unawaited(_closeDatabase(db));
@@ -294,7 +302,12 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
     try {
       final row = await (db.select(db.appSettings)
         ..where((t) => t.key.equals('ui-dark-mode:v1'))).getSingleOrNull();
-      if (mounted) widget.onThemeChanged?.call(row?.value == 'true');
+      final palette = await (db.select(db.appSettings)
+        ..where((t) => t.key.equals('ui-palette:v1'))).getSingleOrNull();
+      if (mounted) {
+        widget.onThemeChanged?.call(row?.value == 'true');
+        widget.onPaletteChanged?.call(AppThemeChoice.parse(palette?.value));
+      }
     } catch (_) {
       // Appearance settings never block access to the user's records.
     }
@@ -306,6 +319,14 @@ class _MedicationBetaHomeState extends State<MedicationBetaHome> {
     await db.into(db.appSettings).insertOnConflictUpdate(
       AppSettingsCompanion.insert(key: 'ui-dark-mode:v1', value: '$dark'));
     if (mounted) widget.onThemeChanged?.call(dark);
+  }
+
+  Future<void> _savePalette(AppThemeChoice choice) async {
+    final db = _database;
+    if (db == null) return;
+    await db.into(db.appSettings).insertOnConflictUpdate(
+      AppSettingsCompanion.insert(key: 'ui-palette:v1', value: choice.name));
+    if (mounted) { widget.onPaletteChanged?.call(choice); }
   }
 
   Future<void> _closeDatabase(AppDatabase db) async {

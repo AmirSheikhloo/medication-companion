@@ -248,7 +248,8 @@ class AppBottomNav extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(13),
                     gradient: selectedIndex == i
-                        ? const LinearGradient(colors: [AppColors.primary, Color(0xFF007A76)])
+                        ? LinearGradient(colors: [AppPalette.surface(context, AppColors.primary),
+                          AppPalette.selected(context)?.primary ?? const Color(0xFF007A76)])
                         : null,
                   ),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

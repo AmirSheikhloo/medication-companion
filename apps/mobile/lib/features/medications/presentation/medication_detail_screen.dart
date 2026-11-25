@@ -105,7 +105,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     final tone = AppPalette.ink(context, alert.urgent
       ? const Color(0xFFC5223B) : const Color(0xFF1D4ED8));
     return Padding(padding: const EdgeInsets.only(bottom: 9),
-      child: AppPanel(color: alert.urgent ? const Color(0xFFFFEBEF)
+      child: AppPanel(color: alert.urgent ? const Color(0xFFFFE4E9)
         : const Color(0xFFE5EFFF), child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
@@ -283,7 +283,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   Widget _packageRow(PackageBalance balance, bool isSelected) {
     final expired = balance.expired;
     final color = balance.archived ? AppPalette.ink(context, AppColors.muted) : expired
-        ? AppPalette.tone(context, const Color(0xFFBB4356))
+        ? AppPalette.tone(context, const Color(0xFFBE123C))
         : isSelected ? AppPalette.ink(context, AppColors.primary) : AppPalette.ink(context, AppColors.muted);
     final fill = balance.archived ? AppPalette.tone(context, const Color(0xFFF0F2F3)) : expired
         ? AppPalette.tone(context, const Color(0xFFFFF0F1))
@@ -326,7 +326,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               : 'بایگانی‌شده؛ خارج از موجودی فعال',
               style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 11)),
             if (expired) Text('منقضی‌شده؛ قابل انتخاب برای مصرف نیست',
-              style: TextStyle(color: AppPalette.ink(context, const Color(0xFFBB4356)), fontSize: 11,
+              style: TextStyle(color: AppPalette.ink(context, const Color(0xFFBE123C)), fontSize: 11,
                 fontWeight: FontWeight.w700)),
           ],
         )),
