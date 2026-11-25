@@ -103,10 +103,9 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
 
   Widget _attentionPanel(StockAttention alert) {
     final tone = AppPalette.ink(context, alert.urgent
-      ? const Color(0xFFC5223B) : const Color(0xFF1D4ED8));
-    return Padding(padding: const EdgeInsets.only(bottom: 9),
-      child: AppPanel(color: alert.urgent ? const Color(0xFFFFE4E9)
-        : const Color(0xFFE5EFFF), child: Column(
+      ? AppPalette.danger : AppPalette.brandInk(context));
+    return Padding(padding: const EdgeInsets.only(bottom: 12),
+      child: AppPanel(child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               Icon(Icons.warning_amber_rounded, color: tone),
@@ -120,7 +119,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               FilledButton(onPressed: () => _openPackage(null),
                 style: FilledButton.styleFrom(backgroundColor: alert.urgent
-                  ? const Color(0xFFC5223B) : const Color(0xFF1D4ED8),
+                  ? AppPalette.danger : AppPalette.brand(context),
                   foregroundColor: Colors.white),
                 child: const Text('افزودن بسته')),
               const SizedBox(height: 8),
@@ -287,9 +286,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     final color = balance.archived ? AppPalette.ink(context, AppColors.muted) : expired
         ? AppPalette.tone(context, const Color(0xFFBE123C))
         : isSelected ? AppPalette.ink(context, AppColors.primary) : AppPalette.ink(context, AppColors.muted);
-    final fill = balance.archived ? AppPalette.tone(context, const Color(0xFFF0F2F3)) : expired
-        ? AppPalette.tone(context, const Color(0xFFFFF0F1))
-        : isSelected ? AppPalette.tone(context, const Color(0xFFE0F5F0)) : AppPalette.tone(context, const Color(0xFFF5F8F9));
+    final fill = isSelected ? AppPalette.tint(context) : AppPalette.card(context);
     return InkWell(key: _packageKeys.putIfAbsent(balance.package.id, GlobalKey.new),
       onTap: () => _openPackage(balance),
       borderRadius: BorderRadius.circular(15),
@@ -299,7 +296,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        border: Border.all(color: isSelected ? AppPalette.brandInk(context) : AppPalette.border(context)),
       ),
       child: Row(children: [
         Icon(expired ? Icons.warning_amber_rounded : Icons.inventory_2_outlined,
@@ -465,7 +462,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           ],
         ])),
         const SizedBox(height: 12),
-        AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const AppSoftHeader(title: 'موجودی و بسته‌ها',
             icon: Icons.inventory_2_outlined),
           const SizedBox(height: 9),
@@ -504,7 +501,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           OutlinedButton.icon(onPressed: archived ? null : () => _openPackage(null),
             icon: const Icon(Icons.add_circle_outline),
             label: const Text('افزودن بسته جدید')),
-        ])),
+        ]),
         const SizedBox(height: 12),
         if (setup?.reminderNote.isNotEmpty == true) ...[
           AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start,

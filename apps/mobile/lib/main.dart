@@ -83,11 +83,11 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.outline),
+            borderSide: BorderSide(color: _palette.outline),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.outline),
+            borderSide: BorderSide(color: _palette.outline),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -96,11 +96,12 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         ),
         cardTheme: CardThemeData(
           color: Colors.white,
-          elevation: 0,
+          elevation: 2,
+          shadowColor: const Color(0x33172740),
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: AppColors.outline),
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: _palette.outline),
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
@@ -151,7 +152,7 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         chipTheme: ChipThemeData(
           backgroundColor: _palette.page,
           selectedColor: _palette.tint,
-          side: const BorderSide(color: AppColors.outline),
+          side: BorderSide(color: _palette.outline),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -173,22 +174,22 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
           brightness: Brightness.dark,
           primary: _palette.darkAccent,
           onPrimary: AppPalette.darkBackground,
-          surface: AppPalette.darkSurface,
+          surface: _palette.darkCard,
           onSurface: AppPalette.darkInk),
-        scaffoldBackgroundColor: AppPalette.darkBackground,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppPalette.darkBackground,
+        scaffoldBackgroundColor: _palette.darkPage,
+        appBarTheme: AppBarTheme(
+          backgroundColor: _palette.darkPage,
           foregroundColor: AppPalette.darkInk,
           surfaceTintColor: Colors.transparent,
-          titleTextStyle: TextStyle(fontFamily: 'Vazirmatn',
+          titleTextStyle: const TextStyle(fontFamily: 'Vazirmatn',
             fontSize: 21, color: AppPalette.darkInk, fontWeight: FontWeight.bold)),
         inputDecorationTheme: InputDecorationTheme(
           filled: true, fillColor: AppPalette.darkSurface,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppPalette.darkOutline)),
+            borderSide: BorderSide(color: _palette.darkBorder)),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppPalette.darkOutline)),
+            borderSide: BorderSide(color: _palette.darkBorder)),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: _palette.darkAccent, width: 1.5))),
         filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
@@ -197,20 +198,20 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)))),
         outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(
           foregroundColor: _palette.darkAccent,
-          side: const BorderSide(color: AppPalette.darkOutline),
+          side: BorderSide(color: _palette.darkBorder),
           minimumSize: const Size(0, 44),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)))),
-        cardTheme: CardThemeData(color: AppPalette.darkSurface,
-          elevation: 0, surfaceTintColor: Colors.transparent,
+        cardTheme: CardThemeData(color: _palette.darkCard,
+          elevation: 2, surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: AppPalette.darkOutline))),
+            side: BorderSide(color: _palette.darkBorder))),
         bottomSheetTheme: const BottomSheetThemeData(
           backgroundColor: AppPalette.darkSurface,
           surfaceTintColor: Colors.transparent, showDragHandle: true,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(26)))),
         navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: AppPalette.darkSurface,
+          backgroundColor: _palette.darkCard,
           indicatorColor: _palette.darkTint, elevation: 0, height: 70),
       ),
       themeMode: _darkMode ? ThemeMode.dark : ThemeMode.light,

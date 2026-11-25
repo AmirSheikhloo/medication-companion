@@ -22,8 +22,8 @@ class MedicineArtwork extends StatelessWidget {
       const Color(0xFFDCF2ED),
       const Color(0xFFE7E6FC),
     ];
-    final color = seed.contains('همراه') ? AppColors.accent :
-      palette[value % palette.length];
+    final color = AppPalette.selected(context)?.tint ??
+      (seed.contains('همراه') ? AppColors.accent : palette[value % palette.length]);
     final roundTablet = !seed.contains('همراه') && value % 3 == 0;
     final goldenSoftgel = seed.contains('ویتامین') || seed.contains('امگا');
     return Container(
@@ -63,7 +63,7 @@ class MedicineArtwork extends StatelessWidget {
                   blurRadius: 5, offset: Offset(1, 3))],
                 gradient: LinearGradient(
                   colors: goldenSoftgel
-                      ? const [Color(0xFFFFDC65), Color(0xFFEC9F17)]
+                      ? [Colors.white, color]
                       : [Colors.white, Colors.white, color, color],
                   stops: goldenSoftgel ? null : const [0, .48, .49, 1],
                 ),
@@ -98,13 +98,8 @@ class AppGradientButton extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(13),
             gradient: LinearGradient(colors: light
-                ? AppPalette.isDark(context)
-                  ? [AppPalette.surface(context, AppColors.mint),
-                      AppPalette.surface(context, AppColors.lightMint)]
-                  : [AppPalette.surface(context, const Color(0xFFA8F7EF)),
-                      AppPalette.surface(context, AppColors.accent)]
-                : [AppPalette.surface(context, AppColors.primary),
-                    AppPalette.selected(context)?.primary ?? const Color(0xFF01847E)]),
+                ? [AppPalette.tint(context), AppPalette.tint(context)]
+                : [AppPalette.brand(context), AppPalette.brand(context)]),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -139,17 +134,11 @@ class AppSoftHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(colors: [
-        AppPalette.surface(context, AppColors.mint),
-        AppPalette.surface(context, const Color(0xFFF1FBFC))]),
-      borderRadius: BorderRadius.circular(16),
-    ),
+    padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
     child: Row(children: [
       Container(
         padding: const EdgeInsets.all(9),
-        decoration: BoxDecoration(color: AppPalette.surface(context, const Color(0xFFBEF1EC)),
+        decoration: BoxDecoration(color: AppPalette.tint(context),
           borderRadius: BorderRadius.circular(12)),
         child: Icon(icon, color: AppPalette.ink(context, AppColors.primary), size: 23),
       ),
@@ -236,10 +225,11 @@ class AppBottomNav extends StatelessWidget {
       ('سلامت', Icons.favorite_border_rounded),
       ('بیشتر', Icons.menu_rounded),
     ];
-    return SafeArea(top: false, child: Container(
-      padding: const EdgeInsets.fromLTRB(10, 7, 10, 5),
-      decoration: BoxDecoration(color: AppPalette.surface(context, Colors.white),
-        border: Border(top: BorderSide(color: AppPalette.surface(context, AppColors.outline)))),
+    return Material(
+      color: AppPalette.card(context), elevation: 8,
+      shadowColor: const Color(0x40172740), surfaceTintColor: Colors.transparent,
+      child: SafeArea(top: false, child: Padding(
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 4),
       child: Row(children: [
         for (var i = 0; i < entries.length; i++)
           Expanded(child: InkWell(
@@ -251,10 +241,7 @@ class AppBottomNav extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 5),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(13),
-                    gradient: selectedIndex == i
-                        ? LinearGradient(colors: [AppPalette.surface(context, AppColors.primary),
-                          AppPalette.selected(context)?.primary ?? const Color(0xFF007A76)])
-                        : null,
+                    color: selectedIndex == i ? AppPalette.brand(context) : null,
                   ),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(entries[i].$2, size: 22,
@@ -268,7 +255,7 @@ class AppBottomNav extends StatelessWidget {
               ),
           )),
       ]),
-    ));
+    )));
   }
 }
 
@@ -281,12 +268,12 @@ class AppWaveBanner extends StatelessWidget {
     borderRadius: BorderRadius.circular(20),
     child: Stack(children: [
       Container(height: 84, decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppPalette.surface(context, const Color(0xFFDAF9F6)), AppPalette.surface(context, const Color(0xFFF4FAFA))]))),
+        gradient: LinearGradient(colors: [AppPalette.tint(context), AppPalette.surface(context, AppColors.background)]))),
       Positioned.directional(textDirection: Directionality.of(context),
         start: -36, bottom: -54,
         child: Transform.rotate(angle: -math.pi / 10,
           child: Container(width: 190, height: 112,
-            decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: .24),
+            decoration: BoxDecoration(color: AppPalette.brandInk(context).withValues(alpha: .14),
               borderRadius: BorderRadius.circular(80))))),
       Padding(padding: const EdgeInsets.all(14), child: child),
     ]),

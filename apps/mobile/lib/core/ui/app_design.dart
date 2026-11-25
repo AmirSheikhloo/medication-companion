@@ -28,8 +28,12 @@ enum AppThemeChoice {
   final Color primary, darkAccent, tint;
   static AppThemeChoice parse(String? name) => values.firstWhere(
     (choice) => choice.name == name, orElse: () => blue);
-  Color get page => Color.lerp(Colors.white, tint, .58)!;
-  Color get darkTint => Color.lerp(const Color(0xFF202B3A), primary, .32)!;
+  Color get page => Color.lerp(const Color(0xFFE8EDF4), tint, .62)!;
+  Color get darkTint => Color.lerp(const Color(0xFF202B3A), primary, .40)!;
+  Color get outline => Color.lerp(const Color(0xFFB6C4D4), primary, .19)!;
+  Color get darkPage => Color.lerp(const Color(0xFF101722), primary, .10)!;
+  Color get darkCard => Color.lerp(const Color(0xFF202B3A), primary, .10)!;
+  Color get darkBorder => Color.lerp(const Color(0xFF526175), darkAccent, .16)!;
 }
 
 class AppAppearance extends ThemeExtension<AppAppearance> {
@@ -50,6 +54,15 @@ abstract final class AppPalette {
 
   static AppThemeChoice? selected(BuildContext context) =>
     Theme.of(context).extension<AppAppearance>()?.choice;
+  static Color brand(BuildContext context) => selected(context)?.primary ?? AppColors.primary;
+  static Color brandInk(BuildContext context) => isDark(context)
+    ? selected(context)?.darkAccent ?? darkAccent : brand(context);
+  static Color card(BuildContext context) => isDark(context)
+    ? selected(context)?.darkCard ?? darkSurface : Colors.white;
+  static Color border(BuildContext context) => isDark(context)
+    ? selected(context)?.darkBorder ?? darkOutline : selected(context)?.outline ?? AppColors.outline;
+  static Color tint(BuildContext context) => isDark(context)
+    ? selected(context)?.darkTint ?? darkMint : selected(context)?.tint ?? AppColors.mint;
   static const danger = Color(0xFFBE123C);
   static const attention = Color(0xFF1D4ED8);
   static const dangerSurface = Color(0xFFFFE4E9);
@@ -96,14 +109,15 @@ abstract final class AppPalette {
     if (choice != null && color.a != 0) {
       final dark = isDark(context);
       if (color == AppColors.background || color == const Color(0xFFF1F8F8)) {
-        return dark ? darkBackground : choice.page;
+        return dark ? choice.darkPage : choice.page;
       }
+      if (color == Colors.white) { return card(context); }
       if (color == AppColors.primary) { return choice.primary; }
       if (color == AppColors.accent) {
         return dark ? choice.darkAccent : Color.lerp(choice.primary, Colors.white, .55)!;
       }
       if (color == AppColors.outline) {
-        return dark ? darkOutline : const Color(0xFFD5DEEA);
+        return border(context);
       }
       if (color == AppColors.amberLight) {
         return dark ? const Color(0xFF203752) : attentionSurface;
@@ -118,7 +132,7 @@ abstract final class AppPalette {
       // Retheme legacy teal decorative surfaces, but never semantic
       // green success, red danger, or blue attention.
       if (color == AppColors.mint || color == AppColors.lightMint ||
-          (hsl.hue >= 165 && hsl.hue <= 195 && hsl.lightness > .76 && hsl.saturation > .12)) {
+          (hsl.hue >= 155 && hsl.hue <= 205 && hsl.lightness > .67 && hsl.saturation > .10)) {
         return dark ? choice.darkTint : Color.lerp(choice.tint, Colors.white,
           color == AppColors.lightMint ? .45 : 0)!;
       }
@@ -142,7 +156,6 @@ abstract final class AppPalette {
   }
 
   static Color tone(BuildContext context, Color color) {
-    if (!isDark(context)) return color;
     if (color == AppColors.outline || color == AppColors.background ||
         color == AppColors.mint || color == AppColors.lightMint ||
         color == AppColors.amberLight || color == Colors.white ||
@@ -200,19 +213,24 @@ class AppPanel extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.color = Colors.white,
+    this.raised = true,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color color;
+  final bool raised;
 
   @override
   Widget build(BuildContext context) => Material(
     color: AppPalette.surface(context, color),
+    elevation: raised ? 2 : 0,
+    shadowColor: const Color(0x33172740),
+    surfaceTintColor: Colors.transparent,
     clipBehavior: Clip.antiAlias,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
-      side: BorderSide(color: AppPalette.surface(context, AppColors.outline)),
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(color: AppPalette.border(context)),
     ),
     child: SizedBox(width: double.infinity,
       child: Padding(padding: padding, child: child)),
