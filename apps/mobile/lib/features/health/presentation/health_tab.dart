@@ -233,43 +233,43 @@ class _HealthTabState extends State<HealthTab> {
     padding: const EdgeInsets.fromLTRB(15, 17, 15, 28),
     children: [
       Text('سلامت', style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-        color: AppColors.primaryDark, fontWeight: FontWeight.w900)),
+        color: AppPalette.ink(context, AppColors.primaryDark), fontWeight: FontWeight.w900)),
       const SizedBox(height: 13),
       const AppSoftHeader(title: 'سلامت من',
         icon: Icons.favorite_rounded,
         subtitle: 'اندازه‌گیری‌ها، سوابق و پیگیری‌های مراقبتی'),
       const SizedBox(height: 14),
       Row(children: [
-        Expanded(child: AppPanel(color: AppColors.mint,
+        Expanded(child: AppPanel(color: AppPalette.surface(context, AppColors.mint),
           padding: const EdgeInsets.all(13),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Row(children: [Icon(Icons.favorite_outline,
-              color: AppColors.primary, size: 19), SizedBox(width: 5),
+            Row(children: [Icon(Icons.favorite_outline,
+              color: AppPalette.ink(context, AppColors.primary), size: 19), SizedBox(width: 5),
               Expanded(child: Text('فشار خون', style: TextStyle(
                 fontWeight: FontWeight.w800, fontSize: 12)))]),
             const SizedBox(height: 6),
             Text(_lastPressure == null ? '—' :
               PersianDate.displayDigits('${HealthNumber.format(_lastPressure!.primaryMilliunits)}/'
                 '${HealthNumber.format(_lastPressure!.secondaryMilliunits!)}'),
-              maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w900,
-                fontSize: 22, color: AppColors.primaryDark)),
-            const Text('میلی‌متر جیوه', style: TextStyle(color: AppColors.muted,
+              maxLines: 1, style: TextStyle(fontWeight: FontWeight.w900,
+                fontSize: 22, color: AppPalette.ink(context, AppColors.primaryDark))),
+            Text('میلی‌متر جیوه', style: TextStyle(color: AppPalette.ink(context, AppColors.muted),
               fontSize: 10)),
           ]))),
         const SizedBox(width: 9),
-        Expanded(child: AppPanel(color: AppColors.mint,
+        Expanded(child: AppPanel(color: AppPalette.surface(context, AppColors.mint),
           padding: const EdgeInsets.all(13),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Row(children: [Icon(Icons.monitor_weight_outlined,
-              color: AppColors.primary, size: 19), SizedBox(width: 5),
+            Row(children: [Icon(Icons.monitor_weight_outlined,
+              color: AppPalette.ink(context, AppColors.primary), size: 19), SizedBox(width: 5),
               Expanded(child: Text('وزن', style: TextStyle(
                 fontWeight: FontWeight.w800, fontSize: 12)))]),
             const SizedBox(height: 6),
             Text(_lastWeight == null ? '—' :
               PersianDate.displayDigits(HealthNumber.format(_lastWeight!.primaryMilliunits)),
-              maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w900,
-                fontSize: 22, color: AppColors.primaryDark)),
-            const Text('کیلوگرم', style: TextStyle(color: AppColors.muted,
+              maxLines: 1, style: TextStyle(fontWeight: FontWeight.w900,
+                fontSize: 22, color: AppPalette.ink(context, AppColors.primaryDark))),
+            Text('کیلوگرم', style: TextStyle(color: AppPalette.ink(context, AppColors.muted),
               fontSize: 10)),
           ]))),
       ]),
@@ -279,7 +279,7 @@ class _HealthTabState extends State<HealthTab> {
       AppPanel(padding: const EdgeInsets.all(10), child: Column(children: [
         if (!_loading && _records.isNotEmpty) ...[
           HealthChart(metric: _metric, records: _records),
-          const Divider(height: 13, color: AppColors.outline),
+          Divider(height: 13, color: AppPalette.surface(context, AppColors.outline)),
         ],
         if (_loading) const Center(child: CircularProgressIndicator()),
         if (_error != null) ListTile(title: Text(_error!),
@@ -287,7 +287,7 @@ class _HealthTabState extends State<HealthTab> {
         if (!_loading && _error == null && _records.isEmpty)
           Padding(padding: const EdgeInsets.symmetric(vertical: 20),
             child: Column(children: [
-              const Icon(Icons.monitor_heart_outlined, color: AppColors.primary,
+              Icon(Icons.monitor_heart_outlined, color: AppPalette.ink(context, AppColors.primary),
                 size: 39),
               const SizedBox(height: 8),
               Text(PersianDate.displayDigits(
@@ -296,7 +296,7 @@ class _HealthTabState extends State<HealthTab> {
             ])),
         if (_recentCombined.isNotEmpty) ...[
           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-            decoration: BoxDecoration(color: AppColors.mint,
+            decoration: BoxDecoration(color: AppPalette.surface(context, AppColors.mint),
               borderRadius: BorderRadius.circular(9)),
             child: const Row(children: [
               Expanded(child: Text('تاریخ و ساعت', style: TextStyle(
@@ -308,7 +308,7 @@ class _HealthTabState extends State<HealthTab> {
               SizedBox(width: 36),
             ])),
           for (var i = 0; i < _recentCombined.length && i < 5; i++) ...[
-            if (i != 0) const Divider(height: 1, color: AppColors.outline),
+            if (i != 0) Divider(height: 1, color: AppPalette.surface(context, AppColors.outline)),
             Row(children: [
               Expanded(child: Text(healthDateTimeLabel(_recentCombined[i].observedAt),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -376,15 +376,15 @@ class _HealthTabState extends State<HealthTab> {
           title: const Text('ویزیت‌ها و نوبت‌های پزشک'),
           trailing: const Icon(Icons.chevron_left),
           onTap: widget.onOpenCareHub),
-        const Divider(height: 1, color: AppColors.outline),
+        Divider(height: 1, color: AppPalette.surface(context, AppColors.outline)),
         ListTile(leading: const AppIconTile(Icons.fact_check_outlined),
           title: const Text('کارها و چک‌لیست ویزیت'),
           trailing: const Icon(Icons.chevron_left),
           onTap: widget.onOpenCareHub),
       ])),
       const SizedBox(height: 12),
-      const Text('اندازه‌گیری‌ها توسط شما ثبت شده‌اند؛ این برنامه تشخیص پزشکی نمی‌دهد.',
-        style: TextStyle(fontSize: 11, color: AppColors.muted),
+      Text('اندازه‌گیری‌ها توسط شما ثبت شده‌اند؛ این برنامه تشخیص پزشکی نمی‌دهد.',
+        style: TextStyle(fontSize: 11, color: AppPalette.ink(context, AppColors.muted)),
         textAlign: TextAlign.center),
     ],
   );
@@ -504,9 +504,9 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppPalette.surface(context, AppColors.background),
       appBar: AppBar(title: Text(widget.original == null ? 'ثبت اندازه‌گیری' : 'اصلاح اندازه‌گیری'),
-        backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+        backgroundColor: AppPalette.surface(context, AppColors.primary), foregroundColor: Colors.white,
         titleTextStyle: AppTypography.onPrimaryAppBar),
       body: SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -522,12 +522,12 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.mint,
+              color: AppPalette.surface(context, AppColors.mint),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Text(
+            child: Text(
               'نتیجه‌های اندازه‌گیری خودتان را ثبت کنید. این اطلاعات به معنای تأیید پزشکی نیست.',
-              style: TextStyle(color: AppColors.primaryDark, fontSize: 12),
+              style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark), fontSize: 12),
             ),
           ),
           const SizedBox(height: 12),
@@ -620,9 +620,9 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
           if (_validationError != null)
             Text(_validationError!, style: const TextStyle(color: Colors.red)),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'اطلاعات ثبت‌شده توسط کاربر؛ تأیید پزشکی نشده.',
-            style: TextStyle(color: AppColors.muted, fontSize: 12),
+            style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12),
           ),
           const SizedBox(height: 14),
           Row(

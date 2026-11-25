@@ -501,7 +501,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     final expiryLead = _expiryAlertEnabled && _nearestExpiryDays != null
       ? _validExpiryLead : null;
     if (_expiryAlertEnabled && _nearestExpiryDays != null && expiryLead == null) {
-      _showError('تعداد روز را بین 0 تا $_nearestExpiryDays وارد کن.');
+      _showError('حداکثر $_nearestExpiryDays روز.');
       return;
     }
     Navigator.of(context).pop(MedicationDraft(
@@ -781,7 +781,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     }
     if (_currentStep == 3 && _expiryAlertEnabled &&
         _nearestExpiryDays != null && _validExpiryLead == null) {
-      _showError('تعداد روز را بین 0 تا $_nearestExpiryDays وارد کن.');
+      _showError('عدد 0 تا $_nearestExpiryDays را وارد کن.');
       return false;
     }
     if (_currentStep == 2 && !_editing) {

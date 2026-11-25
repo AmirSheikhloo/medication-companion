@@ -117,17 +117,19 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             const SizedBox(height: 6),
             Text(alert.message),
             const SizedBox(height: 8),
-            Wrap(spacing: 7, runSpacing: 6, children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               FilledButton(onPressed: () => _openPackage(null),
                 style: FilledButton.styleFrom(backgroundColor: alert.urgent
                   ? const Color(0xFFC5223B) : const Color(0xFF1D4ED8),
                   foregroundColor: Colors.white),
                 child: const Text('افزودن بسته')),
+              const SizedBox(height: 8),
               OutlinedButton(onPressed: () => _dismissAlert(alert),
                 style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
                   foregroundColor: tone,
                   backgroundColor: AppPalette.surface(context, Colors.white)),
                 child: const Text('عدم نمایش این هشدار')),
+              const SizedBox(height: 8),
               OutlinedButton(onPressed: onArchive,
                 style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
                   foregroundColor: tone,

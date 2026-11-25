@@ -100,7 +100,8 @@ class AppGradientButton extends StatelessWidget {
             gradient: LinearGradient(colors: light
                 ? [AppPalette.surface(context, const Color(0xFFA8F7EF)),
                     AppPalette.surface(context, AppColors.accent)]
-                : const [AppColors.primary, Color(0xFF01847E)]),
+                : [AppPalette.surface(context, AppColors.primary),
+                    AppPalette.selected(context)?.primary ?? const Color(0xFF01847E)]),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

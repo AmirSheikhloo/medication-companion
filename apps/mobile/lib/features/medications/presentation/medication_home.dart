@@ -2156,6 +2156,7 @@ class _PastDoseReviewState extends State<_PastDoseReview> {
   Future<List<DailyDose>> _load() async {
     final rows = await widget.repository.dosesForDay(widget.profileId, _day);
     rows.sort((a, b) {
+      if (a.occurrenceKey == b.occurrenceKey) { return 0; }
       if (a.occurrenceKey == widget.target) { return -1; }
       if (b.occurrenceKey == widget.target) { return 1; }
       return a.scheduledAt.compareTo(b.scheduledAt);
@@ -2167,10 +2168,12 @@ class _PastDoseReviewState extends State<_PastDoseReview> {
   }
   Future<void> _markPast(DailyDose dose, String action) async {
     if (_busy) return;
-    if (action == 'takenWithoutStock') {
+    if (action == 'takenWithoutStock' || action == 'taken') {
       final confirmed = await showDialog<bool>(context: context, builder: (ctx) =>
         AlertDialog(title: const Text('ثبت مصرف گذشته'),
-          content: const Text('این ثبت موجودی فعلی را تغییر نمی‌دهد. فقط اگر واقعاً دارو را مصرف کردی، تأیید کن.'),
+          content: Text(action == 'taken'
+            ? 'این ثبت از بسته منتخب فعلی کم می‌کند. فقط اگر موجودی قبلاً کسر نشده، تأیید کن.'
+            : 'این ثبت موجودی فعلی را تغییر نمی‌دهد. فقط اگر واقعاً دارو را مصرف کردی، تأیید کن.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('انصراف')),
             FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('تأیید')),

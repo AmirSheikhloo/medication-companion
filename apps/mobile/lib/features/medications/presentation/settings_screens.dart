@@ -16,7 +16,7 @@ class ProfilesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.background,
+    backgroundColor: AppPalette.surface(context, AppColors.background),
     appBar: AppBar(title: const Text('پروفایل‌ها')),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       const AppSoftHeader(title: 'پروفایل‌های محلی', icon: Icons.shield_outlined,
@@ -89,7 +89,7 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.background,
+    backgroundColor: AppPalette.surface(context, AppColors.background),
     appBar: AppBar(title: const Text('یادآوری‌ها')),
     body: ListView(padding: const EdgeInsets.all(15), children: [
       AppSoftHeader(title: _enabled ? 'مجوز اعلان‌ها: فعال' : 'مجوز اعلان‌ها: غیرفعال',
@@ -133,7 +133,7 @@ class KeyboardHelpScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.background,
+    backgroundColor: AppPalette.surface(context, AppColors.background),
     appBar: AppBar(title: const Text('تنظیمات زبان و صفحه‌کلید')),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       const AppSoftHeader(title: 'ورود متن فارسی', icon: Icons.keyboard_outlined,
@@ -155,7 +155,7 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.background,
+    backgroundColor: AppPalette.surface(context, AppColors.background),
     appBar: AppBar(title: const Text('درباره برنامه')),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       const AppSoftHeader(title: 'همراه دارو', icon: Icons.medication_outlined,
