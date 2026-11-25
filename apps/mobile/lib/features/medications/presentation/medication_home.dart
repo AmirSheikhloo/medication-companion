@@ -1382,7 +1382,7 @@ class _MedicationHomeState extends State<MedicationHome>
   Future<void> _showTodayNotifications() async {
     final profile = _active;
     if (profile == null) return;
-    await _refreshInbox();
+    await _reload();
     if (!mounted || _active?.id != profile.id) return;
     var limit = 20;
     await showModalBottomSheet<void>(

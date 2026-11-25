@@ -117,6 +117,7 @@ class _ExpiryDialogState extends State<_ExpiryDialog> {
           textAlign: TextAlign.center,
           textDirection: TextDirection.ltr,
           keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
           maxLength: length,
           inputFormatters: [const EnglishDigitsInputFormatter(),
             FilteringTextInputFormatter.allow(

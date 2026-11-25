@@ -158,6 +158,7 @@ class _RangeDialogState extends State<_RangeDialog> {
       },
       maxLength: maxLength,
       keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
       inputFormatters: [

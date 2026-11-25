@@ -187,6 +187,7 @@ class _MedicationPackageEditorScreenState
           const SizedBox(height: 12),
           TextField(controller: _quantity,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.next,
             inputFormatters: const [EnglishDigitsInputFormatter()],
             decoration: InputDecoration(
               labelText: 'موجودی فعلی (${widget.unit})')),
@@ -210,6 +211,7 @@ class _MedicationPackageEditorScreenState
                 Expanded(child: TextField(
                   controller: _containers,
                   keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
                   inputFormatters: const [EnglishDigitsInputFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'تعداد ورق', hintText: 'مثلاً 2'))),
@@ -217,6 +219,7 @@ class _MedicationPackageEditorScreenState
                 Expanded(child: TextField(
                   controller: _perContainer,
                   keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
                   inputFormatters: const [EnglishDigitsInputFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'تعداد در هر ورق', hintText: 'مثلاً 10'))),

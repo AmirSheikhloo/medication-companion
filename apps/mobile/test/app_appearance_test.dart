@@ -1,0 +1,27 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:medication_companion/core/ui/app_design.dart';
+
+void main() {
+  testWidgets('appearance choices map surfaces and preserve danger and attention',
+      (tester) async {
+    for (final choice in AppThemeChoice.values) {
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(MaterialApp(theme: ThemeData(
+          brightness: brightness, extensions: [AppAppearance(choice)]),
+          home: Builder(builder: (context) {
+            expect(AppPalette.selected(context), choice);
+            expect(AppPalette.surface(context, AppColors.background),
+              brightness == Brightness.dark ? AppPalette.darkBackground : choice.page);
+            expect(AppPalette.surface(context, AppColors.primary), choice.primary);
+            expect(AppPalette.surface(context, AppPalette.attentionSurface),
+              brightness == Brightness.dark ? const Color(0xFF223A5D) : AppPalette.attentionSurface);
+            return const SizedBox();
+          })));
+      }
+    }
+    expect(AppThemeChoice.values.map((c) => c.primary).toSet(), hasLength(4));
+    expect(AppThemeChoice.parse('violet'), AppThemeChoice.violet);
+    expect(AppThemeChoice.parse('unknown'), AppThemeChoice.blue);
+  });
+}

@@ -98,8 +98,11 @@ class AppGradientButton extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(13),
             gradient: LinearGradient(colors: light
-                ? [AppPalette.surface(context, const Color(0xFFA8F7EF)),
-                    AppPalette.surface(context, AppColors.accent)]
+                ? AppPalette.isDark(context)
+                  ? [AppPalette.surface(context, AppColors.mint),
+                      AppPalette.surface(context, AppColors.lightMint)]
+                  : [AppPalette.surface(context, const Color(0xFFA8F7EF)),
+                      AppPalette.surface(context, AppColors.accent)]
                 : [AppPalette.surface(context, AppColors.primary),
                     AppPalette.selected(context)?.primary ?? const Color(0xFF01847E)]),
           ),

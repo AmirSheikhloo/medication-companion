@@ -403,7 +403,9 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             ],
           ),
         ]),
-      body: ListView(controller: _detailScroll, padding: const EdgeInsets.fromLTRB(16, 15, 16, 32), children: [
+      body: SingleChildScrollView(controller: _detailScroll,
+        padding: const EdgeInsets.fromLTRB(16, 15, 16, 32),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           MedicationArtwork(name: medication.name, setup: setup, size: 82),
           const SizedBox(width: 15),
@@ -411,20 +413,18 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             Text(PersianDate.displayDigits(medication.name), style: TextStyle(fontWeight: FontWeight.w900,
               fontSize: 23, color: AppPalette.ink(context, AppColors.primaryDark))),
             const SizedBox(height: 5),
-            AppStatusPill(text: hidden ? 'حذف‌شده از فهرست' : archived ? 'پایان مصرف' : 'فعال',
-              icon: archived || hidden ? Icons.archive_outlined : Icons.check,
-              color: Colors.white, background: archived || hidden
-                ? const Color(0xFF64748B) : const Color(0xFF15803D)),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              AppStatusPill(text: hidden ? 'حذف‌شده از فهرست' : archived ? 'پایان مصرف' : 'فعال',
+                icon: archived || hidden ? Icons.archive_outlined : Icons.check,
+                color: Colors.white, background: archived || hidden
+                  ? const Color(0xFF64748B) : const Color(0xFF15803D)),
+              if (!archived && !hidden)
+                for (final alert in _currentAttention)
+                  AppStatusPill(text: alert.title, color: Colors.white,
+                    background: alert.urgent ? AppPalette.danger : AppPalette.attention),
+            ]),
           ])),
         ]),
-        if (!archived && !hidden && _currentAttention.isNotEmpty)
-          Padding(padding: const EdgeInsets.only(top: 10),
-            child: Wrap(spacing: 6, runSpacing: 6, children: [
-              for (final alert in _currentAttention)
-                AppStatusPill(text: alert.title, color: Colors.white,
-                  background: alert.urgent ? const Color(0xFFC5223B)
-                    : const Color(0xFF1D4ED8)),
-            ])),
         const SizedBox(height: 22),
         if (!archived && !hidden)
           for (final alert in _currentAttention)
@@ -543,7 +543,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               onPressed: widget.onUnhide,
               icon: const Icon(Icons.restore_rounded),
               label: const Text('بازگرداندن دارو به فهرست'))),
-      ]),
+      ])),
     );
   }
 }

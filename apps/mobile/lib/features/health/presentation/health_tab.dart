@@ -550,6 +550,7 @@ class _HealthEntryFormState extends State<_HealthEntryForm> {
             controller: _first,
                 inputFormatters: const [EnglishDigitsInputFormatter()],
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.next,
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
               labelText: _metric == HealthMetric.pressure

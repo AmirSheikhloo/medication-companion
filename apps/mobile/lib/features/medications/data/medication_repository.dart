@@ -266,8 +266,9 @@ class MedicationRepository {
 
   String _validateName(String name) {
     final cleaned = name.trim();
-    if (cleaned.isEmpty || cleaned.length > 160) {
-      throw ArgumentError('نام دارو باید بین 1 تا 160 نویسه باشد.');
+    if (cleaned.isEmpty || cleaned.length > 80 ||
+        cleaned.contains(RegExp(r'[\r\n\u2028\u2029]'))) {
+      throw ArgumentError('نام دارو باید در یک خط و حداکثر 80 نویسه باشد.');
     }
     return cleaned;
   }
