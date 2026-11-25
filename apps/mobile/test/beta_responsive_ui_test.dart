@@ -54,7 +54,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final meds = MedicationRepository(db);
+    final meds = MedicationRepository(db, clock: () { final now = DateTime.now(); return DateTime(now.year, now.month, now.day); });
     final profile = await profiles.createGuestProfile(
       forSelf: false,
       displayName: 'بیمار آزمایشی با یک نام طولانی برای بررسی نمایش',

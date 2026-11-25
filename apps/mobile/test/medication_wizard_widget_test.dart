@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:medication_companion/features/medications/presentation/medication_entry_sheet.dart';
+import 'package:medication_companion/features/medications/data/medication_setup_repository.dart';
 
 Future<void> next(WidgetTester tester) async {
   await tester.tap(find.text('مرحله بعد'));
@@ -25,12 +26,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('میلی‌لیتر (سی‌سی)'));
     await tester.pumpAndSettle();
-    expect(find.text('قاشق چای‌خوری مدرج (5 mL)'), findsOneWidget);
-    expect(find.text('قاشق غذاخوری مدرج (15 mL)'), findsOneWidget);
+    expect(find.text(MedicationUnits.displayLabels[MedicationUnits.teaSpoon]!), findsOneWidget);
+    expect(find.text(MedicationUnits.displayLabels[MedicationUnits.tableSpoon]!), findsOneWidget);
     expect(find.text('عدد'), findsNothing);
-    await tester.tap(find.text('قاشق چای‌خوری مدرج (5 mL)'));
+    await tester.tap(find.text(MedicationUnits.displayLabels[MedicationUnits.teaSpoon]!));
     await tester.pumpAndSettle();
-    expect(find.text('قاشق چای‌خوری مدرج (5 mL)'), findsOneWidget);
+    expect(find.text(MedicationUnits.displayLabels[MedicationUnits.teaSpoon]!), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

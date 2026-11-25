@@ -32,7 +32,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final medicines = MedicationRepository(db);
+    final medicines = MedicationRepository(db, clock: () { final now = DateTime.now(); return DateTime(now.year, now.month, now.day); });
     final profile = await profiles.createGuestProfile(forSelf: true);
     await medicines.addDailyMedication(
       profileId: profile.id,

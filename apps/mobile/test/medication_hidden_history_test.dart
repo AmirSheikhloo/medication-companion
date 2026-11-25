@@ -11,7 +11,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final medRepo = MedicationRepository(db);
+    final medRepo = MedicationRepository(db, clock: () { final now = DateTime.now(); return DateTime(now.year, now.month, now.day); });
     final profile = await profiles.createGuestProfile(forSelf: true);
     final medId = await medRepo.addDailyMedication(
       profileId: profile.id, name: 'تست حذف ایمن',

@@ -40,7 +40,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profile = await ProfileRepository(db).createGuestProfile(forSelf: true);
-    final medicines = MedicationRepository(db);
+    final medicines = MedicationRepository(db, clock: () { final now = DateTime.now(); return DateTime(now.year, now.month, now.day); });
     for (final data in [
       ('متفورمین ۵۰۰', '۱ عدد', 8),
       ('آملودیپین ۵', '۱ عدد', 9),
@@ -134,7 +134,7 @@ void main() {
     final daypartProfiles = ProfileRepository(daypartDb);
     final daypartProfile = await daypartProfiles.createGuestProfile(
       forSelf: true, displayName: 'امیر');
-    final daypartMedicines = MedicationRepository(daypartDb);
+    final daypartMedicines = MedicationRepository(daypartDb, clock: () => DateTime(2026, 11, 22));
     for (final data in [
       ('متفورمین ۵۰۰', '۱ عدد', 8),
       ('آملودیپین ۵', '۱ عدد', 9),

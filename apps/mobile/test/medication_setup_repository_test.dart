@@ -61,7 +61,7 @@ void main() {
     final profiles = ProfileRepository(db);
     await profiles.createGuestProfile(forSelf: true, displayName: 'امیر');
     final profile = (await profiles.activeProfile())!;
-    final medications = MedicationRepository(db);
+    final medications = MedicationRepository(db, clock: () { final now = DateTime.now(); return DateTime(now.year, now.month, now.day); });
     final medicationId = await medications.addMedicationSchedule(
       profileId: profile.id, name: 'داروی تست', slots: [
       const DoseSlotInput(doseText: '2 عدد', time: TimeOfDayValue(8, 0)),

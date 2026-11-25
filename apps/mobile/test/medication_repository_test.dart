@@ -11,7 +11,7 @@ void main() {
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    repo = MedicationRepository(db);
+    repo = MedicationRepository(db, clock: () => DateTime(2026, 11, 15));
     profiles = ProfileRepository(db);
   });
   tearDown(() async => db.close());
@@ -62,6 +62,21 @@ void main() {
     expect((await db.select(db.doseEvents).get()).length, 2);
     expect((await repo.dosesForDay(profile.id, DateTime(2026, 11, 16)))
         .single.status, 'pending');
+  });
+
+  test('new schedule skips all earlier civil minutes and keeps future slots', () async {
+    final profile = await profiles.createGuestProfile(forSelf: true);
+    final now = DateTime(2026, 11, 25, 19, 0, 30);
+    final service = MedicationRepository(db, clock: () => now);
+    await service.addMedicationSchedule(profileId: profile.id, name: 'داروی جدید',
+      slots: const [
+        DoseSlotInput(doseText: 'صبح', time: TimeOfDayValue(8, 0)),
+        DoseSlotInput(doseText: 'همین دقیقه', time: TimeOfDayValue(19, 0)),
+        DoseSlotInput(doseText: 'شب', time: TimeOfDayValue(21, 0)),
+      ]);
+    expect(await service.dosesForDay(profile.id, DateTime(2026, 11, 24)), isEmpty);
+    expect((await service.dosesForDay(profile.id, now)).map((d) => d.scheduledAt.hour), [19, 21]);
+    expect((await service.dosesForDay(profile.id, DateTime(2026, 11, 26))).map((d) => d.scheduledAt.hour), [8, 19, 21]);
   });
 
   test('wrong profile cannot record another person\'s dose', () async {

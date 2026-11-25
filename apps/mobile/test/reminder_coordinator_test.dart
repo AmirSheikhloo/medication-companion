@@ -50,7 +50,7 @@ void main() {
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    meds = MedicationRepository(db);
+    meds = MedicationRepository(db, clock: () => fixedNow);
     profiles = ProfileRepository(db);
     port = FakeReminderPort();
     coordinator = ReminderCoordinator(
