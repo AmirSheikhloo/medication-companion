@@ -7,7 +7,7 @@ void main() {
       (tester) async {
     for (final choice in AppThemeChoice.values) {
       for (final brightness in Brightness.values) {
-        await tester.pumpWidget(MaterialApp(theme: ThemeData(
+        await tester.pumpWidget(MaterialApp(key: ValueKey('${choice.name}-${brightness.name}'), theme: ThemeData(
           brightness: brightness, extensions: [AppAppearance(choice)]),
           home: Builder(builder: (context) {
             expect(AppPalette.selected(context), choice);

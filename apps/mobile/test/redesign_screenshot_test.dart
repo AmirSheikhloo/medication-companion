@@ -69,13 +69,15 @@ void main() {
       });
     }
 
+    expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!
+      .extension<AppAppearance>()?.choice, AppThemeChoice.blue);
     await save('01-today');
     await tester.tap(find.text('داروها'));
     await save('02-medicines');
     await tester.tap(find.text('افزودن دارو'));
     await tester.pumpAndSettle();
     expect(tester.widget<AppBar>(find.byType(AppBar)).foregroundColor,
-      AppColors.primaryDark,
+      const Color(0xFF1E293B),
       reason: 'The new medication form uses a light, high-contrast app bar');
     await save('06-medication-form');
     await tester.pageBack();
@@ -120,6 +122,7 @@ void main() {
     await save('11-backup');
     await tester.pageBack();
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('پیگیری‌ها و ویزیت‌ها'));
     await tester.tap(find.text('پیگیری‌ها و ویزیت‌ها'));
     await tester.pumpAndSettle();
     expect(tester.widget<AppBar>(find.byType(AppBar)).titleTextStyle?.color,
