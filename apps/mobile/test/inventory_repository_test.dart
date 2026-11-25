@@ -16,7 +16,7 @@ void main() {
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     inventory = InventoryRepository(db);
-    medications = MedicationRepository(db);
+    medications = MedicationRepository(db, clock: () { final now = DateTime.now(); return DateTime(now.year, now.month, now.day); });
     profiles = ProfileRepository(db);
   });
 

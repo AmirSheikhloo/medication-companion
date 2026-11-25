@@ -293,9 +293,9 @@ class _CareHubScreenState extends State<CareHubScreen>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppPalette.surface(context, AppColors.background),
         appBar: AppBar(title: const Text('پیگیری‌ها و ویزیت‌ها'),
-          backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+          backgroundColor: AppPalette.surface(context, AppColors.primary), foregroundColor: Colors.white,
           titleTextStyle: AppTypography.onPrimaryAppBar),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -309,7 +309,7 @@ class _CareHubScreenState extends State<CareHubScreen>
                           icon: Icons.fact_check_outlined)),
                       Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Container(
-                          decoration: BoxDecoration(color: AppColors.mint,
+                          decoration: BoxDecoration(color: AppPalette.surface(context, AppColors.mint),
                             borderRadius: BorderRadius.circular(13)),
                           child: Row(children: [
                             for (var i = 0; i < 3; i++)
@@ -320,11 +320,11 @@ class _CareHubScreenState extends State<CareHubScreen>
                                   margin: const EdgeInsets.all(4),
                                   padding: const EdgeInsets.symmetric(vertical: 9),
                                   decoration: BoxDecoration(
-                                    color: _tab == i ? AppColors.accent : null,
+                                    color: _tab == i ? AppPalette.surface(context, AppColors.accent) : null,
                                     borderRadius: BorderRadius.circular(10)),
                                   child: Text(['کارها', 'ویزیت‌ها', 'سؤال‌ها'][i],
-                                    style: const TextStyle(fontWeight: FontWeight.bold,
-                                      fontSize: 12, color: AppColors.primaryDark)),
+                                    style: TextStyle(fontWeight: FontWeight.bold,
+                                      fontSize: 12, color: AppPalette.ink(context, AppColors.primaryDark))),
                                 ),
                               )),
                           ]))),

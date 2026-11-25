@@ -98,9 +98,13 @@ class AppGradientButton extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(13),
             gradient: LinearGradient(colors: light
-                ? [AppPalette.surface(context, const Color(0xFFA8F7EF)),
-                    AppPalette.surface(context, AppColors.accent)]
-                : const [AppColors.primary, Color(0xFF01847E)]),
+                ? AppPalette.isDark(context)
+                  ? [AppPalette.surface(context, AppColors.mint),
+                      AppPalette.surface(context, AppColors.lightMint)]
+                  : [AppPalette.surface(context, const Color(0xFFA8F7EF)),
+                      AppPalette.surface(context, AppColors.accent)]
+                : [AppPalette.surface(context, AppColors.primary),
+                    AppPalette.selected(context)?.primary ?? const Color(0xFF01847E)]),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -248,7 +252,8 @@ class AppBottomNav extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(13),
                     gradient: selectedIndex == i
-                        ? const LinearGradient(colors: [AppColors.primary, Color(0xFF007A76)])
+                        ? LinearGradient(colors: [AppPalette.surface(context, AppColors.primary),
+                          AppPalette.selected(context)?.primary ?? const Color(0xFF007A76)])
                         : null,
                   ),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

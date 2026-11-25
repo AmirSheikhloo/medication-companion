@@ -50,7 +50,7 @@ void main() {
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    meds = MedicationRepository(db);
+    meds = MedicationRepository(db, clock: () => fixedNow);
     profiles = ProfileRepository(db);
     port = FakeReminderPort();
     coordinator = ReminderCoordinator(
@@ -131,7 +131,7 @@ void main() {
     expect(port.scheduled, hasLength(3));
   });
 
-  test('tomorrow uses the new immutable version after an edit', () async {
+  test('future-only edit replaces both today and recurring reminders', () async {
     final profile = await profiles.createGuestProfile(forSelf: true);
     final id = await meds.addDailyMedication(
       profileId: profile.id,
@@ -150,8 +150,10 @@ void main() {
     await coordinator.enable();
     final today = port.scheduled.singleWhere((job) => !job.daily);
     final recurring = port.scheduled.singleWhere((job) => job.daily);
-    expect(today.localAt.hour, 8);
+    expect(today.localAt.hour, 10);
     expect(recurring.localAt.hour, 10);
+    expect(today.localAt.day, fixedNow.day);
+    expect(recurring.localAt.isAfter(today.localAt), isTrue);
   });
 
   test('revoked permission is reported, without claiming reminders exist',

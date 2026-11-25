@@ -8,13 +8,13 @@ void main() {
   late AppDatabase db;
   late MedicationRepository medications;
   late ProfileRepository profiles;
+  late DateTime clock;
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    medications = MedicationRepository(db, clock: () {
-      final now = DateTime.now();
-      return DateTime(now.year, now.month, now.day, 12);
-    });
+    final now = DateTime.now();
+    clock = DateTime(now.year, now.month, now.day);
+    medications = MedicationRepository(db, clock: () => clock);
     profiles = ProfileRepository(db);
   });
   tearDown(() async => db.close());
@@ -77,6 +77,7 @@ void main() {
       dose: original, profileId: profile.id, action: 'taken',
     ), isTrue);
 
+    clock = DateTime(clock.year, clock.month, clock.day, 12);
     await medications.updateMedicationSchedule(
       profileId: profile.id,
       medicationId: medicationId,
@@ -116,6 +117,7 @@ void main() {
     final original = await medications.dosesForDay(profile.id, today);
     await medications.recordDose(dose: original.first,
       profileId: profile.id, action: 'taken');
+    clock = DateTime(clock.year, clock.month, clock.day, 12);
     await medications.updateMedicationSchedule(
       profileId: profile.id, medicationId: id, name: 'ثابت', slots: const [
         DoseSlotInput(doseText: 'صبح', time: TimeOfDayValue(8, 0)),
@@ -138,7 +140,8 @@ void main() {
       time: const TimeOfDayValue(8, 0),
     );
     for (final time in [9, 11]) {
-      await medications.updateMedicationSchedule(
+      clock = DateTime(clock.year, clock.month, clock.day, 12);
+    await medications.updateMedicationSchedule(
         profileId: profile.id,
         medicationId: medicationId,
         name: 'تغییر',

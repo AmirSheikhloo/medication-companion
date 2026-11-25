@@ -19,7 +19,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final medications = MedicationRepository(db);
+    final medications = MedicationRepository(db, clock: () { final now = DateTime.now(); return DateTime(now.year, now.month, now.day); });
 
     await tester.pumpWidget(
       MaterialApp(
@@ -140,10 +140,9 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final medications = MedicationRepository(db, clock: () {
-      final now = DateTime.now();
-      return DateTime(now.year, now.month, now.day, 23, 59);
-    });
+    final now = DateTime.now();
+    var editClock = DateTime(now.year, now.month, now.day);
+    final medications = MedicationRepository(db, clock: () => editClock);
     await tester.pumpWidget(
       MaterialApp(
         home: Directionality(
@@ -183,6 +182,7 @@ void main() {
       await medications.dosesForDay(profile.id, DateTime.now()),
       hasLength(2),
     );
+    editClock = DateTime(now.year, now.month, now.day, 23, 59);
 
     await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();

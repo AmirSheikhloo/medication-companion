@@ -17,21 +17,64 @@ abstract final class AppColors {
   static const success = Color(0xFF16995E);
 }
 
+enum AppThemeChoice {
+  blue('آبی مدرن', Color(0xFF1D4ED8), Color(0xFF93C5FD), Color(0xFFE8F0FF)),
+  cyan('فیروزه‌ای', Color(0xFF0E7490), Color(0xFF67E8F9), Color(0xFFE3F5FA)),
+  emerald('سبز زمردی', Color(0xFF047857), Color(0xFF6EE7B7), Color(0xFFE4F6EF)),
+  violet('بنفش', Color(0xFF6D28D9), Color(0xFFC4B5FD), Color(0xFFF0E9FF));
+
+  const AppThemeChoice(this.label, this.primary, this.darkAccent, this.tint);
+  final String label;
+  final Color primary, darkAccent, tint;
+  static AppThemeChoice parse(String? name) => values.firstWhere(
+    (choice) => choice.name == name, orElse: () => blue);
+  Color get page => Color.lerp(Colors.white, tint, .58)!;
+  Color get darkTint => Color.lerp(const Color(0xFF202B3A), primary, .32)!;
+}
+
+class AppAppearance extends ThemeExtension<AppAppearance> {
+  const AppAppearance(this.choice);
+  final AppThemeChoice choice;
+  @override
+  AppAppearance copyWith({AppThemeChoice? choice}) => AppAppearance(choice ?? this.choice);
+  @override
+  AppAppearance lerp(covariant AppAppearance? other, double t) =>
+    other == null || t < .5 ? this : other;
+}
+
 /// Context-dependent colors keep the light design intact and adapt each
 /// semantic surface/foreground separately. Artwork is never color-inverted.
 abstract final class AppPalette {
   static bool isDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
 
-  static const darkBackground = Color(0xFF101820);
-  static const darkSurface = Color(0xFF202E38);
+  static AppThemeChoice? selected(BuildContext context) =>
+    Theme.of(context).extension<AppAppearance>()?.choice;
+  static const danger = Color(0xFFBE123C);
+  static const attention = Color(0xFF1D4ED8);
+  static const dangerSurface = Color(0xFFFFE4E9);
+  static const attentionSurface = Color(0xFFE5EFFF);
+  static const darkBackground = Color(0xFF111827);
+  static const darkSurface = Color(0xFF202B3A);
   static const darkMint = Color(0xFF315257);
-  static const darkOutline = Color(0xFF526873);
+  static const darkOutline = Color(0xFF46566C);
   static const darkInk = Color(0xFFE7F2F2);
   static const darkMuted = Color(0xFFB1C5C8);
   static const darkAccent = Color(0xFF75DAD1);
 
   static Color ink(BuildContext context, Color color) {
+    final choice = selected(context);
+    if (choice != null && color.a != 0) {
+      if (color == AppColors.ink || color == AppColors.primaryDark) {
+        return isDark(context) ? darkInk : const Color(0xFF1E293B);
+      }
+      if (color == AppColors.muted) {
+        return isDark(context) ? darkMuted : const Color(0xFF526176);
+      }
+      if (color == AppColors.primary || color == AppColors.accent || color == darkAccent) {
+        return isDark(context) ? choice.darkAccent : choice.primary;
+      }
+    }
     if (!isDark(context) || color.a == 0) return color;
     if (color == Colors.white || color == darkInk || color == darkMuted ||
         color == darkAccent) {
@@ -49,6 +92,37 @@ abstract final class AppPalette {
   }
 
   static Color surface(BuildContext context, Color color) {
+    final choice = selected(context);
+    if (choice != null && color.a != 0) {
+      final dark = isDark(context);
+      if (color == AppColors.background || color == const Color(0xFFF1F8F8)) {
+        return dark ? darkBackground : choice.page;
+      }
+      if (color == AppColors.primary) { return choice.primary; }
+      if (color == AppColors.accent) {
+        return dark ? choice.darkAccent : Color.lerp(choice.primary, Colors.white, .55)!;
+      }
+      if (color == AppColors.outline) {
+        return dark ? darkOutline : const Color(0xFFD5DEEA);
+      }
+      if (color == AppColors.amberLight) {
+        return dark ? const Color(0xFF203752) : attentionSurface;
+      }
+      if (color == dangerSurface || color == const Color(0xFFFFEBEF)) {
+        return dark ? const Color(0xFF482434) : dangerSurface;
+      }
+      if (color == attentionSurface || color == const Color(0xFFFFF5E4)) {
+        return dark ? const Color(0xFF223A5D) : attentionSurface;
+      }
+      final hsl = HSLColor.fromColor(color);
+      // Retheme legacy teal decorative surfaces, but never semantic
+      // green success, red danger, or blue attention.
+      if (color == AppColors.mint || color == AppColors.lightMint ||
+          (hsl.hue >= 165 && hsl.hue <= 195 && hsl.lightness > .76 && hsl.saturation > .12)) {
+        return dark ? choice.darkTint : Color.lerp(choice.tint, Colors.white,
+          color == AppColors.lightMint ? .45 : 0)!;
+      }
+    }
     if (!isDark(context) || color.a == 0) return color;
     if (color == AppColors.background) return darkBackground;
     if (color == Colors.white) return darkSurface;

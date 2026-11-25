@@ -11,7 +11,7 @@ void main() {
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    repo = MedicationRepository(db);
+    repo = MedicationRepository(db, clock: () => DateTime(2026, 11, 15));
     profiles = ProfileRepository(db);
   });
   tearDown(() async => db.close());
@@ -62,6 +62,41 @@ void main() {
     expect((await db.select(db.doseEvents).get()).length, 2);
     expect((await repo.dosesForDay(profile.id, DateTime(2026, 11, 16)))
         .single.status, 'pending');
+  });
+
+  test('new schedule skips all earlier civil minutes and keeps future slots', () async {
+    final profile = await profiles.createGuestProfile(forSelf: true);
+    final now = DateTime(2026, 11, 25, 19, 0, 30);
+    final service = MedicationRepository(db, clock: () => now);
+    await service.addMedicationSchedule(profileId: profile.id, name: 'داروی جدید',
+      slots: const [
+        DoseSlotInput(doseText: 'صبح', time: TimeOfDayValue(8, 0)),
+        DoseSlotInput(doseText: 'همین دقیقه', time: TimeOfDayValue(19, 0)),
+        DoseSlotInput(doseText: 'شب', time: TimeOfDayValue(21, 0)),
+      ]);
+    expect(await service.dosesForDay(profile.id, DateTime(2026, 11, 24)), isEmpty);
+    expect((await service.dosesForDay(profile.id, now)).map((d) => d.scheduledAt.hour), [19, 21]);
+    expect((await service.dosesForDay(profile.id, DateTime(2026, 11, 26))).map((d) => d.scheduledAt.hour), [8, 19, 21]);
+  });
+
+  test('historic archived course is reviewable without inventing suspended doses', () async {
+    final profile = await profiles.createGuestProfile(forSelf: true);
+    var clock = DateTime(2026, 11, 20, 7);
+    final service = MedicationRepository(db, clock: () => clock);
+    final id = await service.addDailyMedication(profileId: profile.id,
+      name: 'تست دوره', doseText: '1 عدد', time: const TimeOfDayValue(8, 0));
+    clock = DateTime(2026, 11, 21, 12);
+    await service.setArchived(profileId: profile.id, medicationId: id, archived: true);
+    clock = DateTime(2026, 11, 24, 12);
+    final rows = await service.dosesForDay(profile.id, DateTime(2026, 11, 20), historical: true);
+    expect(rows, hasLength(1));
+    expect(await service.dosesForDay(profile.id, DateTime(2026, 11, 22), historical: true), isEmpty);
+    expect(await service.recordDose(dose: rows.single, profileId: profile.id,
+      action: 'skipped'), isTrue);
+    expect((await service.dosesForDay(profile.id, DateTime(2026, 11, 20), historical: true)).single.status, 'skipped');
+    await service.setArchived(profileId: profile.id, medicationId: id, archived: false);
+    expect(await service.dosesForDay(profile.id, DateTime(2026, 11, 22), historical: true), isEmpty);
+    expect(await service.dosesForDay(profile.id, DateTime(2026, 11, 25)), hasLength(1));
   });
 
   test('wrong profile cannot record another person\'s dose', () async {

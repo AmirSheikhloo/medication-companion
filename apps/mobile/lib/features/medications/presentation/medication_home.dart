@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:drift/drift.dart' hide Column;
 
 import '../../../core/calendar/persian_date.dart';
+import '../../../core/calendar/persian_date_picker.dart';
 import '../../../core/storage/app_database.dart';
 import '../../../core/ui/app_design.dart';
 import '../../../core/ui/redesign_widgets.dart';
@@ -55,6 +56,7 @@ class MedicationHome extends StatefulWidget {
     this.reminderCoordinator,
     this.careReminderCoordinator,
     this.onThemeChanged,
+    this.onPaletteChanged,
     this.clock,
   });
 
@@ -63,6 +65,7 @@ class MedicationHome extends StatefulWidget {
   final ReminderCoordinator? reminderCoordinator;
   final CareReminderCoordinator? careReminderCoordinator;
   final Future<void> Function(bool dark)? onThemeChanged;
+  final Future<void> Function(AppThemeChoice)? onPaletteChanged;
   /// Injectable clock for daypart and notification widget tests.
   final DateTime Function()? clock;
 
@@ -131,19 +134,36 @@ class _MedicationHomeState extends State<MedicationHome>
     final profile = _active;
     if (profile == null) return;
     try {
+      final old = await _inboxRepository.load(profile.id);
+      final dates = <String, DateTime>{};
+      final today = _now;
+      // Discover recent missed occurrences; keep checking older open notices
+      // until the user resolves them, not merely until they age out.
+      for (var offset = 1; offset <= 7; offset++) {
+        final day = DateTime(today.year, today.month, today.day - offset);
+        dates[_dayKey(day)] = day;
+      }
+      for (final notice in old.where((n) => n.active && n.condition.startsWith('past:'))) {
+        final day = _noticeDay(notice);
+        if (day != null) { dates[_dayKey(day)] = day; }
+      }
+      final past = <DailyDose>[];
+      for (final day in dates.values) {
+        past.addAll((await widget.repository.dosesForDay(profile.id, day, historical: true))
+          .where((dose) => dose.status == 'pending'));
+      }
       final current = <InboxNotice>[
         for (final med in _medications)
           for (final alert in _visibleAttentions(med.id))
             InboxNotice(condition: 'stock:${med.id}:${alert.key}',
               medicationId: med.id, title: '${med.name} — ${alert.title}',
               message: alert.message, urgent: alert.urgent),
-        for (final dose in _doses)
-          if (dose.status == 'pending' && !dose.scheduledAt.isAfter(_now))
-            InboxNotice(condition: 'dose:${dose.occurrenceKey}',
-              medicationId: dose.medication.id,
-              title: dose.medication.name,
-              message: 'زمان مصرف: ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}',
-              urgent: false),
+        for (final dose in past)
+          InboxNotice(condition: 'past:${_dayKey(dose.scheduledAt)}:${dose.occurrenceKey}',
+            medicationId: dose.medication.id,
+            title: '${dose.medication.name} — نوبت تعیین‌وضعیت‌نشده',
+            message: '${persianDateLabel(dose.scheduledAt)}، ساعت ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}',
+            urgent: false),
       ];
       final rows = await _inboxRepository.reconcile(profile.id, current);
       if (mounted && _active?.id == profile.id) setState(() => _inbox = rows);
@@ -152,7 +172,34 @@ class _MedicationHomeState extends State<MedicationHome>
     }
   }
 
+  String _dayKey(DateTime day) => '${day.year.toString().padLeft(4, '0')}-'
+    '${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+  DateTime? _noticeDay(InboxNotice notice) => notice.condition.startsWith('past:')
+    ? DateTime.tryParse(notice.condition.split(':')[1]) : null;
+
+  Future<void> _chooseReviewDay() async {
+    final now = _now;
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
+    final selected = await showPersianDatePicker(context: context,
+      initialDate: yesterday, firstDate: DateTime(2000),
+      lastDate: yesterday, title: 'انتخاب روز گذشته');
+    if (mounted && selected != null) { await _openDoseReview(selected); }
+  }
+
+  Future<void> _openDoseReview(DateTime initial, {String? target}) async {
+    final profile = _active;
+    if (profile == null) return;
+    await Navigator.of(context).push<void>(medicationPageRoute(context,
+      _PastDoseReview(
+        repository: widget.repository, profileId: profile.id,
+        initialDay: initial, lastDay: DateTime(_now.year, _now.month, _now.day - 1),
+        target: target, onMark: _mark,
+      )));
+    if (mounted) { await _reload(); }
+  }
+
   Timer? _todayClockTicker;
+  String? _lastLoadedDay;
 
   DateTime get _now => widget.clock?.call() ?? DateTime.now();
 
@@ -173,9 +220,12 @@ class _MedicationHomeState extends State<MedicationHome>
       value: 1);
     WidgetsBinding.instance.addObserver(this);
     _todayClockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted && _tab == 0) {
-        setState(() {});
-        unawaited(_reload());
+      if (mounted) {
+        if (_lastLoadedDay != _dayKey(_now)) {
+          unawaited(_reload());
+        } else if (_tab == 0) {
+          setState(() {});
+        }
       }
     });
     _reload();
@@ -328,6 +378,7 @@ class _MedicationHomeState extends State<MedicationHome>
         _archivedMedications = archivedMeds;
         _hiddenMedications = hiddenMeds;
         _doses = doses;
+        _lastLoadedDay = _dayKey(today);
         _nextDayDoses = nextDayDoses;
         _stocks = stocks;
         _stockAttentions = attentions;
@@ -897,7 +948,7 @@ class _MedicationHomeState extends State<MedicationHome>
 
   Future<void> _mark(DailyDose dose, String action) async {
     final profile = _active;
-    if (profile == null || _saving) return;
+    if (profile == null || _saving || dose.medication.profileId != profile.id) return;
     final noStockDeduction = action == 'takenWithoutStock';
     DoseStockChoice? choice;
     if (action == 'taken') {
@@ -984,8 +1035,10 @@ class _MedicationHomeState extends State<MedicationHome>
       );
     }
     return Scaffold(
-      backgroundColor: AppPalette.isDark(context) ? AppPalette.darkBackground :
-        _tab == 0 ? TodayPalette.page : AppColors.background,
+      backgroundColor: AppPalette.selected(context) != null
+        ? AppPalette.surface(context, AppColors.background)
+        : AppPalette.isDark(context) ? AppPalette.darkBackground :
+          _tab == 0 ? TodayPalette.page : AppColors.background,
       body: SafeArea(
         bottom: false,
         child: AnimatedBuilder(
@@ -1174,6 +1227,10 @@ class _MedicationHomeState extends State<MedicationHome>
           ]),
           const SizedBox(height: 16),
           TodaySkyGreeting(hour: now.hour, name: _active!.displayName),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(onPressed: _chooseReviewDay,
+            icon: const Icon(Icons.calendar_month_outlined),
+            label: const Text('بررسی نوبت‌های روزهای گذشته')),
           const SizedBox(height: 14),
           AppPanel(
             key: const Key('today-summary-panel'),
@@ -1325,7 +1382,7 @@ class _MedicationHomeState extends State<MedicationHome>
   Future<void> _showTodayNotifications() async {
     final profile = _active;
     if (profile == null) return;
-    await _refreshInbox();
+    await _reload();
     if (!mounted || _active?.id != profile.id) return;
     var limit = 20;
     await showModalBottomSheet<void>(
@@ -1341,24 +1398,40 @@ class _MedicationHomeState extends State<MedicationHome>
         return SizedBox(height: MediaQuery.sizeOf(ctx).height * .76,
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             children: [
-              Text('اعلان‌های امروز', style: Theme.of(ctx).textTheme.titleLarge),
+              Text('اعلان‌ها', style: Theme.of(ctx).textTheme.titleLarge),
               const SizedBox(height: 12),
               if (sorted.isEmpty) const Text('اعلانی برای نمایش وجود ندارد.'),
               for (final notice in sorted.take(limit))
                 Padding(padding: const EdgeInsets.only(bottom: 10),
-                  child: AppPanel(color: !notice.active ? AppColors.background
-                    : notice.urgent ? const Color(0xFFFFE6EA)
-                    : const Color(0xFFFFF3D2), child: Column(
+                  child: AppPanel(color: !notice.active ? const Color(0xFFE7EBF0)
+                    : notice.urgent ? const Color(0xFFFFE4E9)
+                    : const Color(0xFFE5EFFF), child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        InkWell(
-                          onTap: !notice.active || notice.condition.startsWith('dose:')
-                            ? null : () async {
+                        Text(PersianDate.displayDigits(notice.title),
+                          style: TextStyle(fontWeight: FontWeight.w800,
+                            color: AppPalette.ink(ctx, !notice.active ? AppColors.muted
+                              : notice.urgent ? const Color(0xFFBE123C) : const Color(0xFF1D4ED8)))),
+                        const SizedBox(height: 6),
+                        Text(PersianDate.displayDigits(notice.message),
+                          style: TextStyle(color: AppPalette.ink(ctx,
+                            notice.active ? AppColors.ink : AppColors.muted))),
+                        if (!notice.active) const Text('برطرف شده؛ نیاز به اقدام ندارد'),
+                        const SizedBox(height: 12),
+                        Wrap(spacing: 8, runSpacing: 8, children: [
+                          FilledButton.icon(
+                            onPressed: !notice.active ? null : () async {
                               await _reload();
                               if (!mounted || !sheetContext.mounted ||
                                   _active?.id != profile.id) { return; }
                               if (!_inbox.any((n) => n.id == notice.id && n.active)) {
                                 update(() {}); return;
+                              }
+                              final day = _noticeDay(notice);
+                              if (day != null) {
+                                Navigator.pop(sheetContext);
+                                await _openDoseReview(day, target: notice.condition.split(':').skip(2).join(':'));
+                                return;
                               }
                               final meds = _medications.where((m) => m.id == notice.medicationId);
                               if (meds.isEmpty) { return; }
@@ -1370,33 +1443,24 @@ class _MedicationHomeState extends State<MedicationHome>
                                 today, _stocks[med.id], next.isNotEmpty &&
                                 next.first.plan.effectiveFrom.toLocal().isAfter(_now));
                             },
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(PersianDate.displayDigits(notice.title),
-                              style: TextStyle(fontWeight: FontWeight.w800,
-                                color: AppPalette.ink(ctx, notice.active
-                                  ? AppColors.ink : AppColors.muted))),
-                            const SizedBox(height: 5),
-                            Text(PersianDate.displayDigits(notice.message)),
-                            if (!notice.active) const Text('پایان‌یافته؛ دیگر نیاز به اقدام ندارد'),
-                            if (notice.active && !notice.condition.startsWith('dose:'))
-                              const Text('مشاهده جزئیات دارو', style: TextStyle(fontWeight: FontWeight.w700)),
-                          ])),
-                        const SizedBox(height: 10),
-                        Align(alignment: AlignmentDirectional.centerEnd,
-                          child: FilledButton.tonal(
-                            onPressed: notice.read ? null : () async {
+                            icon: Icon(notice.condition.startsWith('past:')
+                              ? Icons.edit_calendar_outlined : Icons.medication_outlined),
+                            label: Text(notice.condition.startsWith('past:') ? 'تعیین وضعیت' : 'جزئیات دارو')),
+                          OutlinedButton(
+                            onPressed: notice.read || !notice.active ? null : () async {
                               try {
                                 await _inboxRepository.markRead(profile.id, notice.id);
                                 await _refreshInbox();
-                                if (ctx.mounted) update(() {});
+                                if (ctx.mounted) { update(() {}); }
                               } catch (_) {
                                 if (ctx.mounted) {
                                   ScaffoldMessenger.of(ctx).showSnackBar(
-                                    const SnackBar(content: Text('وضعیت خواندن ذخیره نشد. دوباره تلاش کن.')));
+                                    const SnackBar(content: Text('وضعیت خواندن ذخیره نشد.')));
                                 }
                               }
                             },
-                            child: Text(notice.read ? 'خوانده شده' : 'خواندم'))),
+                            child: Text(!notice.active ? 'برطرف شده' : notice.read ? 'خوانده شده' : 'خواندم')),
+                        ]),
                       ]))),
               if (sorted.length > limit) OutlinedButton(
                 onPressed: () => update(() => limit += 20),
@@ -1461,7 +1525,7 @@ class _MedicationHomeState extends State<MedicationHome>
       'skipped' => ('مصرف نشد', Icons.cancel_rounded,
           AppPalette.tone(context, const Color(0xFFC23F43))),
       'unknown' => ('مطمئن نیستم', Icons.help_rounded,
-          AppPalette.tone(context, const Color(0xFF996116))),
+          AppPalette.tone(context, const Color(0xFF1D4ED8))),
       _ => ('', Icons.schedule_rounded, AppPalette.ink(context, AppColors.muted)),
     };
     return AnimatedContainer(
@@ -1811,7 +1875,7 @@ class _MedicationHomeState extends State<MedicationHome>
         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 7),
         decoration: BoxDecoration(
           color: alerts.isEmpty ? Colors.transparent : urgent
-            ? AppPalette.tone(context, const Color(0xFFFFEBEF)) : AppPalette.tone(context, const Color(0xFFFFF5E4)),
+            ? AppPalette.tone(context, const Color(0xFFFFE4E9)) : AppPalette.tone(context, const Color(0xFFE5EFFF)),
           borderRadius: BorderRadius.circular(15)),
         child: Row(children: [
           MedicationArtwork(name: med.name, setup: _setups[med.id], size: 51),
@@ -1842,7 +1906,7 @@ class _MedicationHomeState extends State<MedicationHome>
                     AppStatusPill(text: alert.title,
                       color: Colors.white,
                       background: alert.urgent ? const Color(0xFFC5223B)
-                        : const Color(0xFF9A5800), fontSize: 10),
+                        : const Color(0xFF1D4ED8), fontSize: 10),
                   if (alerts.length > 2)
                     Text('+${alerts.length - 2}',
                       style: const TextStyle(fontSize: 11)),
@@ -1863,9 +1927,9 @@ class _MedicationHomeState extends State<MedicationHome>
                 color: AppPalette.ink(context, AppColors.muted))),
               Text(stockLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900,
-                  color: lowStock ? AppPalette.ink(context, const Color(0xFF99520A)) : AppPalette.ink(context, AppColors.primaryDark))),
+                  color: lowStock ? AppPalette.ink(context, const Color(0xFF1D4ED8)) : AppPalette.ink(context, AppColors.primaryDark))),
               if (lowStock) Text('کم‌موجودی',
-                style: TextStyle(fontSize: 9, color: AppPalette.ink(context, const Color(0xFF99520A)))),
+                style: TextStyle(fontSize: 9, color: AppPalette.ink(context, const Color(0xFF1D4ED8)))),
               if (selected == null && !lowStock) Text('ثبت نشده',
                 style: TextStyle(fontSize: 9, color: AppPalette.ink(context, AppColors.muted))),
             ]),
@@ -1939,6 +2003,35 @@ class _MedicationHomeState extends State<MedicationHome>
       body: _moreTabRedesigned(),
     )));
 
+  Future<void> _choosePalette() async {
+    final selected = await showModalBottomSheet<AppThemeChoice>(
+      context: context, showDragHandle: true, isScrollControlled: true,
+      builder: (ctx) => SafeArea(child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('پالت رنگی برنامه', style: Theme.of(ctx).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          for (final choice in AppThemeChoice.values)
+            Card(child: ListTile(
+              leading: CircleAvatar(backgroundColor: choice.primary),
+              title: Text(choice.label),
+              trailing: Icon(AppPalette.selected(ctx) == choice
+                ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: choice.primary),
+              onTap: () => Navigator.pop(ctx, choice))),
+        ]))));
+    if (selected != null && mounted) {
+      try {
+        await widget.onPaletteChanged?.call(selected);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('پالت رنگی ذخیره نشد.')));
+        }
+      }
+    }
+  }
+
   Widget _moreTabRedesigned() => ListView(
     padding: const EdgeInsets.fromLTRB(15, 18, 15, 30),
     children: [
@@ -1959,6 +2052,10 @@ class _MedicationHomeState extends State<MedicationHome>
           title: 'حالت روشن و تاریک',
           subtitle: AppPalette.isDark(context) ? 'تاریک' : 'روشن',
           onTap: _toggleTheme),
+      if (widget.onPaletteChanged != null)
+        _settingsTile(icon: Icons.palette_outlined,
+          title: 'پالت رنگی', subtitle: 'انتخاب رنگ اصلی برنامه',
+          onTap: _choosePalette),
       _settingsTile(icon: Icons.people_outline_rounded,
         title: 'پروفایل‌ها', subtitle: 'مدیریت اعضای خانواده',
         onTap: () => Navigator.push(context, MaterialPageRoute<void>(
@@ -2044,3 +2141,114 @@ class _MedicationHomeState extends State<MedicationHome>
 String _clock(TimeOfDay time) => PersianDate.displayDigits(
   '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
 );
+
+class _PastDoseReview extends StatefulWidget {
+  const _PastDoseReview({required this.repository, required this.profileId,
+    required this.initialDay, required this.lastDay, required this.onMark, this.target});
+  final MedicationRepository repository;
+  final String profileId;
+  final DateTime initialDay, lastDay;
+  final String? target;
+  final Future<void> Function(DailyDose, String) onMark;
+  @override
+  State<_PastDoseReview> createState() => _PastDoseReviewState();
+}
+
+class _PastDoseReviewState extends State<_PastDoseReview> {
+  late DateTime _day = widget.initialDay;
+  late Future<List<DailyDose>> _future = _load();
+  bool _busy = false;
+  Future<List<DailyDose>> _load() async {
+    final rows = await widget.repository.dosesForDay(widget.profileId, _day, historical: true);
+    rows.sort((a, b) {
+      if (a.occurrenceKey == b.occurrenceKey) { return 0; }
+      if (a.occurrenceKey == widget.target) { return -1; }
+      if (b.occurrenceKey == widget.target) { return 1; }
+      return a.scheduledAt.compareTo(b.scheduledAt);
+    });
+    return rows;
+  }
+  void _setDay(DateTime date) {
+    setState(() { _day = date; _future = _load(); });
+  }
+  Future<void> _markPast(DailyDose dose, String action) async {
+    if (_busy) return;
+    if (action == 'takenWithoutStock' || action == 'taken') {
+      final confirmed = await showDialog<bool>(context: context, builder: (ctx) =>
+        AlertDialog(title: const Text('ثبت مصرف گذشته'),
+          content: Text(action == 'taken'
+            ? 'این ثبت از بسته منتخب فعلی کم می‌کند. فقط اگر موجودی قبلاً کسر نشده، تأیید کن.'
+            : 'این ثبت موجودی فعلی را تغییر نمی‌دهد. فقط اگر واقعاً دارو را مصرف کردی، تأیید کن.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('انصراف')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('تأیید')),
+          ]));
+      if (!mounted || confirmed != true) return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.onMark(dose, action);
+      if (mounted) { setState(() => _future = _load()); }
+    } finally {
+      if (mounted) { setState(() => _busy = false); }
+    }
+  }
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('نوبت‌های روزهای گذشته')),
+    body: ListView(padding: const EdgeInsets.all(16), children: [
+      AppPanel(child: Column(children: [
+        Row(children: [
+          IconButton(tooltip: 'روز قبل', onPressed: _busy ? null : () =>
+            _setDay(DateTime(_day.year, _day.month, _day.day - 1)),
+            icon: const Icon(Icons.chevron_right)),
+          Expanded(child: OutlinedButton.icon(
+            onPressed: _busy ? null : () async {
+              final date = await showPersianDatePicker(context: context,
+                initialDate: _day, firstDate: DateTime(2000), lastDate: widget.lastDay);
+              if (mounted && date != null) { _setDay(date); }
+            }, icon: const Icon(Icons.calendar_month_outlined),
+            label: Text(persianDateLabel(_day)))),
+          IconButton(tooltip: 'روز بعد', onPressed: _busy || !_day.isBefore(widget.lastDay)
+            ? null : () => _setDay(DateTime(_day.year, _day.month, _day.day + 1)),
+            icon: const Icon(Icons.chevron_left)),
+        ]),
+        const Text('ثبت گذشته بر اساس یادآوری خودت است؛ مصرف اضافی انجام نده.'),
+      ])),
+      const SizedBox(height: 12),
+      FutureBuilder<List<DailyDose>>(future: _future, builder: (ctx, snapshot) {
+        if (snapshot.hasError) { return const Text('بارگذاری نوبت‌ها انجام نشد.'); }
+        if (!snapshot.hasData) { return const Center(child: CircularProgressIndicator()); }
+        final rows = snapshot.requireData;
+        if (rows.isEmpty) { return const Text('برای این روز نوبت فعالی وجود ندارد.'); }
+        return Column(children: [
+          for (final dose in rows) Padding(padding: const EdgeInsets.only(bottom: 10),
+            child: AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text(PersianDate.displayDigits(dose.medication.name),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              Text('${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))} — ${PersianDate.displayDigits(dose.plan.doseText)}'),
+              if (dose.medication.archived) const Text('دوره پایان‌یافته؛ فقط اصلاح سابقه'),
+              const SizedBox(height: 8),
+              Text(switch (dose.status) {
+                'taken' => 'مصرف شده', 'skipped' => 'مصرف نشده',
+                'unknown' => 'نامطمئن', _ => 'تعیین وضعیت نشده',
+              }),
+              const SizedBox(height: 8),
+              if (dose.status == 'pending') Wrap(spacing: 8, runSpacing: 8, children: [
+                FilledButton(onPressed: _busy ? null : () => _markPast(dose, 'takenWithoutStock'),
+                  child: const Text('مصرف کردم (بدون کسر)')),
+                if (!dose.medication.archived)
+                  OutlinedButton(onPressed: _busy ? null : () => _markPast(dose, 'taken'),
+                    child: const Text('مصرف با کسر موجودی')),
+                OutlinedButton(onPressed: _busy ? null : () => _markPast(dose, 'skipped'),
+                  child: const Text('مصرف نکردم')),
+                OutlinedButton(onPressed: _busy ? null : () => _markPast(dose, 'unknown'),
+                  child: const Text('مطمئن نیستم')),
+              ]) else OutlinedButton(onPressed: _busy ? null : () => _markPast(dose, 'undo'),
+                child: const Text('بازگرداندن ثبت')),
+            ]))),
+        ]);
+      }),
+    ]),
+  );
+}

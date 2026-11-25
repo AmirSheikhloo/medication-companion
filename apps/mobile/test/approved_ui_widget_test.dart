@@ -20,8 +20,9 @@ void main() {
     final theme = tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!;
     expect(theme.textTheme.bodyMedium?.fontFamily, 'Vazirmatn');
     expect(theme.appBarTheme.titleTextStyle?.fontFamily, 'Vazirmatn');
-    expect(theme.colorScheme.primary, AppColors.primary);
-    expect(theme.scaffoldBackgroundColor, AppColors.background);
+    expect(theme.colorScheme.primary, AppThemeChoice.blue.primary);
+    expect(theme.scaffoldBackgroundColor, AppThemeChoice.blue.page);
+    expect(theme.extension<AppAppearance>()?.choice, AppThemeChoice.blue);
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -32,7 +33,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final medicines = MedicationRepository(db);
+    final medicines = MedicationRepository(db, clock: () { final now = DateTime.now(); return DateTime(now.year, now.month, now.day); });
     final profile = await profiles.createGuestProfile(forSelf: true);
     await medicines.addDailyMedication(
       profileId: profile.id,

@@ -579,6 +579,7 @@ class InventoryRepository {
     required String medicationId,
     required String occurrenceKey,
   }) async {
+    await _assertReadableMedication(profileId, medicationId);
     final movements = await (db.select(db.stockMovements)
           ..where((t) => t.profileId.equals(profileId) &
               t.medicationId.equals(medicationId) &
@@ -603,8 +604,12 @@ class InventoryRepository {
       reversesMovementId: debit.id,
       note: 'جبران دقیق کسر هنگام بازگرداندن ثبت',
     );
-    final pack = await _ownedPackage(profileId, medicationId, debit.packageId);
-    await _reconcileSelection(profileId, medicationId, pack.unit);
+    final med = await (db.select(db.medications)..where((t) =>
+      t.profileId.equals(profileId) & t.id.equals(medicationId))).getSingle();
+    if (!med.archived) {
+      final pack = await _ownedPackage(profileId, medicationId, debit.packageId);
+      await _reconcileSelection(profileId, medicationId, pack.unit);
+    }
   }
 
   void _validateQuantity(int value, {required bool allowZero}) {

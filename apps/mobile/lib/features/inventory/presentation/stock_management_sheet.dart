@@ -238,9 +238,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
   Widget build(BuildContext context) {
     final summary = _summary;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppPalette.surface(context, AppColors.background),
       appBar: AppBar(title: const Text('موجودی دارو'),
-        backgroundColor: AppColors.primary, foregroundColor: Colors.white,
+        backgroundColor: AppPalette.surface(context, AppColors.primary), foregroundColor: Colors.white,
         titleTextStyle: AppTypography.onPrimaryAppBar),
       body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -250,10 +250,10 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                 icon: Icons.inventory_2_outlined,
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'موجودی هر بسته جداست؛ مقدار مصرف را خودتان اعلام می‌کنید. '
                 'این بخش توصیه دارویی یا کنترل اصالت تاریخ انقضا نیست.',
-                style: TextStyle(color: AppColors.muted, fontSize: 12),
+                style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12),
               ),
               if (_error != null)
                 Text(_error!, style: const TextStyle(color: Colors.deepOrange)),
@@ -267,7 +267,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                 const Center(child: CircularProgressIndicator())
               else ...[
                 AppPanel(
-                  color: AppColors.mint,
+                  color: AppPalette.surface(context, AppColors.mint),
                   child: Row(
                     children: [
                       const AppIconTile(Icons.inventory_2_outlined),
@@ -276,9 +276,9 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'موجودی بستهٔ منتخب',
-                              style: TextStyle(color: AppColors.primaryDark),
+                              style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark)),
                             ),
                             Text(
                               summary.selected == null
@@ -290,7 +290,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryDark,
+                                    color: AppPalette.ink(context, AppColors.primaryDark),
                                   ),
                             ),
                           ],
@@ -387,7 +387,7 @@ class _StockManagementSheetState extends State<_StockManagementSheet> {
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 17),
                       decoration: BoxDecoration(
-                        color: AppColors.mint,
+                        color: AppPalette.surface(context, AppColors.mint),
                         borderRadius: BorderRadius.circular(13)),
                       child: Text(widget.medication.unit,
                         style: const TextStyle(

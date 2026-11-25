@@ -395,8 +395,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
 
   void _submit() {
     final name = _name.text.trim();
-    if (name.isEmpty || name.length > 160) {
-      _showError('نام دارو اجباری است و باید حداکثر 160 نویسه باشد.');
+    if (name.isEmpty || name.length > 80) {
+      _showError('نام دارو حداکثر 80 نویسه باشد.');
       return;
     }
     final packages = <MedicationPackageDraft>[];
@@ -501,7 +501,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     final expiryLead = _expiryAlertEnabled && _nearestExpiryDays != null
       ? _validExpiryLead : null;
     if (_expiryAlertEnabled && _nearestExpiryDays != null && expiryLead == null) {
-      _showError('فاصله هشدار انقضا را بین صفر و روزهای باقی‌مانده تعیین کن.');
+      _showError('حداکثر $_nearestExpiryDays روز.');
       return;
     }
     Navigator.of(context).pop(MedicationDraft(
@@ -521,14 +521,16 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
 
   Widget _numberField(TextEditingController controller,
       {required String label, required String hint, int? maxLength,
-      String? keyName, bool rebuildOnChange = false}) =>
+      String? keyName, bool rebuildOnChange = false, bool integerOnly = false}) =>
     TextField(
       controller: controller,
       key: keyName == null ? ValueKey(controller) : ValueKey(keyName),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [const EnglishDigitsInputFormatter(), FilteringTextInputFormatter.allow(RegExp(r'[0-9۰-۹٠-٩.٫]'))],
+      keyboardType: TextInputType.numberWithOptions(decimal: !integerOnly),
+      textInputAction: TextInputAction.next,
+      inputFormatters: [const EnglishDigitsInputFormatter(),
+        FilteringTextInputFormatter.allow(RegExp(integerOnly ? r'[0-9۰-۹٠-٩]' : r'[0-9۰-۹٠-٩.٫]'))],
       maxLength: maxLength,
       onChanged: rebuildOnChange ? (_) => setState(() {}) : null,
       decoration: InputDecoration(labelText: label, hintText: hint,
@@ -675,6 +677,8 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
         keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.next,
+        onTap: () => controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.text.length),
         maxLength: 2,
         inputFormatters: [const EnglishDigitsInputFormatter(),
           FilteringTextInputFormatter.allow(
@@ -739,7 +743,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
             horizontal: 10, vertical: 15),
           decoration: BoxDecoration(color: AppPalette.surface(context, AppColors.mint),
             borderRadius: BorderRadius.circular(14)),
-          child: Text(_baseUnit, textAlign: TextAlign.center,
+          child: Text(MedicationUnits.displayLabels[_baseUnit] ?? _baseUnit, textAlign: TextAlign.center,
             style: TextStyle(
               color: AppPalette.ink(context, AppColors.primaryDark),
               fontWeight: FontWeight.w800)))),
@@ -777,7 +781,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
     }
     if (_currentStep == 3 && _expiryAlertEnabled &&
         _nearestExpiryDays != null && _validExpiryLead == null) {
-      _showError('فاصله هشدار انقضا از زمان باقی‌مانده بیشتر است یا معتبر نیست.');
+      _showError('عدد 0 تا $_nearestExpiryDays را وارد کن.');
       return false;
     }
     if (_currentStep == 2 && !_editing) {
@@ -963,9 +967,12 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         Expanded(child: SizedBox(height: _nameControlHeight, child: TextField(
           key: const Key('medication-name-field'),
           controller: _name,
-          maxLength: 160,
-          expands: true, minLines: null, maxLines: null,
-          inputFormatters: const [EnglishDigitsInputFormatter()],
+          maxLength: 80,
+          maxLines: 1,
+          textInputAction: TextInputAction.done,
+          inputFormatters: [const EnglishDigitsInputFormatter(),
+            FilteringTextInputFormatter.singleLineFormatter,
+            LengthLimitingTextInputFormatter(80)],
           textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
             filled: true, fillColor: AppPalette.surface(context, AppColors.mint),
@@ -1105,7 +1112,7 @@ class _MedicationEntryScreenState extends State<_MedicationEntryScreen> {
         if (_expiryAlertEnabled) ...[
           const SizedBox(height: 8),
           _numberField(_expiryLead, label: '* چند روز قبل از انقضا؟',
-            hint: 'تعداد روز', rebuildOnChange: true),
+            hint: 'تعداد روز', rebuildOnChange: true, integerOnly: true),
           const SizedBox(height: 7),
           Wrap(spacing: 6, runSpacing: 6, children: [
             for (final days in [0, 7, 30, 90, 180])

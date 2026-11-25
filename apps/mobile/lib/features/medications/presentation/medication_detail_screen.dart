@@ -57,6 +57,7 @@ class MedicationDetailScreen extends StatefulWidget {
 class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   StockSummary? _reloadedStock;
   final _detailScroll = ScrollController();
+  final Map<String, GlobalKey> _packageKeys = {};
   bool _selecting = false;
 
   @override
@@ -102,10 +103,10 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
 
   Widget _attentionPanel(StockAttention alert) {
     final tone = AppPalette.ink(context, alert.urgent
-      ? const Color(0xFFC5223B) : const Color(0xFF9A5800));
+      ? const Color(0xFFC5223B) : const Color(0xFF1D4ED8));
     return Padding(padding: const EdgeInsets.only(bottom: 9),
-      child: AppPanel(color: alert.urgent ? const Color(0xFFFFEBEF)
-        : const Color(0xFFFFEDC0), child: Column(
+      child: AppPanel(color: alert.urgent ? const Color(0xFFFFE4E9)
+        : const Color(0xFFE5EFFF), child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               Icon(Icons.warning_amber_rounded, color: tone),
@@ -116,17 +117,19 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             const SizedBox(height: 6),
             Text(alert.message),
             const SizedBox(height: 8),
-            Wrap(spacing: 7, runSpacing: 6, children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               FilledButton(onPressed: () => _openPackage(null),
                 style: FilledButton.styleFrom(backgroundColor: alert.urgent
-                  ? const Color(0xFFC5223B) : const Color(0xFF9A5800),
+                  ? const Color(0xFFC5223B) : const Color(0xFF1D4ED8),
                   foregroundColor: Colors.white),
                 child: const Text('افزودن بسته')),
+              const SizedBox(height: 8),
               OutlinedButton(onPressed: () => _dismissAlert(alert),
                 style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
                   foregroundColor: tone,
                   backgroundColor: AppPalette.surface(context, Colors.white)),
                 child: const Text('عدم نمایش این هشدار')),
+              const SizedBox(height: 8),
               OutlinedButton(onPressed: onArchive,
                 style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
                   foregroundColor: tone,
@@ -172,7 +175,10 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     if (_selecting || balance.archived || balance.expired ||
         balance.balanceMilliunits <= 0) { return; }
     _selecting = true;
-    final offset = _detailScroll.hasClients ? _detailScroll.offset : 0.0;
+    // Keep the tapped row anchored, not merely the absolute pixel offset.
+    final anchor = _packageKeys[balance.package.id]?.currentContext;
+    final render = anchor?.findRenderObject();
+    final beforeY = render is RenderBox ? render.localToGlobal(Offset.zero).dy : null;
     try {
       await inventoryRepository.selectPackage(
         profileId: medication.profileId,
@@ -182,8 +188,13 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         medication.profileId, medication.id);
       await _applyFreshStock(fresh);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _detailScroll.hasClients) {
-          _detailScroll.jumpTo(offset.clamp(0.0, _detailScroll.position.maxScrollExtent).toDouble());
+        if (mounted && _detailScroll.hasClients && beforeY != null) {
+          final next = _packageKeys[balance.package.id]?.currentContext?.findRenderObject();
+          if (next is RenderBox) {
+            final target = _detailScroll.offset + next.localToGlobal(Offset.zero).dy - beforeY;
+            final clamped = target.clamp(0.0, _detailScroll.position.maxScrollExtent).toDouble();
+            if ((clamped - _detailScroll.offset).abs() > 1) { _detailScroll.jumpTo(clamped); }
+          }
         }
       });
     } catch (_) {
@@ -274,12 +285,13 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   Widget _packageRow(PackageBalance balance, bool isSelected) {
     final expired = balance.expired;
     final color = balance.archived ? AppPalette.ink(context, AppColors.muted) : expired
-        ? AppPalette.tone(context, const Color(0xFFBB4356))
+        ? AppPalette.tone(context, const Color(0xFFBE123C))
         : isSelected ? AppPalette.ink(context, AppColors.primary) : AppPalette.ink(context, AppColors.muted);
     final fill = balance.archived ? AppPalette.tone(context, const Color(0xFFF0F2F3)) : expired
         ? AppPalette.tone(context, const Color(0xFFFFF0F1))
         : isSelected ? AppPalette.tone(context, const Color(0xFFE0F5F0)) : AppPalette.tone(context, const Color(0xFFF5F8F9));
-    return InkWell(onTap: () => _openPackage(balance),
+    return InkWell(key: _packageKeys.putIfAbsent(balance.package.id, GlobalKey.new),
+      onTap: () => _openPackage(balance),
       borderRadius: BorderRadius.circular(15),
       child: Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -309,14 +321,14 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
 
             if (balance.balanceMilliunits <= 0 && !balance.archived)
               Text('موجودی تمام شده',
-                style: TextStyle(color: AppPalette.ink(context, const Color(0xFFB04A38)),
+                style: TextStyle(color: AppPalette.ink(context, const Color(0xFFBE123C)),
                   fontWeight: FontWeight.w800, fontSize: 11)),
             if (balance.archived) Text(balance.deleted
               ? 'حذف‌شده از فهرست؛ قابل بازگردانی'
               : 'بایگانی‌شده؛ خارج از موجودی فعال',
               style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 11)),
             if (expired) Text('منقضی‌شده؛ قابل انتخاب برای مصرف نیست',
-              style: TextStyle(color: AppPalette.ink(context, const Color(0xFFBB4356)), fontSize: 11,
+              style: TextStyle(color: AppPalette.ink(context, const Color(0xFFBE123C)), fontSize: 11,
                 fontWeight: FontWeight.w700)),
           ],
         )),
@@ -344,7 +356,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final selected = stock?.selected;
-    final statusColor = stock?.lowStock == true ? AppPalette.tone(context, const Color(0xFFB16D06)) : AppPalette.ink(context, AppColors.primary);
+    final statusColor = stock?.lowStock == true ? AppPalette.tone(context, const Color(0xFF1D4ED8)) : AppPalette.ink(context, AppColors.primary);
     // FEFO ordering for visibility; changing the selected stock is an
     // explicit user action from the stock management screen.
     final packages = <PackageBalance>[...?stock?.packages];
@@ -391,7 +403,9 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             ],
           ),
         ]),
-      body: ListView(controller: _detailScroll, padding: const EdgeInsets.fromLTRB(16, 15, 16, 32), children: [
+      body: SingleChildScrollView(controller: _detailScroll,
+        padding: const EdgeInsets.fromLTRB(16, 15, 16, 32),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           MedicationArtwork(name: medication.name, setup: setup, size: 82),
           const SizedBox(width: 15),
@@ -399,18 +413,18 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             Text(PersianDate.displayDigits(medication.name), style: TextStyle(fontWeight: FontWeight.w900,
               fontSize: 23, color: AppPalette.ink(context, AppColors.primaryDark))),
             const SizedBox(height: 5),
-            AppStatusPill(text: hidden ? 'حذف‌شده از فهرست' : archived ? 'پایان مصرف' : 'فعال',
-              icon: archived ? Icons.archive_outlined : Icons.check, color: AppColors.primary),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              AppStatusPill(text: hidden ? 'حذف‌شده از فهرست' : archived ? 'پایان مصرف' : 'فعال',
+                icon: archived || hidden ? Icons.archive_outlined : Icons.check,
+                color: Colors.white, background: archived || hidden
+                  ? const Color(0xFF64748B) : const Color(0xFF15803D)),
+              if (!archived && !hidden)
+                for (final alert in _currentAttention)
+                  AppStatusPill(text: alert.title, color: Colors.white,
+                    background: alert.urgent ? AppPalette.danger : AppPalette.attention),
+            ]),
           ])),
         ]),
-        if (!archived && !hidden && _currentAttention.isNotEmpty)
-          Padding(padding: const EdgeInsets.only(top: 10),
-            child: Wrap(spacing: 6, runSpacing: 6, children: [
-              for (final alert in _currentAttention)
-                AppStatusPill(text: alert.title, color: Colors.white,
-                  background: alert.urgent ? const Color(0xFFC5223B)
-                    : const Color(0xFF9A5800)),
-            ])),
         const SizedBox(height: 22),
         if (!archived && !hidden)
           for (final alert in _currentAttention)
@@ -466,12 +480,12 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             const SizedBox(height: 8),
             const AppStatusPill(text: 'موجودی این بسته تمام شده',
               icon: Icons.inventory_2_outlined,
-              color: Color(0xFFB35A2C)),
+              color: Color(0xFFBE123C)),
           ],
           if (stock?.lowStock == true) ...[
             const SizedBox(height: 7),
-            const AppStatusPill(text: 'هشدار کم‌موجودی',
-              icon: Icons.warning_amber_rounded, color: Color(0xFFB16D06)),
+            AppStatusPill(text: 'کمبود: ${selected?.package.label ?? 'بسته منتخب'}',
+              icon: Icons.warning_amber_rounded, color: const Color(0xFF1D4ED8)),
           ],
           const SizedBox(height: 12),
           for (final pack in packages.where((p) => !p.archived))
@@ -529,7 +543,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               onPressed: widget.onUnhide,
               icon: const Icon(Icons.restore_rounded),
               label: const Text('بازگرداندن دارو به فهرست'))),
-      ]),
+      ])),
     );
   }
 }

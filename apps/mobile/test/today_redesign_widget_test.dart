@@ -67,7 +67,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final medicines = MedicationRepository(db);
+    final medicines = MedicationRepository(db, clock: () => DateTime(2026, 11, 21));
     final me = await profiles.createGuestProfile(forSelf: true);
     await medicines.addDailyMedication(
       profileId: me.id,
@@ -105,7 +105,9 @@ void main() {
     expect(find.byKey(const Key('today-multistatus-ring')), findsOneWidget);
     await tester.tap(find.byKey(const Key('today-notifications-button')));
     await tester.pumpAndSettle();
-    expect(find.text('اعلان‌های امروز'), findsOneWidget);
+    expect(find.text('اعلان‌ها'), findsOneWidget);
+    expect(find.textContaining('نوبت تعیین‌وضعیت‌نشده'), findsOneWidget);
+    expect(find.text('زمان مصرف: 08:00'), findsNothing);
     // The notification panel is a modal sheet without an AppBar back button.
     await tester.tapAt(const Offset(8, 8));
     await tester.pumpAndSettle();
@@ -179,7 +181,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final medicines = MedicationRepository(db);
+    final medicines = MedicationRepository(db, clock: () => DateTime(2026, 11, 22));
     final me = await profiles.createGuestProfile(forSelf: true,
       displayName: 'امیر');
     await medicines.addDailyMedication(

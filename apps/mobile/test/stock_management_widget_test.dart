@@ -18,7 +18,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final profiles = ProfileRepository(db);
-    final medicationRepository = MedicationRepository(db);
+    final medicationRepository = MedicationRepository(db, clock: () { final now = DateTime.now(); return DateTime(now.year, now.month, now.day); });
     final inventory = InventoryRepository(db);
 
     final profile = await profiles.createGuestProfile(forSelf: true);
