@@ -74,15 +74,15 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
                               onTap: () => Navigator.pop(sheetContext, option),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 16),
+                                  horizontal: 12, vertical: 16),
                                 child: Row(children: [
                                   Expanded(child: Text(widget.optionLabels[option] ?? option,
                                     style: TextStyle(
                                       color: AppPalette.ink(context, AppColors.primaryDark),
-                                      fontWeight: FontWeight.w700))),
+                                      fontSize: 13, fontWeight: FontWeight.w700))),
                                   if (widget.commonOptions.contains(option)) ...[
                                     const SizedBox(width: 8),
-                                    Flexible(child: Container(
+                                    Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         color: AppPalette.isDark(context)
@@ -91,11 +91,12 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
                                       child: Text('پرکاربرد',
                                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
                                           color: AppPalette.isDark(context)
-                                            ? const Color(0xFFB7E5FF) : const Color(0xFF145B86))))),
+                                            ? const Color(0xFFB7E5FF) : const Color(0xFF145B86)))),
                                   ],
-                                  if (option == widget.value)
-                                    Icon(Icons.check_circle_rounded,
-                                      color: AppPalette.ink(context, AppColors.primary)),
+                                  const SizedBox(width: 8),
+                                  SizedBox(width: 24, child: Icon(
+                                    option == widget.value ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                                    color: AppPalette.ink(context, option == widget.value ? AppColors.primary : AppColors.muted))),
                                 ]),
                               ),
                             ),

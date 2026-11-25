@@ -35,7 +35,7 @@ class StockAttention {
           selected.package.expiryPrecision, now)) {
       alerts.add(StockAttention(
         'low:${selected.package.id}:${stock.thresholdMilliunits}',
-        'رو به اتمام', 'موجودی بسته منتخب به حد هشدار رسیده است.', 3));
+        'رو به اتمام', '${selected.package.label} — ${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit} باقی مانده است.', 3));
     }
     for (final pack in stock.packages) {
       final iso = pack.package.expiryIso;

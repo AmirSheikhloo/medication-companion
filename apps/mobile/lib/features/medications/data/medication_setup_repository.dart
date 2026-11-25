@@ -61,8 +61,9 @@ abstract final class MedicationUnits {
   // UI labels are separate from persistent unit keys.
   static const displayLabels = <String, String>{
     'میلی‌لیتر': 'میلی‌لیتر (سی‌سی)',
-    teaSpoon: 'قاشق چای‌خوری مدرج (5 mL)',
-    tableSpoon: 'قاشق غذاخوری مدرج (15 mL)',
+    teaSpoon: 'قاشق چای‌خوری (\u20665 mL\u2069)',
+    tableSpoon: 'قاشق غذاخوری (\u206615 mL\u2069)',
+    dessertSpoon: 'قاشق مرباخوری (حجم قابل تنظیم)',
   };
   static int categoryOf(String unit) =>
     isLiquid(unit) ? 1 : mass.contains(unit) ? 2 : 0;
