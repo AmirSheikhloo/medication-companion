@@ -240,7 +240,7 @@ class _HealthTabState extends State<HealthTab> {
         subtitle: 'اندازه‌گیری‌ها، سوابق و پیگیری‌های مراقبتی'),
       const SizedBox(height: 14),
       Row(children: [
-        Expanded(child: AppPanel(color: AppPalette.surface(context, AppColors.mint),
+        Expanded(child: AppPanel(
           padding: const EdgeInsets.all(13),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [Icon(Icons.favorite_outline,
@@ -257,7 +257,7 @@ class _HealthTabState extends State<HealthTab> {
               fontSize: 10)),
           ]))),
         const SizedBox(width: 9),
-        Expanded(child: AppPanel(color: AppPalette.surface(context, AppColors.mint),
+        Expanded(child: AppPanel(
           padding: const EdgeInsets.all(13),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [Icon(Icons.monitor_weight_outlined,

@@ -70,6 +70,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('داروی صبح'), findsOneWidget);
     expect(find.text('داروی شب'), findsOneWidget);
+    final rows = await medicines.medicationsFor(profile.id);
+    for (final med in rows) {
+      final card = find.byKey(ValueKey('medicine-card-${med.id}'));
+      expect(card, findsOneWidget);
+      expect(tester.widget<Material>(card).elevation, greaterThan(0));
+      expect(find.ancestor(of: card, matching: find.byType(AppPanel)), findsNothing);
+    }
     await tester.tap(find.text('کم‌موجودی'));
     await tester.pumpAndSettle();
     expect(find.text('دارویی با این نام پیدا نشد.'), findsOneWidget);

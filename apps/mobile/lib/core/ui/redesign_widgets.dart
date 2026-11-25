@@ -268,12 +268,13 @@ class AppWaveBanner extends StatelessWidget {
     borderRadius: BorderRadius.circular(20),
     child: Stack(children: [
       Container(height: 84, decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppPalette.tint(context), AppPalette.surface(context, AppColors.background)]))),
+        gradient: LinearGradient(colors: [AppPalette.brand(context),
+          Color.lerp(AppPalette.brand(context), const Color(0xFF0F172A), .25)!]))),
       Positioned.directional(textDirection: Directionality.of(context),
         start: -36, bottom: -54,
         child: Transform.rotate(angle: -math.pi / 10,
           child: Container(width: 190, height: 112,
-            decoration: BoxDecoration(color: AppPalette.brandInk(context).withValues(alpha: .14),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(80))))),
       Padding(padding: const EdgeInsets.all(14), child: child),
     ]),

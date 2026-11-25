@@ -1403,7 +1403,8 @@ class _MedicationHomeState extends State<MedicationHome>
               if (sorted.isEmpty) const Text('اعلانی برای نمایش وجود ندارد.'),
               for (final notice in sorted.take(limit))
                 Padding(padding: const EdgeInsets.only(bottom: 10),
-                  child: AppPanel(child: Column(
+                  child: AppPanel(color: notice.active ? Colors.white : const Color(0xFFE7EBF0),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(PersianDate.displayDigits(notice.title),
@@ -1530,7 +1531,9 @@ class _MedicationHomeState extends State<MedicationHome>
     return AnimatedContainer(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeInOutCubic,
-      color: AppPalette.surface(context, todayDoseCardBackground(dose.status)),
+      color: AppPalette.selected(context) == null
+        ? AppPalette.surface(context, todayDoseCardBackground(dose.status))
+        : AppPalette.card(context),
       child: Column(children: [
         InkWell(
         key: Key('today-dose-${dose.occurrenceKey}'),
@@ -1615,7 +1618,9 @@ class _MedicationHomeState extends State<MedicationHome>
       curve: Curves.easeInOutCubic,
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
-      color: AppPalette.surface(context, todayDoseCardBackground(dose.status)),
+      color: AppPalette.selected(context) == null
+        ? AppPalette.surface(context, todayDoseCardBackground(dose.status))
+        : AppPalette.card(context),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Divider(height: 14, color: AppPalette.surface(context, AppColors.outline)),
         Text('ساعت برنامه: ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}  |  '
@@ -1898,8 +1903,8 @@ class _MedicationHomeState extends State<MedicationHome>
               Padding(padding: const EdgeInsets.only(top: 5),
                 child: Wrap(spacing: 5, runSpacing: 4, children: [
                   for (final alert in alerts.take(2))
-                    Text(alert.title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                      color: AppPalette.ink(context, urgent ? AppPalette.danger : AppPalette.brandInk(context)))),
+                    AppStatusPill(text: alert.title, fontSize: 11,
+                      color: urgent ? AppPalette.danger : AppPalette.brandInk(context)),
                   if (alerts.length > 2)
                     Text('+${alerts.length - 2}',
                       style: const TextStyle(fontSize: 11)),
@@ -2025,10 +2030,10 @@ class _MedicationHomeState extends State<MedicationHome>
         const MedicineArtwork(seed: 'همراه دارو', size: 58),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('همراه دارو', style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
+          const Text('همراه دارو', style: TextStyle(color: Colors.white,
             fontWeight: FontWeight.w900, fontSize: 19)),
-          Text('مدیریت هوشمند داروهای شما',
-            style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
+          const Text('مدیریت هوشمند داروهای شما',
+            style: TextStyle(color: Colors.white70, fontSize: 12)),
         ])),
       ])),
       const SizedBox(height: 17),
