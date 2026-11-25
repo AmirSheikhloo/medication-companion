@@ -149,7 +149,7 @@ class _MedicationHomeState extends State<MedicationHome>
       }
       final past = <DailyDose>[];
       for (final day in dates.values) {
-        past.addAll((await widget.repository.dosesForDay(profile.id, day))
+        past.addAll((await widget.repository.dosesForDay(profile.id, day, historical: true))
           .where((dose) => dose.status == 'pending'));
       }
       final current = <InboxNotice>[
@@ -199,6 +199,7 @@ class _MedicationHomeState extends State<MedicationHome>
   }
 
   Timer? _todayClockTicker;
+  String? _lastLoadedDay;
 
   DateTime get _now => widget.clock?.call() ?? DateTime.now();
 
@@ -219,9 +220,12 @@ class _MedicationHomeState extends State<MedicationHome>
       value: 1);
     WidgetsBinding.instance.addObserver(this);
     _todayClockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted && _tab == 0) {
-        setState(() {});
-        unawaited(_reload());
+      if (mounted) {
+        if (_lastLoadedDay != _dayKey(_now)) {
+          unawaited(_reload());
+        } else if (_tab == 0) {
+          setState(() {});
+        }
       }
     });
     _reload();
@@ -374,6 +378,7 @@ class _MedicationHomeState extends State<MedicationHome>
         _archivedMedications = archivedMeds;
         _hiddenMedications = hiddenMeds;
         _doses = doses;
+        _lastLoadedDay = _dayKey(today);
         _nextDayDoses = nextDayDoses;
         _stocks = stocks;
         _stockAttentions = attentions;
@@ -2154,7 +2159,7 @@ class _PastDoseReviewState extends State<_PastDoseReview> {
   late Future<List<DailyDose>> _future = _load();
   bool _busy = false;
   Future<List<DailyDose>> _load() async {
-    final rows = await widget.repository.dosesForDay(widget.profileId, _day);
+    final rows = await widget.repository.dosesForDay(widget.profileId, _day, historical: true);
     rows.sort((a, b) {
       if (a.occurrenceKey == b.occurrenceKey) { return 0; }
       if (a.occurrenceKey == widget.target) { return -1; }
@@ -2222,6 +2227,7 @@ class _PastDoseReviewState extends State<_PastDoseReview> {
               Text(PersianDate.displayDigits(dose.medication.name),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
               Text('${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))} — ${PersianDate.displayDigits(dose.plan.doseText)}'),
+              if (dose.medication.archived) const Text('دوره پایان‌یافته؛ فقط اصلاح سابقه'),
               const SizedBox(height: 8),
               Text(switch (dose.status) {
                 'taken' => 'مصرف شده', 'skipped' => 'مصرف نشده',
@@ -2231,8 +2237,9 @@ class _PastDoseReviewState extends State<_PastDoseReview> {
               if (dose.status == 'pending') Wrap(spacing: 8, runSpacing: 8, children: [
                 FilledButton(onPressed: _busy ? null : () => _markPast(dose, 'takenWithoutStock'),
                   child: const Text('مصرف کردم (بدون کسر)')),
-                OutlinedButton(onPressed: _busy ? null : () => _markPast(dose, 'taken'),
-                  child: const Text('مصرف با کسر موجودی')),
+                if (!dose.medication.archived)
+                  OutlinedButton(onPressed: _busy ? null : () => _markPast(dose, 'taken'),
+                    child: const Text('مصرف با کسر موجودی')),
                 OutlinedButton(onPressed: _busy ? null : () => _markPast(dose, 'skipped'),
                   child: const Text('مصرف نکردم')),
                 OutlinedButton(onPressed: _busy ? null : () => _markPast(dose, 'unknown'),

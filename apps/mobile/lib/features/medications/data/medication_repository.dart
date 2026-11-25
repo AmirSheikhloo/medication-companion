@@ -325,8 +325,15 @@ class MedicationRepository {
     }
   }
 
-  Future<List<DailyDose>> dosesForDay(String profileId, DateTime day) async {
-    final meds = await medicationsFor(profileId);
+  Future<List<DailyDose>> dosesForDay(String profileId, DateTime day,
+      {bool historical = false}) async {
+    final now = _clock().toLocal();
+    final dayStart = DateTime(day.year, day.month, day.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final review = historical && dayStart.isBefore(today);
+    final meds = review
+      ? await (db.select(db.medications)..where((t) => t.profileId.equals(profileId))).get()
+      : await medicationsFor(profileId);
     if (meds.isEmpty) return [];
     final ids = meds.map((m) => m.id).toList();
     final plans = await (db.select(db.medicationPlanVersions)
@@ -343,10 +350,12 @@ class MedicationRepository {
         plan.effectiveFrom;
     }
     final byMedication = {for (final med in meds) med.id: med};
-    final dayStart = DateTime(day.year, day.month, day.day);
     // Legacy builds could create a recorded occurrence before the first plan
     // became effective. Preserve those records; never synthesize new ones.
     final earlyKeys = <String>{};
+    final allKeys = <String>{
+      for (final plan in plans) OccurrenceKey.forDailyPlan(plan.id, dayStart),
+    };
     for (final plan in plans.where((p) => p.version == 1)) {
       final localStart = plan.effectiveFrom.toLocal();
       final startMinute = DateTime(localStart.year, localStart.month,
@@ -356,16 +365,21 @@ class MedicationRepository {
         earlyKeys.add(OccurrenceKey.forDailyPlan(plan.id, dayStart));
       }
     }
-    final recordedEarly = earlyKeys.isEmpty ? <String>{} :
+    final recordedKeys = (review ? allKeys : earlyKeys).isEmpty ? <String>{} :
       (await (db.select(db.doseEvents)
         ..where((t) => t.profileId.equals(profileId) &
-          t.occurrenceKey.isIn(earlyKeys))).get()).map((e) => e.occurrenceKey).toSet();
+          t.occurrenceKey.isIn(review ? allKeys : earlyKeys))).get()).map((e) => e.occurrenceKey).toSet();
     final lifecycle = <String, List<dynamic>>{};
+    final legacyEnds = <String, DateTime?>{};
     for (final med in meds) {
       final row = await (db.select(db.appSettings)
         ..where((t) => t.key.equals('medication-lifecycle:v1:$profileId:${med.id}')))
         .getSingleOrNull();
-      if (row != null) { lifecycle[med.id] = jsonDecode(row.value) as List<dynamic>; }
+      if (row != null) {
+        lifecycle[med.id] = jsonDecode(row.value) as List<dynamic>;
+      } else if (review) {
+        legacyEnds[med.id] = await MedicationCourseRepository(db).endedAt(profileId, med.id);
+      }
     }
     final candidates = <DailyDose>[];
     for (final plan in plans) {
@@ -380,10 +394,17 @@ class MedicationRepository {
           if (version.key > chosen) { chosen = version.key; }
         }
       }
-      if (chosen != plan.version) continue;
       final occurrenceKey = OccurrenceKey.forDailyPlan(plan.id, dayStart);
-      if (earlyKeys.contains(occurrenceKey) &&
-          !recordedEarly.contains(occurrenceKey)) { continue; }
+      final recorded = recordedKeys.contains(occurrenceKey);
+      if (chosen != plan.version && !(review && recorded)) { continue; }
+      if (earlyKeys.contains(occurrenceKey) && !recorded) { continue; }
+      // Do not invent missing occurrences after a legacy course ended,
+      // when the previous software did not retain its restoration time.
+      if (review && !recorded && !lifecycle.containsKey(med.id)) {
+        final ended = legacyEnds[med.id];
+        if ((med.archived && ended == null) ||
+            (ended != null && !scheduledAt.isBefore(ended))) { continue; }
+      }
       var suspended = false;
       for (final change in lifecycle[med.id] ?? const []) {
         final at = DateTime.parse(change['at'] as String);
@@ -391,7 +412,7 @@ class MedicationRepository {
           suspended = change['archived'] as bool;
         }
       }
-      if (suspended) { continue; }
+      if (suspended && !(review && recorded)) { continue; }
       candidates.add(DailyDose(
         medication: med,
         plan: plan,
@@ -440,8 +461,8 @@ class MedicationRepository {
   }
 
   Future<List<DailyDose>> dosesForMedicationOnDay(
-      String profileId, String medicationId, DateTime day) async {
-    final all = await dosesForDay(profileId, day);
+      String profileId, String medicationId, DateTime day, {bool historical = false}) async {
+    final all = await dosesForDay(profileId, day, historical: historical);
     return all.where((dose) => dose.medication.id == medicationId).toList();
   }
 
@@ -470,15 +491,22 @@ class MedicationRepository {
             ..where((t) => t.id.equals(dose.plan.id) &
                 t.medicationId.equals(dose.medication.id)))
           .getSingleOrNull();
-      if (medication == null || medication.archived || plan == null) {
+      if (medication == null || plan == null) {
         throw StateError('برنامه دارو تغییر کرده است؛ صفحه را تازه کنید.');
+      }
+      final localNow = _clock().toLocal();
+      final historical = DateTime(dose.scheduledAt.year, dose.scheduledAt.month,
+        dose.scheduledAt.day).isBefore(DateTime(localNow.year, localNow.month, localNow.day));
+      if (medication.archived && (!historical || stockPackageId != null)) {
+        throw StateError('برای دوره پایان‌یافته فقط اصلاح سابقه گذشته مجاز است.');
       }
       if (dose.occurrenceKey !=
           OccurrenceKey.forDailyPlan(plan.id, dose.scheduledAt)) {
         throw StateError('شناسه نوبت معتبر نیست.');
       }
       final currentSlots =
-          await dosesForMedicationOnDay(profileId, medication.id, dose.scheduledAt);
+          await dosesForMedicationOnDay(profileId, medication.id, dose.scheduledAt,
+            historical: historical);
       if (!currentSlots.any((d) => d.occurrenceKey == dose.occurrenceKey)) {
         throw StateError('برنامه دارو تغییر کرده است؛ صفحه را تازه کنید.');
       }
