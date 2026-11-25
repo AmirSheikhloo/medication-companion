@@ -122,7 +122,7 @@ class MedicationRepository {
     final cleanedName = _validateName(name);
     final validatedSlots = _validateSlots(slots);
     final medicationId = _uuid.v4();
-    final now = DateTime.now().toUtc();
+    final now = _clock().toUtc();
     await db.transaction(() async {
       final profile = await (db.select(db.profiles)
             ..where((t) => t.id.equals(profileId)))
@@ -236,11 +236,21 @@ class MedicationRepository {
             ..where((t) =>
                 t.id.equals(medicationId) & t.profileId.equals(profileId)))
           .write(MedicationsCompanion(archived: Value(archived)));
+      if (archived != medication.archived) {
+        final lifecycleKey = 'medication-lifecycle:v1:$profileId:$medicationId';
+        final previous = await (db.select(db.appSettings)
+          ..where((t) => t.key.equals(lifecycleKey))).getSingleOrNull();
+        final changes = previous == null ? <dynamic>[] :
+          jsonDecode(previous.value) as List<dynamic>;
+        changes.add({'archived': archived, 'at': _clock().toUtc().toIso8601String()});
+        await db.into(db.appSettings).insertOnConflictUpdate(
+          AppSettingsCompanion.insert(key: lifecycleKey, value: jsonEncode(changes)));
+      }
       if (archived && !medication.archived) {
         await db.into(db.appSettings).insertOnConflictUpdate(
           AppSettingsCompanion.insert(
             key: MedicationCourseRepository.endKey(profileId, medicationId),
-            value: DateTime.now().toUtc().toIso8601String(),
+            value: _clock().toUtc().toIso8601String(),
           ),
         );
       }
@@ -333,6 +343,30 @@ class MedicationRepository {
         plan.effectiveFrom;
     }
     final byMedication = {for (final med in meds) med.id: med};
+    final dayStart = DateTime(day.year, day.month, day.day);
+    // Legacy builds could create a recorded occurrence before the first plan
+    // became effective. Preserve those records; never synthesize new ones.
+    final earlyKeys = <String>{};
+    for (final plan in plans.where((p) => p.version == 1)) {
+      final localStart = plan.effectiveFrom.toLocal();
+      final startMinute = DateTime(localStart.year, localStart.month,
+        localStart.day, localStart.hour, localStart.minute);
+      final scheduled = DateTime(day.year, day.month, day.day, plan.hour, plan.minute);
+      if (scheduled.isBefore(startMinute)) {
+        earlyKeys.add(OccurrenceKey.forDailyPlan(plan.id, dayStart));
+      }
+    }
+    final recordedEarly = earlyKeys.isEmpty ? <String>{} :
+      (await (db.select(db.doseEvents)
+        ..where((t) => t.profileId.equals(profileId) &
+          t.occurrenceKey.isIn(earlyKeys))).get()).map((e) => e.occurrenceKey).toSet();
+    final lifecycle = <String, List<dynamic>>{};
+    for (final med in meds) {
+      final row = await (db.select(db.appSettings)
+        ..where((t) => t.key.equals('medication-lifecycle:v1:$profileId:${med.id}')))
+        .getSingleOrNull();
+      if (row != null) { lifecycle[med.id] = jsonDecode(row.value) as List<dynamic>; }
+    }
     final candidates = <DailyDose>[];
     for (final plan in plans) {
       final med = byMedication[plan.medicationId];
@@ -347,10 +381,21 @@ class MedicationRepository {
         }
       }
       if (chosen != plan.version) continue;
+      final occurrenceKey = OccurrenceKey.forDailyPlan(plan.id, dayStart);
+      if (earlyKeys.contains(occurrenceKey) &&
+          !recordedEarly.contains(occurrenceKey)) { continue; }
+      var suspended = false;
+      for (final change in lifecycle[med.id] ?? const []) {
+        final at = DateTime.parse(change['at'] as String);
+        if (!at.isAfter(scheduledAt.toUtc())) {
+          suspended = change['archived'] as bool;
+        }
+      }
+      if (suspended) { continue; }
       candidates.add(DailyDose(
         medication: med,
         plan: plan,
-        occurrenceKey: OccurrenceKey.forDailyPlan(plan.id, day),
+        occurrenceKey: occurrenceKey,
         scheduledAt: scheduledAt,
         status: 'pending',
       ));

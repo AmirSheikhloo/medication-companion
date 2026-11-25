@@ -45,7 +45,8 @@ class NotificationInboxRepository {
   }
   Future<List<InboxNotice>> reconcile(String profile,
       List<InboxNotice> current) => db.transaction(() async {
-    final old = await load(profile);
+    final stored = await load(profile);
+    final old = stored.where((row) => !row.condition.startsWith('dose:')).toList();
     final byCondition = {for (final row in current) row.condition: row};
     final result = <InboxNotice>[];
     for (final row in old) {
@@ -53,11 +54,14 @@ class NotificationInboxRepository {
       result.add(live == null ? row.copy(active: false)
         : live.copy(id: row.id, read: row.read));
     }
-    var sequence = old.length;
+    var sequence = stored.fold<int>(0, (max, row) {
+      final id = int.tryParse(row.id) ?? 0;
+      return id > max ? id : max;
+    });
     for (final row in byCondition.values) {
       result.add(row.copy(id: '${++sequence}'));
     }
-    if (jsonEncode(old.map((v) => v.toJson()).toList()) !=
+    if (jsonEncode(stored.map((v) => v.toJson()).toList()) !=
         jsonEncode(result.map((v) => v.toJson()).toList())) {
       await _save(profile, result);
     }
