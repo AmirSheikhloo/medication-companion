@@ -11,6 +11,18 @@ import 'package:medication_companion/features/profiles/data/profile_repository.d
 import 'package:medication_companion/main.dart';
 
 void main() {
+  testWidgets('shared motion honors reduced animations', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: MediaQuery(
+      data: const MediaQueryData(disableAnimations: true),
+      child: Builder(builder: (context) {
+        expect(AppMotion.duration(context), Duration.zero);
+        const child = SizedBox();
+        expect(AppMotion.routeTransition(context, const AlwaysStoppedAnimation<double>(0), child), same(child));
+        return child;
+      }),
+    )));
+  });
+
   testWidgets('approved UI tokens and Persian font are used by the app', (
     tester,
   ) async {
@@ -108,6 +120,8 @@ void main() {
     await inventory.addPackage(profileId: profile.id, medicationId: med,
       label: 'معتبر', unit: 'عدد', initialMilliunits: 2000,
       selectForUse: true);
+    final healthy = await inventory.addPackage(profileId: profile.id,
+      medicationId: med, label: 'بسته کافی', unit: 'عدد', initialMilliunits: 12000);
     await inventory.setLowStockThreshold(profileId: profile.id,
       medicationId: med, thresholdMilliunits: 5000);
     await tester.pumpWidget(MaterialApp(
@@ -136,6 +150,29 @@ void main() {
     expect(edge.start.color, AppPalette.dangerStripe);
     expect(Directionality.of(tester.element(card)), TextDirection.rtl);
     expect(edge.end.width, 0);
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    final scheduleHeader = find.byKey(const Key('detail-schedule-header'));
+    final stockHeader = find.byKey(const Key('detail-stock-header'));
+    expect(tester.widget<AppSoftHeader>(scheduleHeader).tinted, isTrue);
+    expect(tester.widget<AppSoftHeader>(stockHeader).tinted, isTrue);
+    final secondary = find.byKey(const Key('stock-alert-secondary-actions'));
+    expect(secondary, findsNWidgets(2));
+    for (final row in tester.widgetList<Row>(secondary)) {
+      expect(row.children.whereType<Expanded>(), hasLength(2));
+    }
+    expect(tester.widgetList<AppPanel>(find.byType(AppPanel))
+      .any((p) => p.color == AppPalette.warningSurface), isTrue);
+    final radio = find.byKey(Key('select-package-$healthy'));
+    await tester.ensureVisible(radio);
+    await tester.pumpAndSettle();
+    await tester.tap(radio);
+    await tester.pumpAndSettle();
+    expect((await inventory.summary(profile.id, med)).selectedPackageId, healthy);
+    expect(find.text('کمبود: معتبر'), findsNothing);
+    expect(find.byKey(const Key('stock-alert-secondary-actions')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(ValueKey('package-row-$healthy')),
+      matching: find.byType(AnimatedContainer)), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

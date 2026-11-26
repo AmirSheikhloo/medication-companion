@@ -149,7 +149,7 @@ class _MedicationChoiceFieldState extends State<MedicationChoiceField> {
               const SizedBox(width: 4),
               AnimatedRotation(
                 turns: _open ? .5 : 0,
-                duration: const Duration(milliseconds: 220),
+                duration: AppMotion.duration(context, AppMotion.quick),
                 child: Icon(Icons.keyboard_arrow_down_rounded,
                   color: AppPalette.ink(context, AppColors.primary), size: 21)),
             ]),

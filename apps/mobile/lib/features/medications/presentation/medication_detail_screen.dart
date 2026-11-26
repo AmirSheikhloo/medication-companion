@@ -404,7 +404,9 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
       body: SingleChildScrollView(controller: _detailScroll,
         padding: const EdgeInsets.fromLTRB(16, 15, 16, 32),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
+        AnimatedSize(duration: AppMotion.duration(context), curve: AppMotion.curve,
+          alignment: Alignment.topCenter,
+          child: Row(children: [
           MedicationArtwork(name: medication.name, setup: setup, size: 82),
           const SizedBox(width: 15),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -423,7 +425,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                     background: alert.urgent ? AppPalette.dangerSurface : AppPalette.warningSurface),
             ]),
           ])),
-        ]),
+        ])),
         const SizedBox(height: 22),
         AnimatedSize(duration: AppMotion.duration(context), curve: AppMotion.curve,
           alignment: Alignment.topCenter,
