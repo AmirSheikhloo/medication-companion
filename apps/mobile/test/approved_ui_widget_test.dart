@@ -134,7 +134,8 @@ void main() {
       .single;
     expect(edge.start.width, 6);
     expect(edge.start.color, AppPalette.dangerStripe);
-    expect(edge.resolve(TextDirection.rtl).right.color, AppPalette.dangerStripe);
+    expect(Directionality.of(tester.element(card)), TextDirection.rtl);
+    expect(edge.end.width, 0);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
