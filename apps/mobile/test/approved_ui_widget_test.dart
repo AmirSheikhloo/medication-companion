@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:medication_companion/core/storage/app_database.dart';
 import 'package:medication_companion/core/ui/app_design.dart';
+import 'package:medication_companion/core/ui/redesign_widgets.dart';
+import 'package:medication_companion/features/inventory/data/inventory_repository.dart';
 import 'package:medication_companion/features/medications/data/medication_repository.dart';
 import 'package:medication_companion/features/medications/presentation/medication_home.dart';
 import 'package:medication_companion/features/profiles/data/profile_repository.dart';
@@ -85,5 +87,55 @@ void main() {
     expect(find.text('داروی صبح'), findsOneWidget);
     expect(find.text('داروی شب'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('mixed stock alerts retain distinct colors and critical edge in RTL',
+      (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final profiles = ProfileRepository(db);
+    final now = DateTime.now();
+    final medicines = MedicationRepository(db,
+      clock: () => DateTime(now.year, now.month, now.day));
+    final profile = await profiles.createGuestProfile(forSelf: true);
+    final med = await medicines.addDailyMedication(profileId: profile.id,
+      name: 'داروی آزمایشی', doseText: '1 عدد',
+      time: const TimeOfDayValue(8, 0));
+    final inventory = InventoryRepository(db);
+    await inventory.addPackage(profileId: profile.id, medicationId: med,
+      label: 'منقضی', unit: 'عدد', initialMilliunits: 4000,
+      expiryIso: '2000-01-01', expiryPrecision: 'day');
+    await inventory.addPackage(profileId: profile.id, medicationId: med,
+      label: 'معتبر', unit: 'عدد', initialMilliunits: 2000,
+      selectForUse: true);
+    await inventory.setLowStockThreshold(profileId: profile.id,
+      medicationId: med, thresholdMilliunits: 5000);
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(extensions: const [AppAppearance(AppThemeChoice.cyan)]),
+      home: Directionality(textDirection: TextDirection.rtl,
+        child: MedicationHome(repository: medicines, profileRepository: profiles))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('داروها'));
+    await tester.pumpAndSettle();
+    final card = find.byKey(ValueKey('medicine-card-$med'));
+    expect(card, findsOneWidget);
+    final pills = tester.widgetList<AppStatusPill>(
+      find.descendant(of: card, matching: find.byType(AppStatusPill))).toList();
+    expect(pills.singleWhere((p) => p.text == 'بسته منقضی شده').color,
+      AppPalette.danger);
+    expect(pills.singleWhere((p) => p.text == 'رو به اتمام').color,
+      AppPalette.warning);
+    final edge = tester.widgetList<Container>(
+      find.descendant(of: card, matching: find.byType(Container)))
+      .map((c) => c.decoration)
+      .whereType<BoxDecoration>()
+      .map((d) => d.border)
+      .whereType<BorderDirectional>()
+      .single;
+    expect(edge.start.width, 6);
+    expect(edge.start.color, AppPalette.dangerStripe);
+    expect(edge.resolve(TextDirection.rtl).right.color, AppPalette.dangerStripe);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }
