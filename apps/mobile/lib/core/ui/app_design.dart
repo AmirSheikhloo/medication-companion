@@ -193,6 +193,38 @@ abstract final class AppTypography {
   );
 }
 
+/// Shared short, restrained motion. Honor the system's reduce-motion setting.
+abstract final class AppMotion {
+  static const normal = Duration(milliseconds: 280);
+  static const quick = Duration(milliseconds: 220);
+  static const curve = Curves.easeInOutCubic;
+  static Duration duration(BuildContext context, [Duration value = normal]) =>
+    MediaQuery.maybeOf(context)?.disableAnimations == true ? Duration.zero : value;
+
+  static Widget routeTransition(BuildContext context, Animation<double> animation,
+      Widget child) {
+    if (MediaQuery.maybeOf(context)?.disableAnimations == true) return child;
+    final progress = animation.drive(CurveTween(curve: curve));
+    return FadeTransition(opacity: progress, child: SlideTransition(
+      position: Tween<Offset>(begin: const Offset(-.045, 0), end: Offset.zero)
+        .animate(progress),
+      textDirection: Directionality.of(context),
+      child: child));
+  }
+}
+
+class AppPageTransitions extends PageTransitionsBuilder {
+  const AppPageTransitions();
+  @override
+  Duration get transitionDuration => AppMotion.normal;
+  @override
+  Duration get reverseTransitionDuration => AppMotion.quick;
+  @override
+  Widget buildTransitions<T>(PageRoute<T> route, BuildContext context,
+      Animation<double> animation, Animation<double> secondaryAnimation,
+      Widget child) => AppMotion.routeTransition(context, animation, child);
+}
+
 class AppSectionHeading extends StatelessWidget {
   const AppSectionHeading(this.title, {super.key, this.icon, this.action});
 

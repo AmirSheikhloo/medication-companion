@@ -42,6 +42,9 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         extensions: [AppAppearance(_palette)],
+        pageTransitionsTheme: PageTransitionsTheme(builders: {
+          for (final platform in TargetPlatform.values) platform: const AppPageTransitions(),
+        }),
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
           backgroundColor: _palette.primary,
@@ -160,6 +163,9 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
       ),
       darkTheme: ThemeData(
         extensions: [AppAppearance(_palette)],
+        pageTransitionsTheme: PageTransitionsTheme(builders: {
+          for (final platform in TargetPlatform.values) platform: const AppPageTransitions(),
+        }),
         snackBarTheme: SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
           backgroundColor: _palette.primary,

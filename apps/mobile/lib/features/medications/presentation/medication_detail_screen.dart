@@ -57,7 +57,6 @@ class MedicationDetailScreen extends StatefulWidget {
 class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   StockSummary? _reloadedStock;
   final _detailScroll = ScrollController();
-  final Map<String, GlobalKey> _packageKeys = {};
   bool _selecting = false;
 
   @override
@@ -103,8 +102,10 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
 
   Widget _attentionPanel(StockAttention alert) {
     final tone = AppPalette.alertInk(context, alert.urgent);
-    return Padding(padding: const EdgeInsets.only(bottom: 12),
-      child: AppPanel(child: Column(
+    final fill = AppPalette.alertFill(context, alert.urgent);
+    return Padding(key: ValueKey(alert.key), padding: const EdgeInsets.only(bottom: 12),
+      child: AppPanel(color: alert.urgent ? AppPalette.dangerSurface : AppPalette.warningSurface,
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               Icon(Icons.warning_amber_rounded, color: tone),
@@ -122,17 +123,25 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                   foregroundColor: Colors.white),
                 child: const Text('افزودن بسته')),
               const SizedBox(height: 8),
-              OutlinedButton(onPressed: () => _dismissAlert(alert),
-                style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
-                  foregroundColor: tone,
-                  backgroundColor: AppPalette.surface(context, Colors.white)),
-                child: const Text('عدم نمایش این هشدار')),
-              const SizedBox(height: 8),
-              OutlinedButton(onPressed: onArchive,
-                style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
-                  foregroundColor: tone,
-                  backgroundColor: AppPalette.surface(context, Colors.white)),
-                child: const Text('مدیریت پایان دوره')),
+              Row(key: const Key('stock-alert-secondary-actions'), children: [
+                Expanded(child: OutlinedButton(onPressed: () => _dismissAlert(alert),
+                  style: OutlinedButton.styleFrom(side: BorderSide(color: tone.withValues(alpha: .55)),
+                    foregroundColor: tone,
+                    backgroundColor: Color.lerp(fill, tone, .10),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9)),
+                  child: const Text('عدم نمایش این هشدار',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: 12)))),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(onPressed: onArchive,
+                  style: OutlinedButton.styleFrom(side: BorderSide(color: tone.withValues(alpha: .55)),
+                    foregroundColor: tone,
+                    backgroundColor: Color.lerp(fill, tone, .10),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9)),
+                  child: const Text('مدیریت پایان دوره',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: 12)))),
+              ]),
             ]),
           ])));
   }
@@ -173,10 +182,8 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     if (_selecting || balance.archived || balance.expired ||
         balance.balanceMilliunits <= 0) { return; }
     _selecting = true;
-    // Keep the tapped row anchored, not merely the absolute pixel offset.
-    final anchor = _packageKeys[balance.package.id]?.currentContext;
-    final render = anchor?.findRenderObject();
-    final beforeY = render is RenderBox ? render.localToGlobal(Offset.zero).dy : null;
+    // Keep the current scroll controller and row order. AnimatedSize above
+    // the rows absorbs changing alert heights instead of jumping the viewport.
     try {
       await inventoryRepository.selectPackage(
         profileId: medication.profileId,
@@ -185,16 +192,6 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
       final fresh = await inventoryRepository.summary(
         medication.profileId, medication.id);
       await _applyFreshStock(fresh);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _detailScroll.hasClients && beforeY != null) {
-          final next = _packageKeys[balance.package.id]?.currentContext?.findRenderObject();
-          if (next is RenderBox) {
-            final target = _detailScroll.offset + next.localToGlobal(Offset.zero).dy - beforeY;
-            final clamped = target.clamp(0.0, _detailScroll.position.maxScrollExtent).toDouble();
-            if ((clamped - _detailScroll.offset).abs() > 1) { _detailScroll.jumpTo(clamped); }
-          }
-        }
-      });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -286,10 +283,11 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         ? AppPalette.tone(context, const Color(0xFFBE123C))
         : isSelected ? AppPalette.ink(context, AppColors.primary) : AppPalette.ink(context, AppColors.muted);
     final fill = isSelected ? AppPalette.tint(context) : AppPalette.card(context);
-    return InkWell(key: _packageKeys.putIfAbsent(balance.package.id, GlobalKey.new),
+    return InkWell(key: ValueKey('package-row-${balance.package.id}'),
       onTap: () => _openPackage(balance),
       borderRadius: BorderRadius.circular(15),
-      child: Container(
+      child: AnimatedContainer(
+      duration: AppMotion.duration(context), curve: AppMotion.curve,
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
@@ -330,10 +328,11 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         )),
         SizedBox(width: 58, child: Column(
           mainAxisSize: MainAxisSize.min, children: [
-            SizedBox(height: 22, child: isSelected
-              ? const AppStatusPill(text: 'منتخب',
-                  color: AppColors.primary, fontSize: 10)
-              : const SizedBox.shrink()),
+            SizedBox(height: 22, child: AnimatedSwitcher(
+              duration: AppMotion.duration(context, AppMotion.quick),
+              child: isSelected ? const AppStatusPill(key: ValueKey('selected'),
+                text: 'منتخب', color: AppColors.primary, fontSize: 10)
+                : const SizedBox.shrink(key: ValueKey('unselected')))),
             IconButton(
               key: Key('select-package-${balance.package.id}'),
               tooltip: isSelected ? 'بسته منتخب' : 'انتخاب برای مصرف',
@@ -360,9 +359,12 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
       if (a.archived != b.archived) return a.archived ? 1 : -1;
       final left = a.package.expiryIso;
       final right = b.package.expiryIso;
-      if (left == null) return right == null ? 0 : 1;
-      if (right == null) return -1;
-      return left.compareTo(right);
+      if (left == null && right != null) return 1;
+      if (right == null && left != null) return -1;
+      final byExpiry = left == null ? 0 : left.compareTo(right!);
+      if (byExpiry != 0) return byExpiry;
+      final byCreation = a.package.createdAt.compareTo(b.package.createdAt);
+      return byCreation != 0 ? byCreation : a.package.id.compareTo(b.package.id);
     });
     return Scaffold(
       backgroundColor: AppPalette.surface(context, AppColors.background),
@@ -423,12 +425,17 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           ])),
         ]),
         const SizedBox(height: 22),
-        if (!archived && !hidden)
-          for (final alert in _currentAttention)
-            if (!_dismissedAttention.contains(alert.key))
-              _attentionPanel(alert),
+        AnimatedSize(duration: AppMotion.duration(context), curve: AppMotion.curve,
+          alignment: Alignment.topCenter,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (!archived && !hidden)
+              for (final alert in _currentAttention)
+                if (!_dismissedAttention.contains(alert.key))
+                  _attentionPanel(alert),
+          ])),
         AppPanel(padding: const EdgeInsets.all(12), child: Column(children: [
-          const AppSoftHeader(title: 'برنامه مصرف', icon: Icons.calendar_month_outlined),
+          const AppSoftHeader(key: Key('detail-schedule-header'), title: 'برنامه مصرف',
+            icon: Icons.calendar_month_outlined, tinted: true),
           if (pendingSchedule) Padding(padding: EdgeInsets.only(top: 8),
             child: Text('برنامه جدید — از فردا؛ نوبت‌های امروز تغییر نمی‌کنند.',
               style: TextStyle(fontSize: 11, color: AppPalette.ink(context, AppColors.primary)))),
@@ -463,9 +470,12 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         ])),
         const SizedBox(height: 12),
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const AppSoftHeader(title: 'موجودی و بسته‌ها',
-            icon: Icons.inventory_2_outlined),
+          const AppSoftHeader(key: Key('detail-stock-header'), title: 'موجودی و بسته‌ها',
+            icon: Icons.inventory_2_outlined, tinted: true),
           const SizedBox(height: 9),
+          AnimatedSize(duration: AppMotion.duration(context), curve: AppMotion.curve,
+            alignment: Alignment.topCenter,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(selected == null
               ? 'هنوز بسته‌ای برای مصرف انتخاب نشده است.'
               : PersianDate.displayDigits(
@@ -485,6 +495,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               icon: Icons.warning_amber_rounded, color: AppPalette.warning,
               background: AppPalette.warningSurface),
           ],
+          ])),
           const SizedBox(height: 12),
           for (final pack in packages.where((p) => !p.archived))
             _packageRow(pack, pack.package.id == stock?.selectedPackageId),

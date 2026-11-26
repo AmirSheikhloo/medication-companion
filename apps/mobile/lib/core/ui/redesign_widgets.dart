@@ -126,7 +126,8 @@ class AppGradientButton extends StatelessWidget {
 
 class AppSoftHeader extends StatelessWidget {
   const AppSoftHeader({super.key, required this.title, this.icon = Icons.medication_outlined,
-    this.subtitle, this.trailing});
+    this.subtitle, this.trailing, this.tinted = false});
+  final bool tinted;
   final String title;
   final String? subtitle;
   final IconData icon;
@@ -134,11 +135,13 @@ class AppSoftHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
+    padding: EdgeInsets.symmetric(horizontal: tinted ? 12 : 2, vertical: tinted ? 9 : 12),
+    decoration: tinted ? BoxDecoration(color: AppPalette.tint(context),
+      borderRadius: BorderRadius.circular(10)) : null,
     child: Row(children: [
       Container(
-        padding: const EdgeInsets.all(9),
-        decoration: BoxDecoration(color: AppPalette.tint(context),
+        padding: EdgeInsets.all(tinted ? 3 : 9),
+        decoration: BoxDecoration(color: tinted ? Colors.transparent : AppPalette.tint(context),
           borderRadius: BorderRadius.circular(12)),
         child: Icon(icon, color: AppPalette.ink(context, AppColors.primary), size: 23),
       ),
@@ -238,7 +241,9 @@ class AppBottomNav extends StatelessWidget {
             onTap: () => onSelected(i),
             borderRadius: BorderRadius.circular(15),
             child: Padding(padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: Container(
+              child: AnimatedContainer(
+                  duration: AppMotion.duration(context, AppMotion.quick),
+                  curve: AppMotion.curve,
                   width: 76, height: 58,
                   padding: const EdgeInsets.symmetric(vertical: 5),
                   decoration: BoxDecoration(

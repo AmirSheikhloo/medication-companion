@@ -74,12 +74,34 @@ class MedicationHome extends StatefulWidget {
 }
 
 class _MedicationHomeState extends State<MedicationHome>
-    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   bool _loading = true;
   bool _saving = false;
   int _tab = 0;
   late final AnimationController _tabMotion;
+  late final AnimationController _filterMotion;
   int _tabMotionDirection = 1;
+
+  void _selectMedicineFilter(String filter) {
+    final current = _showHidden ? 'حذف‌شده‌ها' : _showArchived ? 'بایگانی' :
+      _lowStockOnly ? 'کم‌موجودی' : 'همه';
+    if (current == filter) return;
+    setState(() {
+      _showArchived = filter == 'بایگانی';
+      _showHidden = filter == 'حذف‌شده‌ها';
+      _lowStockOnly = filter == 'کم‌موجودی';
+    });
+    if (!MediaQuery.of(context).disableAnimations) _filterMotion.forward(from: 0);
+  }
+
+  Widget _filterReveal(Widget child) => AnimatedBuilder(
+    animation: _filterMotion, child: child,
+    builder: (context, content) {
+      if (MediaQuery.of(context).disableAnimations) return content!;
+      final t = AppMotion.curve.transform(_filterMotion.value);
+      return Opacity(opacity: .25 + .75 * t, child: Transform.translate(
+        offset: Offset(0, 7 * (1 - t)), child: content));
+    });
 
   void _selectTab(int next) {
     if (next == 3) { _openMenu(); return; }
@@ -88,7 +110,7 @@ class _MedicationHomeState extends State<MedicationHome>
       _tabMotionDirection = next > _tab ? 1 : -1;
       _tab = next;
     });
-    _tabMotion.forward(from: 0);
+    if (!MediaQuery.of(context).disableAnimations) _tabMotion.forward(from: 0);
   }
   Profile? _active;
   List<Profile> _profiles = [];
@@ -216,8 +238,8 @@ class _MedicationHomeState extends State<MedicationHome>
   void initState() {
     super.initState();
     _tabMotion = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 260),
-      value: 1);
+      vsync: this, duration: AppMotion.normal, value: 1);
+    _filterMotion = AnimationController(vsync: this, duration: AppMotion.normal, value: 1);
     WidgetsBinding.instance.addObserver(this);
     _todayClockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) {
@@ -238,6 +260,7 @@ class _MedicationHomeState extends State<MedicationHome>
     WidgetsBinding.instance.removeObserver(this);
     _todayClockTicker?.cancel();
     _tabMotion.dispose();
+    _filterMotion.dispose();
     _medicineSearch.dispose();
     super.dispose();
   }
@@ -1045,11 +1068,11 @@ class _MedicationHomeState extends State<MedicationHome>
           animation: _tabMotion,
           builder: (context, child) {
             if (MediaQuery.of(context).disableAnimations) return child!;
-            final progress = Curves.easeOutCubic.transform(_tabMotion.value);
+            final progress = AppMotion.curve.transform(_tabMotion.value);
             return Opacity(
-              opacity: .4 + .6 * progress,
+              opacity: .12 + .88 * progress,
               child: Transform.translate(
-                offset: Offset((1 - progress) * 14 * _tabMotionDirection, 0),
+                offset: Offset((1 - progress) * 18 * _tabMotionDirection, 0),
                 child: child),
             );
           },
@@ -1301,7 +1324,7 @@ class _MedicationHomeState extends State<MedicationHome>
               'هنوز دارویی ثبت نکرده‌اید.',
               'برای شروع، دارو و زمان آن را طبق نسخه وارد کنید.',
               'افزودن اولین دارو',
-              () => setState(() => _tab = 1),
+              () => _selectTab(1),
             ),
           ] else ...[
             const SizedBox(height: 21),
@@ -1783,13 +1806,11 @@ class _MedicationHomeState extends State<MedicationHome>
           child: Row(children: [
             for (final filter in ['همه', 'کم‌موجودی', 'بایگانی', 'حذف‌شده‌ها'])
               Expanded(child: InkWell(
-                onTap: () => setState(() {
-                  _showArchived = filter == 'بایگانی';
-                  _showHidden = filter == 'حذف‌شده‌ها';
-                  _lowStockOnly = filter == 'کم‌موجودی';
-                }),
+                onTap: () => _selectMedicineFilter(filter),
                 borderRadius: BorderRadius.circular(12),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: AppMotion.duration(context, AppMotion.quick),
+                  curve: AppMotion.curve,
                   alignment: Alignment.center,
                   margin: const EdgeInsets.all(3),
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1811,31 +1832,31 @@ class _MedicationHomeState extends State<MedicationHome>
           ]),
         ),
         const SizedBox(height: 13),
-        AppSoftHeader(
+        _filterReveal(AppSoftHeader(
           title: 'فهرست داروها', icon: Icons.medication_outlined,
           subtitle: PersianDate.displayDigits(
             _showHidden ? '(${visible.length} داروی حذف‌شده)' :
             _showArchived ? '(${visible.length} دوره پایان‌یافته)' :
-              '(${visible.length} داروی فعال)')),
+              '(${visible.length} داروی فعال)'))),
         const SizedBox(height: 9),
         if (source.isEmpty && !_showArchived && !_showHidden)
-          _emptyCard(
+          _filterReveal(_emptyCard(
             'فهرست دارو خالی است.',
             'نام دارو و ساعت‌های روزانه را طبق نسخه وارد کنید.',
             'افزودن دارو',
             _addMedication,
-          )
+          ))
         else if (visible.isEmpty)
-          AppPanel(child: Column(children: [
+          _filterReveal(AppPanel(child: Column(children: [
             Icon(Icons.search_off, size: 55, color: AppPalette.ink(context, AppColors.primary)),
             const SizedBox(height: 9),
             Text(_showHidden ? 'داروی حذف‌شده‌ای وجود ندارد.' :
               _showArchived ? 'هنوز دوره‌ای پایان نیافته است.' :
               'دارویی با این نام پیدا نشد.',
               style: const TextStyle(fontWeight: FontWeight.w700)),
-          ]))
+          ])))
         else
-          for (final med in visible) _medicationCard(med),
+          for (final med in visible) _filterReveal(_medicationCard(med)),
       ],
     );
   }

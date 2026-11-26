@@ -193,23 +193,10 @@ class MedicationActionIcon extends StatelessWidget {
 Route<T> medicationPageRoute<T>(BuildContext context, Widget child) {
   final reduceMotion = MediaQuery.of(context).disableAnimations;
   return PageRouteBuilder<T>(
-    transitionDuration: reduceMotion ? Duration.zero :
-      const Duration(milliseconds: 300),
-    reverseTransitionDuration: reduceMotion ? Duration.zero :
-      const Duration(milliseconds: 260),
+    transitionDuration: reduceMotion ? Duration.zero : AppMotion.normal,
+    reverseTransitionDuration: reduceMotion ? Duration.zero : AppMotion.quick,
     pageBuilder: (_, _, _) => child,
-    transitionsBuilder: (_, animation, secondary, page) {
-      final curved = CurvedAnimation(
-        parent: animation, curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic);
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(-.07, 0), end: Offset.zero).animate(curved),
-          child: page,
-        ),
-      );
-    },
+    transitionsBuilder: (routeContext, animation, secondary, page) =>
+      AppMotion.routeTransition(routeContext, animation, page),
   );
 }
