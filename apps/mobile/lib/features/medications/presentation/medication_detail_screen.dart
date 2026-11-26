@@ -435,9 +435,11 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                 if (!_dismissedAttention.contains(alert.key))
                   _attentionPanel(alert),
           ])),
-        AppPanel(padding: const EdgeInsets.all(12), child: Column(children: [
-          const AppSoftHeader(key: Key('detail-schedule-header'), title: 'برنامه مصرف',
-            icon: Icons.calendar_month_outlined, tinted: true),
+        _DetailSection(
+          key: const Key('detail-schedule-section'),
+          headerKey: const Key('detail-schedule-header'),
+          title: 'برنامه مصرف', icon: Icons.calendar_month_outlined,
+          child: Column(children: [
           if (pendingSchedule) Padding(padding: EdgeInsets.only(top: 8),
             child: Text('برنامه جدید — از فردا؛ نوبت‌های امروز تغییر نمی‌کنند.',
               style: TextStyle(fontSize: 11, color: AppPalette.ink(context, AppColors.primary)))),
@@ -471,10 +473,11 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           ],
         ])),
         const SizedBox(height: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const AppSoftHeader(key: Key('detail-stock-header'), title: 'موجودی و بسته‌ها',
-            icon: Icons.inventory_2_outlined, tinted: true),
-          const SizedBox(height: 9),
+        _DetailSection(
+          key: const Key('detail-stock-section'),
+          headerKey: const Key('detail-stock-header'),
+          title: 'موجودی و بسته‌ها', icon: Icons.inventory_2_outlined,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           AnimatedSize(duration: AppMotion.duration(context), curve: AppMotion.curve,
             alignment: Alignment.topCenter,
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -515,7 +518,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           OutlinedButton.icon(onPressed: archived ? null : () => _openPackage(null),
             icon: const Icon(Icons.add_circle_outline),
             label: const Text('افزودن بسته جدید')),
-        ]),
+        ])),
         const SizedBox(height: 12),
         if (setup?.reminderNote.isNotEmpty == true) ...[
           AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,6 +558,64 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               icon: const Icon(Icons.restore_rounded),
               label: const Text('بازگرداندن دارو به فهرست'))),
       ])),
+    );
+  }
+}
+
+
+/// The two approved detail sections share one surface and header treatment.
+/// Keep package cards and schedule rows unchanged inside their common frame.
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({super.key, required this.headerKey,
+    required this.title, required this.icon, required this.child});
+
+  final Key headerKey;
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = AppPalette.tint(context);
+    final brand = AppPalette.brand(context);
+    final header = Color.lerp(tint, brand, .13)!;
+    return AppPanel(
+      padding: const EdgeInsets.all(4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+          child: Container(
+            key: headerKey,
+            decoration: BoxDecoration(gradient: LinearGradient(
+              begin: Alignment.centerRight, end: Alignment.centerLeft,
+              colors: [tint, header])),
+            child: Stack(children: [
+              Positioned(left: -30, top: -68, child: IgnorePointer(
+                child: Container(width: 142, height: 126,
+                  decoration: BoxDecoration(shape: BoxShape.circle,
+                    color: brand.withValues(alpha: .07))))),
+              Positioned(left: -38, top: -75, child: IgnorePointer(
+                child: Container(width: 122, height: 110,
+                  decoration: BoxDecoration(shape: BoxShape.circle,
+                    color: brand.withValues(alpha: .08))))),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(color: brand,
+                      borderRadius: BorderRadius.circular(11)),
+                    child: Icon(icon, color: Colors.white, size: 23)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(title, style: TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.w800,
+                    color: AppPalette.ink(context, AppColors.ink)))),
+                ])),
+            ]),
+          ),
+        ),
+        Padding(padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+          child: child),
+      ]),
     );
   }
 }

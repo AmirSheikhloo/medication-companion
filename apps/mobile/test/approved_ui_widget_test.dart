@@ -154,8 +154,22 @@ void main() {
     await tester.pumpAndSettle();
     final scheduleHeader = find.byKey(const Key('detail-schedule-header'));
     final stockHeader = find.byKey(const Key('detail-stock-header'));
-    expect(tester.widget<AppSoftHeader>(scheduleHeader).tinted, isTrue);
-    expect(tester.widget<AppSoftHeader>(stockHeader).tinted, isTrue);
+    final scheduleSection = find.byKey(const Key('detail-schedule-section'));
+    final stockSection = find.byKey(const Key('detail-stock-section'));
+    for (final (section, header) in [(scheduleSection, scheduleHeader),
+      (stockSection, stockHeader)]) {
+      expect(find.descendant(of: section, matching: header), findsOneWidget);
+      expect(find.descendant(of: section, matching: find.byType(AppPanel)), findsOneWidget);
+      expect(tester.widget<Container>(header).decoration, isA<BoxDecoration>());
+      expect((tester.widget<Container>(header).decoration! as BoxDecoration).gradient,
+        isA<LinearGradient>());
+    }
+    expect(tester.widget<Container>(scheduleHeader).decoration,
+      tester.widget<Container>(stockHeader).decoration);
+    expect(find.descendant(of: stockSection,
+      matching: find.byKey(ValueKey('package-row-$healthy'))), findsOneWidget);
+    expect(find.descendant(of: stockSection,
+      matching: find.text('افزودن بسته جدید')), findsOneWidget);
     final secondary = find.byKey(const Key('stock-alert-secondary-actions'));
     expect(secondary, findsNWidgets(2));
     for (final row in tester.widgetList<Row>(secondary)) {
