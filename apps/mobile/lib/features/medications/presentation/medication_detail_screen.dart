@@ -102,8 +102,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   }
 
   Widget _attentionPanel(StockAttention alert) {
-    final tone = AppPalette.ink(context, alert.urgent
-      ? AppPalette.danger : AppPalette.brandInk(context));
+    final tone = AppPalette.alertInk(context, alert.urgent);
     return Padding(padding: const EdgeInsets.only(bottom: 12),
       child: AppPanel(child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -353,7 +352,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final selected = stock?.selected;
-    final statusColor = stock?.lowStock == true ? AppPalette.tone(context, const Color(0xFF1D4ED8)) : AppPalette.ink(context, AppColors.primary);
+    final statusColor = stock?.lowStock == true ? AppPalette.alertInk(context, false) : AppPalette.ink(context, AppColors.primary);
     // FEFO ordering for visibility; changing the selected stock is an
     // explicit user action from the stock management screen.
     final packages = <PackageBalance>[...?stock?.packages];
@@ -417,8 +416,9 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                   ? const Color(0xFF64748B) : const Color(0xFF15803D)),
               if (!archived && !hidden)
                 for (final alert in _currentAttention)
-                  AppStatusPill(text: alert.title, color: Colors.white,
-                    background: alert.urgent ? AppPalette.danger : AppPalette.attention),
+                  AppStatusPill(text: alert.title,
+                    color: alert.urgent ? AppPalette.danger : AppPalette.warning,
+                    background: alert.urgent ? AppPalette.dangerSurface : AppPalette.warningSurface),
             ]),
           ])),
         ]),
@@ -482,7 +482,8 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           if (stock?.lowStock == true) ...[
             const SizedBox(height: 7),
             AppStatusPill(text: 'کمبود: ${selected?.package.label ?? 'بسته منتخب'}',
-              icon: Icons.warning_amber_rounded, color: const Color(0xFF1D4ED8)),
+              icon: Icons.warning_amber_rounded, color: AppPalette.warning,
+              background: AppPalette.warningSurface),
           ],
           const SizedBox(height: 12),
           for (final pack in packages.where((p) => !p.archived))

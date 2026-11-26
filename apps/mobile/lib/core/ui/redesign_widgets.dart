@@ -167,8 +167,10 @@ class AppStatusPill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
     decoration: BoxDecoration(color: background == null ? AppPalette.ink(context, color).withValues(alpha: .12)
-      : color == Colors.white ? background! : AppPalette.surface(context, background!),
-      borderRadius: BorderRadius.circular(18)),
+      : background == AppPalette.warningSurface || background == AppPalette.dangerSurface
+        ? AppPalette.alertFill(context, background == AppPalette.dangerSurface)
+        : color == Colors.white ? background! : AppPalette.surface(context, background!),
+      borderRadius: BorderRadius.circular(10)),
     child: Row(mainAxisSize: MainAxisSize.min, children: [
       if (icon != null) ...[Icon(icon, size: 15, color: AppPalette.ink(context, color)), const SizedBox(width: 4)],
       Flexible(child: Text(text, softWrap: true,
@@ -226,8 +228,8 @@ class AppBottomNav extends StatelessWidget {
       ('بیشتر', Icons.menu_rounded),
     ];
     return Material(
-      color: AppPalette.card(context), elevation: 8,
-      shadowColor: const Color(0x40172740), surfaceTintColor: Colors.transparent,
+      color: AppPalette.card(context), elevation: 1,
+      shadowColor: const Color(0x24172740), surfaceTintColor: Colors.transparent,
       child: SafeArea(top: false, child: Padding(
       padding: const EdgeInsets.fromLTRB(10, 6, 10, 4),
       child: Row(children: [

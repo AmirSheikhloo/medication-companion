@@ -33,7 +33,7 @@ class MedicationBetaApp extends StatefulWidget {
 
 class _MedicationBetaAppState extends State<MedicationBetaApp> {
   bool _darkMode = false;
-  AppThemeChoice _palette = AppThemeChoice.blue;
+  AppThemeChoice _palette = AppThemeChoice.cyan;
 
   @override
   Widget build(BuildContext context) {
@@ -96,12 +96,12 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
         ),
         cardTheme: CardThemeData(
           color: Colors.white,
-          elevation: 2,
-          shadowColor: const Color(0x33172740),
+          elevation: 1,
+          shadowColor: const Color(0x24172740),
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: _palette.outline),
+            borderRadius: BorderRadius.circular(13),
+            side: BorderSide(color: _palette.outline, width: .8),
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
@@ -150,9 +150,9 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
           ),
         ),
         chipTheme: ChipThemeData(
-          backgroundColor: _palette.page,
+          backgroundColor: Colors.white,
           selectedColor: _palette.tint,
-          side: BorderSide(color: _palette.outline),
+          side: BorderSide(color: _palette.outline, width: .8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -202,9 +202,9 @@ class _MedicationBetaAppState extends State<MedicationBetaApp> {
           minimumSize: const Size(0, 44),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)))),
         cardTheme: CardThemeData(color: _palette.darkCard,
-          elevation: 2, surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: _palette.darkBorder))),
+          elevation: 1, surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13),
+            side: BorderSide(color: _palette.darkBorder, width: .8))),
         bottomSheetTheme: const BottomSheetThemeData(
           backgroundColor: AppPalette.darkSurface,
           surfaceTintColor: Colors.transparent, showDragHandle: true,

@@ -266,9 +266,9 @@ class TodaySkyGreeting extends StatelessWidget {
     final foreground = dark ? Colors.white : AppPalette.ink(context, AppColors.ink);
     return ClipRRect(
       key: const Key('today-sky-greeting'),
-      borderRadius: BorderRadius.circular(23),
+      borderRadius: BorderRadius.circular(15),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 126),
+        constraints: const BoxConstraints(minHeight: 110),
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -294,8 +294,8 @@ class TodaySkyGreeting extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: 'Vazirmatn',
                         fontWeight: FontWeight.bold,
-                        fontSize: 21,
-                        height: 1.6,
+                        fontSize: 19,
+                        height: 1.5,
                         color: foreground,
                       ),
                     ),
@@ -309,7 +309,7 @@ class TodaySkyGreeting extends StatelessWidget {
                         height: 1.65,
                         color: dark
                             ? const Color(0xFFDBF2F7)
-                            : const Color(0xFF42686C),
+                            : AppPalette.ink(context, AppColors.muted),
                       ),
                     ),
                   ],

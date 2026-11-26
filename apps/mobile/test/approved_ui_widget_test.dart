@@ -20,9 +20,9 @@ void main() {
     final theme = tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!;
     expect(theme.textTheme.bodyMedium?.fontFamily, 'Vazirmatn');
     expect(theme.appBarTheme.titleTextStyle?.fontFamily, 'Vazirmatn');
-    expect(theme.colorScheme.primary, AppThemeChoice.blue.primary);
-    expect(theme.scaffoldBackgroundColor, AppThemeChoice.blue.page);
-    expect(theme.extension<AppAppearance>()?.choice, AppThemeChoice.blue);
+    expect(theme.colorScheme.primary, AppThemeChoice.cyan.primary);
+    expect(theme.scaffoldBackgroundColor, AppThemeChoice.cyan.page);
+    expect(theme.extension<AppAppearance>()?.choice, AppThemeChoice.cyan);
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox.shrink());
   });

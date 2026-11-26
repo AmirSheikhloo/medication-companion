@@ -1234,7 +1234,7 @@ class _MedicationHomeState extends State<MedicationHome>
           const SizedBox(height: 14),
           AppPanel(
             key: const Key('today-summary-panel'),
-            color: TodayPalette.summary,
+            color: AppPalette.selected(context) == null ? TodayPalette.summary : Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 15),
             child: Column(children: [
               Row(key: const Key('today-date-heading'), children: [
@@ -1410,7 +1410,8 @@ class _MedicationHomeState extends State<MedicationHome>
                         Text(PersianDate.displayDigits(notice.title),
                           style: TextStyle(fontWeight: FontWeight.w800,
                             color: AppPalette.ink(ctx, !notice.active ? AppColors.muted
-                              : notice.urgent ? AppPalette.danger : AppPalette.brandInk(ctx)))),
+                              : notice.condition.startsWith('stock:')
+                                ? AppPalette.alertInk(ctx, notice.urgent) : AppPalette.brandInk(ctx)))),
                         const SizedBox(height: 6),
                         Text(PersianDate.displayDigits(notice.message),
                           style: TextStyle(color: AppPalette.ink(ctx,
@@ -1477,11 +1478,11 @@ class _MedicationHomeState extends State<MedicationHome>
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
         color: AppPalette.surface(context, Colors.white),
-        elevation: 2, shadowColor: const Color(0x33172740), surfaceTintColor: Colors.transparent,
+        elevation: 1, shadowColor: const Color(0x24172740), surfaceTintColor: Colors.transparent,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: AppPalette.surface(context, AppColors.outline)),
+          borderRadius: BorderRadius.circular(13),
+          side: BorderSide(color: AppPalette.border(context), width: .8),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
@@ -1509,7 +1510,7 @@ class _MedicationHomeState extends State<MedicationHome>
           for (var i = 0; i < doses.length; i++) ...[
             if (i != 0) Divider(
               height: 1, indent: 13, endIndent: 13,
-              color: AppPalette.surface(context, AppColors.outline)),
+              color: AppPalette.border(context).withValues(alpha: .65)),
             _doseCard(doses[i]),
           ],
         ]),
@@ -1796,12 +1797,15 @@ class _MedicationHomeState extends State<MedicationHome>
                     color: (_showHidden ? filter == 'حذف‌شده‌ها' :
                         _showArchived ? filter == 'بایگانی' :
                         _lowStockOnly ? filter == 'کم‌موجودی' : filter == 'همه')
-                      ? AppPalette.tint(context) : null,
+                      ? AppPalette.brand(context) : null,
                     borderRadius: BorderRadius.circular(10)),
                   child: Text(filter, maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontWeight: FontWeight.w700,
-                    color: AppPalette.ink(context, AppColors.primaryDark), fontSize: 11)),
+                    color: (_showHidden ? filter == 'حذف‌شده‌ها' :
+                        _showArchived ? filter == 'بایگانی' :
+                        _lowStockOnly ? filter == 'کم‌موجودی' : filter == 'همه')
+                      ? Colors.white : AppPalette.ink(context, AppColors.ink), fontSize: 11)),
                 ),
               )),
           ]),
@@ -1859,24 +1863,24 @@ class _MedicationHomeState extends State<MedicationHome>
     final selected = stock?.selected;
     final alerts = med.archived ? <StockAttention>[] : _visibleAttentions(med.id);
     final urgent = alerts.any((a) => a.urgent);
-    final statusColor = urgent ? AppPalette.danger : AppPalette.brandInk(context);
+    final statusColor = AppPalette.alertStripe(urgent);
     final stockLabel = selected == null
         ? '—'
         : PersianDate.displayDigits('${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}');
     return Padding(padding: const EdgeInsets.only(bottom: 12),
       child: Material(key: ValueKey('medicine-card-${med.id}'),
-      color: AppPalette.card(context), elevation: 2,
-      shadowColor: const Color(0x33172740), surfaceTintColor: Colors.transparent,
+      color: AppPalette.card(context), elevation: 1,
+      shadowColor: const Color(0x24172740), surfaceTintColor: Colors.transparent,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppPalette.border(context))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13),
+        side: BorderSide(color: AppPalette.border(context), width: .8)),
       child: InkWell(
       onTap: () => _openMedicationDetail(med, slots, todaySlots,
         stock, hasPendingSchedule),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(border: alerts.isEmpty ? null :
-          BorderDirectional(start: BorderSide(color: statusColor, width: 3))),
+          BorderDirectional(start: BorderSide(color: statusColor, width: 6))),
         child: Row(children: [
           MedicationArtwork(name: med.name, setup: _setups[med.id], size: 51),
           const SizedBox(width: 10),
@@ -1903,8 +1907,10 @@ class _MedicationHomeState extends State<MedicationHome>
               Padding(padding: const EdgeInsets.only(top: 5),
                 child: Wrap(spacing: 5, runSpacing: 4, children: [
                   for (final alert in alerts.take(2))
-                    AppStatusPill(text: alert.title, fontSize: 11,
-                      color: urgent ? AppPalette.danger : AppPalette.brandInk(context)),
+                    AppStatusPill(key: ValueKey('medicine-alert-${med.id}-${alert.key}'),
+                      text: alert.title, fontSize: 11,
+                      color: alert.urgent ? AppPalette.danger : AppPalette.warning,
+                      background: alert.urgent ? AppPalette.dangerSurface : AppPalette.warningSurface),
                   if (alerts.length > 2)
                     Text('+${alerts.length - 2}',
                       style: const TextStyle(fontSize: 11)),
