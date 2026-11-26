@@ -74,12 +74,34 @@ class MedicationHome extends StatefulWidget {
 }
 
 class _MedicationHomeState extends State<MedicationHome>
-    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   bool _loading = true;
   bool _saving = false;
   int _tab = 0;
   late final AnimationController _tabMotion;
+  late final AnimationController _filterMotion;
   int _tabMotionDirection = 1;
+
+  void _selectMedicineFilter(String filter) {
+    final current = _showHidden ? 'حذف‌شده‌ها' : _showArchived ? 'بایگانی' :
+      _lowStockOnly ? 'کم‌موجودی' : 'همه';
+    if (current == filter) return;
+    setState(() {
+      _showArchived = filter == 'بایگانی';
+      _showHidden = filter == 'حذف‌شده‌ها';
+      _lowStockOnly = filter == 'کم‌موجودی';
+    });
+    if (!MediaQuery.of(context).disableAnimations) _filterMotion.forward(from: 0);
+  }
+
+  Widget _filterReveal(Widget child) => AnimatedBuilder(
+    animation: _filterMotion, child: child,
+    builder: (context, content) {
+      if (MediaQuery.of(context).disableAnimations) return content!;
+      final t = AppMotion.curve.transform(_filterMotion.value);
+      return Opacity(opacity: .25 + .75 * t, child: Transform.translate(
+        offset: Offset(0, 7 * (1 - t)), child: content));
+    });
 
   void _selectTab(int next) {
     if (next == 3) { _openMenu(); return; }
@@ -88,7 +110,7 @@ class _MedicationHomeState extends State<MedicationHome>
       _tabMotionDirection = next > _tab ? 1 : -1;
       _tab = next;
     });
-    _tabMotion.forward(from: 0);
+    if (!MediaQuery.of(context).disableAnimations) _tabMotion.forward(from: 0);
   }
   Profile? _active;
   List<Profile> _profiles = [];
@@ -216,8 +238,8 @@ class _MedicationHomeState extends State<MedicationHome>
   void initState() {
     super.initState();
     _tabMotion = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 260),
-      value: 1);
+      vsync: this, duration: AppMotion.normal, value: 1);
+    _filterMotion = AnimationController(vsync: this, duration: AppMotion.normal, value: 1);
     WidgetsBinding.instance.addObserver(this);
     _todayClockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) {
@@ -238,6 +260,7 @@ class _MedicationHomeState extends State<MedicationHome>
     WidgetsBinding.instance.removeObserver(this);
     _todayClockTicker?.cancel();
     _tabMotion.dispose();
+    _filterMotion.dispose();
     _medicineSearch.dispose();
     super.dispose();
   }
@@ -1045,11 +1068,11 @@ class _MedicationHomeState extends State<MedicationHome>
           animation: _tabMotion,
           builder: (context, child) {
             if (MediaQuery.of(context).disableAnimations) return child!;
-            final progress = Curves.easeOutCubic.transform(_tabMotion.value);
+            final progress = AppMotion.curve.transform(_tabMotion.value);
             return Opacity(
-              opacity: .4 + .6 * progress,
+              opacity: .12 + .88 * progress,
               child: Transform.translate(
-                offset: Offset((1 - progress) * 14 * _tabMotionDirection, 0),
+                offset: Offset((1 - progress) * 18 * _tabMotionDirection, 0),
                 child: child),
             );
           },
@@ -1181,7 +1204,7 @@ class _MedicationHomeState extends State<MedicationHome>
     }
   }
 
-  Widget _themeToggle() => IconButton.filledTonal(
+  Widget _themeToggle(BuildContext context) => IconButton.filledTonal(
     key: const Key('app-theme-toggle'),
     tooltip: AppPalette.isDark(context) ? 'حالت روشن' : 'حالت تاریک',
     onPressed: _toggleTheme,
@@ -1234,7 +1257,7 @@ class _MedicationHomeState extends State<MedicationHome>
           const SizedBox(height: 14),
           AppPanel(
             key: const Key('today-summary-panel'),
-            color: TodayPalette.summary,
+            color: AppPalette.selected(context) == null ? TodayPalette.summary : Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 15),
             child: Column(children: [
               Row(key: const Key('today-date-heading'), children: [
@@ -1301,7 +1324,7 @@ class _MedicationHomeState extends State<MedicationHome>
               'هنوز دارویی ثبت نکرده‌اید.',
               'برای شروع، دارو و زمان آن را طبق نسخه وارد کنید.',
               'افزودن اولین دارو',
-              () => setState(() => _tab = 1),
+              () => _selectTab(1),
             ),
           ] else ...[
             const SizedBox(height: 21),
@@ -1403,15 +1426,15 @@ class _MedicationHomeState extends State<MedicationHome>
               if (sorted.isEmpty) const Text('اعلانی برای نمایش وجود ندارد.'),
               for (final notice in sorted.take(limit))
                 Padding(padding: const EdgeInsets.only(bottom: 10),
-                  child: AppPanel(color: !notice.active ? const Color(0xFFE7EBF0)
-                    : notice.urgent ? const Color(0xFFFFE4E9)
-                    : const Color(0xFFE5EFFF), child: Column(
+                  child: AppPanel(color: notice.active ? Colors.white : const Color(0xFFE7EBF0),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(PersianDate.displayDigits(notice.title),
                           style: TextStyle(fontWeight: FontWeight.w800,
                             color: AppPalette.ink(ctx, !notice.active ? AppColors.muted
-                              : notice.urgent ? const Color(0xFFBE123C) : const Color(0xFF1D4ED8)))),
+                              : notice.condition.startsWith('stock:')
+                                ? AppPalette.alertInk(ctx, notice.urgent) : AppPalette.brandInk(ctx)))),
                         const SizedBox(height: 6),
                         Text(PersianDate.displayDigits(notice.message),
                           style: TextStyle(color: AppPalette.ink(ctx,
@@ -1478,10 +1501,11 @@ class _MedicationHomeState extends State<MedicationHome>
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
         color: AppPalette.surface(context, Colors.white),
+        elevation: 1, shadowColor: const Color(0x24172740), surfaceTintColor: Colors.transparent,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(19),
-          side: BorderSide(color: AppPalette.surface(context, AppColors.outline)),
+          borderRadius: BorderRadius.circular(13),
+          side: BorderSide(color: AppPalette.border(context), width: .8),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
@@ -1509,7 +1533,7 @@ class _MedicationHomeState extends State<MedicationHome>
           for (var i = 0; i < doses.length; i++) ...[
             if (i != 0) Divider(
               height: 1, indent: 13, endIndent: 13,
-              color: AppPalette.surface(context, AppColors.outline)),
+              color: AppPalette.border(context).withValues(alpha: .65)),
             _doseCard(doses[i]),
           ],
         ]),
@@ -1531,7 +1555,9 @@ class _MedicationHomeState extends State<MedicationHome>
     return AnimatedContainer(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeInOutCubic,
-      color: AppPalette.surface(context, todayDoseCardBackground(dose.status)),
+      color: AppPalette.selected(context) == null
+        ? AppPalette.surface(context, todayDoseCardBackground(dose.status))
+        : AppPalette.card(context),
       child: Column(children: [
         InkWell(
         key: Key('today-dose-${dose.occurrenceKey}'),
@@ -1616,7 +1642,9 @@ class _MedicationHomeState extends State<MedicationHome>
       curve: Curves.easeInOutCubic,
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
-      color: AppPalette.surface(context, todayDoseCardBackground(dose.status)),
+      color: AppPalette.selected(context) == null
+        ? AppPalette.surface(context, todayDoseCardBackground(dose.status))
+        : AppPalette.card(context),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Divider(height: 14, color: AppPalette.surface(context, AppColors.outline)),
         Text('ساعت برنامه: ${_clock(TimeOfDay.fromDateTime(dose.scheduledAt))}  |  '
@@ -1778,63 +1806,57 @@ class _MedicationHomeState extends State<MedicationHome>
           child: Row(children: [
             for (final filter in ['همه', 'کم‌موجودی', 'بایگانی', 'حذف‌شده‌ها'])
               Expanded(child: InkWell(
-                onTap: () => setState(() {
-                  _showArchived = filter == 'بایگانی';
-                  _showHidden = filter == 'حذف‌شده‌ها';
-                  _lowStockOnly = filter == 'کم‌موجودی';
-                }),
+                onTap: () => _selectMedicineFilter(filter),
                 borderRadius: BorderRadius.circular(12),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: AppMotion.duration(context, AppMotion.quick),
+                  curve: AppMotion.curve,
                   alignment: Alignment.center,
                   margin: const EdgeInsets.all(3),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: (_showHidden ? filter == 'حذف‌شده‌ها' :
+                    color: (_showHidden ? filter == 'حذف‌شده‌ها' :
                         _showArchived ? filter == 'بایگانی' :
                         _lowStockOnly ? filter == 'کم‌موجودی' : filter == 'همه')
-                      ? LinearGradient(colors: [AppPalette.surface(context, AppColors.accent), AppPalette.surface(context, const Color(0xFF89E7E1))])
-                      : null,
+                      ? AppPalette.brand(context) : null,
                     borderRadius: BorderRadius.circular(10)),
                   child: Text(filter, maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontWeight: FontWeight.w700,
-                    color: AppPalette.ink(context, AppColors.primaryDark), fontSize: 11)),
+                    color: (_showHidden ? filter == 'حذف‌شده‌ها' :
+                        _showArchived ? filter == 'بایگانی' :
+                        _lowStockOnly ? filter == 'کم‌موجودی' : filter == 'همه')
+                      ? Colors.white : AppPalette.ink(context, AppColors.ink), fontSize: 11)),
                 ),
               )),
           ]),
         ),
         const SizedBox(height: 13),
-        AppSoftHeader(
+        _filterReveal(AppSoftHeader(
           title: 'فهرست داروها', icon: Icons.medication_outlined,
           subtitle: PersianDate.displayDigits(
             _showHidden ? '(${visible.length} داروی حذف‌شده)' :
             _showArchived ? '(${visible.length} دوره پایان‌یافته)' :
-              '(${visible.length} داروی فعال)')),
+              '(${visible.length} داروی فعال)'))),
         const SizedBox(height: 9),
         if (source.isEmpty && !_showArchived && !_showHidden)
-          _emptyCard(
+          _filterReveal(_emptyCard(
             'فهرست دارو خالی است.',
             'نام دارو و ساعت‌های روزانه را طبق نسخه وارد کنید.',
             'افزودن دارو',
             _addMedication,
-          )
+          ))
         else if (visible.isEmpty)
-          AppPanel(child: Column(children: [
+          _filterReveal(AppPanel(child: Column(children: [
             Icon(Icons.search_off, size: 55, color: AppPalette.ink(context, AppColors.primary)),
             const SizedBox(height: 9),
             Text(_showHidden ? 'داروی حذف‌شده‌ای وجود ندارد.' :
               _showArchived ? 'هنوز دوره‌ای پایان نیافته است.' :
               'دارویی با این نام پیدا نشد.',
               style: const TextStyle(fontWeight: FontWeight.w700)),
-          ]))
+          ])))
         else
-          AppPanel(padding: const EdgeInsets.symmetric(horizontal: 9),
-            child: Column(children: [
-              for (var i = 0; i < visible.length; i++) ...[
-                if (i != 0) Divider(height: 1, color: AppPalette.surface(context, AppColors.outline)),
-                _medicationCard(visible[i]),
-              ],
-            ])),
+          for (final med in visible) _filterReveal(_medicationCard(med)),
       ],
     );
   }
@@ -1862,21 +1884,24 @@ class _MedicationHomeState extends State<MedicationHome>
     final selected = stock?.selected;
     final alerts = med.archived ? <StockAttention>[] : _visibleAttentions(med.id);
     final urgent = alerts.any((a) => a.urgent);
-    final lowStock = stock?.lowStock == true;
+    final statusColor = AppPalette.alertStripe(urgent);
     final stockLabel = selected == null
         ? '—'
         : PersianDate.displayDigits('${StockQuantity.format(selected.balanceMilliunits)} ${selected.package.unit}');
-    return InkWell(
+    return Padding(padding: const EdgeInsets.only(bottom: 12),
+      child: Material(key: ValueKey('medicine-card-${med.id}'),
+      color: AppPalette.card(context), elevation: 1,
+      shadowColor: const Color(0x24172740), surfaceTintColor: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13),
+        side: BorderSide(color: AppPalette.border(context), width: .8)),
+      child: InkWell(
       onTap: () => _openMedicationDetail(med, slots, todaySlots,
         stock, hasPendingSchedule),
-      borderRadius: BorderRadius.circular(15),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 7),
-        decoration: BoxDecoration(
-          color: alerts.isEmpty ? Colors.transparent : urgent
-            ? AppPalette.tone(context, const Color(0xFFFFE4E9)) : AppPalette.tone(context, const Color(0xFFE5EFFF)),
-          borderRadius: BorderRadius.circular(15)),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(border: alerts.isEmpty ? null :
+          BorderDirectional(start: BorderSide(color: statusColor, width: 6))),
         child: Row(children: [
           MedicationArtwork(name: med.name, setup: _setups[med.id], size: 51),
           const SizedBox(width: 10),
@@ -1903,10 +1928,10 @@ class _MedicationHomeState extends State<MedicationHome>
               Padding(padding: const EdgeInsets.only(top: 5),
                 child: Wrap(spacing: 5, runSpacing: 4, children: [
                   for (final alert in alerts.take(2))
-                    AppStatusPill(text: alert.title,
-                      color: Colors.white,
-                      background: alert.urgent ? const Color(0xFFC5223B)
-                        : const Color(0xFF1D4ED8), fontSize: 10),
+                    AppStatusPill(key: ValueKey('medicine-alert-${med.id}-${alert.key}'),
+                      text: alert.title, fontSize: 11,
+                      color: alert.urgent ? AppPalette.danger : AppPalette.warning,
+                      background: alert.urgent ? AppPalette.dangerSurface : AppPalette.warningSurface),
                   if (alerts.length > 2)
                     Text('+${alerts.length - 2}',
                       style: const TextStyle(fontSize: 11)),
@@ -1916,22 +1941,14 @@ class _MedicationHomeState extends State<MedicationHome>
                 fontSize: 11, fontWeight: FontWeight.bold, color: AppPalette.ink(context, AppColors.primary))),
           ])),
           const SizedBox(width: 5),
-          if (!_showArchived) Container(
-            constraints: const BoxConstraints(minWidth: 46, maxWidth: 75),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
-            decoration: BoxDecoration(
-              color: lowStock ? AppPalette.surface(context, AppColors.amberLight) : AppPalette.surface(context, AppColors.mint),
-              borderRadius: BorderRadius.circular(10)),
+          if (!_showArchived) ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 78),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('موجودی', style: TextStyle(fontSize: 9,
+              Text('موجودی', style: TextStyle(fontSize: 11,
                 color: AppPalette.ink(context, AppColors.muted))),
-              Text(stockLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900,
-                  color: lowStock ? AppPalette.ink(context, const Color(0xFF1D4ED8)) : AppPalette.ink(context, AppColors.primaryDark))),
-              if (lowStock) Text('کم‌موجودی',
-                style: TextStyle(fontSize: 9, color: AppPalette.ink(context, const Color(0xFF1D4ED8)))),
-              if (selected == null && !lowStock) Text('ثبت نشده',
-                style: TextStyle(fontSize: 9, color: AppPalette.ink(context, AppColors.muted))),
+              Text(stockLabel, textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
+                  color: AppPalette.ink(context, AppColors.ink))),
             ]),
           ),
           PopupMenuButton<String>(
@@ -1957,7 +1974,7 @@ class _MedicationHomeState extends State<MedicationHome>
           ),
         ]),
       ),
-    );
+    )));
   }
 
   Future<void> _openMedicationDetail(Medication med, List<DailyDose> slots,
@@ -1996,11 +2013,12 @@ class _MedicationHomeState extends State<MedicationHome>
   }
 
   Future<void> _openMenu() => Navigator.of(context).push<void>(
-    MaterialPageRoute(builder: (_) => Scaffold(
+    MaterialPageRoute(builder: (menuContext) => Scaffold(
+      backgroundColor: AppPalette.surface(menuContext, AppColors.background),
       appBar: AppBar(title: const Text('منو'), actions: [
-        if (widget.onThemeChanged != null) _themeToggle(),
+        if (widget.onThemeChanged != null) _themeToggle(menuContext),
       ]),
-      body: _moreTabRedesigned(),
+      body: _moreTabRedesigned(menuContext),
     )));
 
   Future<void> _choosePalette() async {
@@ -2032,17 +2050,17 @@ class _MedicationHomeState extends State<MedicationHome>
     }
   }
 
-  Widget _moreTabRedesigned() => ListView(
+  Widget _moreTabRedesigned(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(15, 18, 15, 30),
     children: [
       AppWaveBanner(child: Row(children: [
         const MedicineArtwork(seed: 'همراه دارو', size: 58),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('همراه دارو', style: TextStyle(color: AppPalette.ink(context, AppColors.primaryDark),
+          const Text('همراه دارو', style: TextStyle(color: Colors.white,
             fontWeight: FontWeight.w900, fontSize: 19)),
-          Text('مدیریت هوشمند داروهای شما',
-            style: TextStyle(color: AppPalette.ink(context, AppColors.muted), fontSize: 12)),
+          const Text('مدیریت هوشمند داروهای شما',
+            style: TextStyle(color: Colors.white70, fontSize: 12)),
         ])),
       ])),
       const SizedBox(height: 17),

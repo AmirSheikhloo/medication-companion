@@ -131,7 +131,7 @@ class _AppChoiceFieldState<T> extends State<AppChoiceField<T>> {
                 const SizedBox(width: 5),
                 AnimatedRotation(
                   turns: _expanded ? .5 : 0,
-                  duration: const Duration(milliseconds: 230),
+                  duration: AppMotion.duration(context, AppMotion.quick),
                   child: Icon(Icons.keyboard_arrow_down_rounded,
                     color: AppPalette.ink(context, AppColors.primary))),
               ]),

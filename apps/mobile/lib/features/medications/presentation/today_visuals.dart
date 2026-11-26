@@ -259,17 +259,21 @@ class TodaySkyGreeting extends StatelessWidget {
       TodaySkyPhase.evening => const [Color(0xFF183C57), Color(0xFF38556B)],
       TodaySkyPhase.night => const [Color(0xFF081F35), Color(0xFF12384A)],
     };
-    final foreground = dark ? Colors.white : AppColors.primaryDark;
+    final choice = AppPalette.selected(context);
+    final themedSky = choice == null ? sky : dark
+      ? [choice.darkPage, Color.lerp(choice.darkCard, choice.primary, .40)!]
+      : [choice.tint, choice.page];
+    final foreground = dark ? Colors.white : AppPalette.ink(context, AppColors.ink);
     return ClipRRect(
       key: const Key('today-sky-greeting'),
-      borderRadius: BorderRadius.circular(23),
+      borderRadius: BorderRadius.circular(15),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 126),
+        constraints: const BoxConstraints(minHeight: 110),
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: dark && (phase == TodaySkyPhase.morning || phase == TodaySkyPhase.noon)
-                  ? const [Color(0xFF193C46), Color(0xFF264B55)] : sky,
+              colors: choice == null && dark && (phase == TodaySkyPhase.morning || phase == TodaySkyPhase.noon)
+                  ? const [Color(0xFF193C46), Color(0xFF264B55)] : themedSky,
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
             ),
@@ -290,8 +294,8 @@ class TodaySkyGreeting extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: 'Vazirmatn',
                         fontWeight: FontWeight.bold,
-                        fontSize: 21,
-                        height: 1.6,
+                        fontSize: 19,
+                        height: 1.5,
                         color: foreground,
                       ),
                     ),
@@ -305,7 +309,7 @@ class TodaySkyGreeting extends StatelessWidget {
                         height: 1.65,
                         color: dark
                             ? const Color(0xFFDBF2F7)
-                            : const Color(0xFF42686C),
+                            : AppPalette.ink(context, AppColors.muted),
                       ),
                     ),
                   ],

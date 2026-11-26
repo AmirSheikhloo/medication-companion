@@ -57,7 +57,6 @@ class MedicationDetailScreen extends StatefulWidget {
 class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   StockSummary? _reloadedStock;
   final _detailScroll = ScrollController();
-  final Map<String, GlobalKey> _packageKeys = {};
   bool _selecting = false;
 
   @override
@@ -102,11 +101,11 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   }
 
   Widget _attentionPanel(StockAttention alert) {
-    final tone = AppPalette.ink(context, alert.urgent
-      ? const Color(0xFFC5223B) : const Color(0xFF1D4ED8));
-    return Padding(padding: const EdgeInsets.only(bottom: 9),
-      child: AppPanel(color: alert.urgent ? const Color(0xFFFFE4E9)
-        : const Color(0xFFE5EFFF), child: Column(
+    final tone = AppPalette.alertInk(context, alert.urgent);
+    final fill = AppPalette.alertFill(context, alert.urgent);
+    return Padding(key: ValueKey(alert.key), padding: const EdgeInsets.only(bottom: 12),
+      child: AppPanel(color: alert.urgent ? AppPalette.dangerSurface : AppPalette.warningSurface,
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               Icon(Icons.warning_amber_rounded, color: tone),
@@ -120,21 +119,29 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               FilledButton(onPressed: () => _openPackage(null),
                 style: FilledButton.styleFrom(backgroundColor: alert.urgent
-                  ? const Color(0xFFC5223B) : const Color(0xFF1D4ED8),
+                  ? AppPalette.danger : AppPalette.brand(context),
                   foregroundColor: Colors.white),
                 child: const Text('افزودن بسته')),
               const SizedBox(height: 8),
-              OutlinedButton(onPressed: () => _dismissAlert(alert),
-                style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
-                  foregroundColor: tone,
-                  backgroundColor: AppPalette.surface(context, Colors.white)),
-                child: const Text('عدم نمایش این هشدار')),
-              const SizedBox(height: 8),
-              OutlinedButton(onPressed: onArchive,
-                style: OutlinedButton.styleFrom(side: BorderSide(color: tone),
-                  foregroundColor: tone,
-                  backgroundColor: AppPalette.surface(context, Colors.white)),
-                child: const Text('مدیریت پایان دوره')),
+              Row(key: const Key('stock-alert-secondary-actions'), children: [
+                Expanded(child: OutlinedButton(onPressed: () => _dismissAlert(alert),
+                  style: OutlinedButton.styleFrom(side: BorderSide(color: tone.withValues(alpha: .55)),
+                    foregroundColor: tone,
+                    backgroundColor: Color.lerp(fill, tone, .10),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9)),
+                  child: const Text('عدم نمایش این هشدار',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: 12)))),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton(onPressed: onArchive,
+                  style: OutlinedButton.styleFrom(side: BorderSide(color: tone.withValues(alpha: .55)),
+                    foregroundColor: tone,
+                    backgroundColor: Color.lerp(fill, tone, .10),
+                    minimumSize: const Size(0, 48),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9)),
+                  child: const Text('مدیریت پایان دوره',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: 12)))),
+              ]),
             ]),
           ])));
   }
@@ -175,10 +182,8 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     if (_selecting || balance.archived || balance.expired ||
         balance.balanceMilliunits <= 0) { return; }
     _selecting = true;
-    // Keep the tapped row anchored, not merely the absolute pixel offset.
-    final anchor = _packageKeys[balance.package.id]?.currentContext;
-    final render = anchor?.findRenderObject();
-    final beforeY = render is RenderBox ? render.localToGlobal(Offset.zero).dy : null;
+    // Keep the current scroll controller and row order. AnimatedSize above
+    // the rows absorbs changing alert heights instead of jumping the viewport.
     try {
       await inventoryRepository.selectPackage(
         profileId: medication.profileId,
@@ -187,16 +192,6 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
       final fresh = await inventoryRepository.summary(
         medication.profileId, medication.id);
       await _applyFreshStock(fresh);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _detailScroll.hasClients && beforeY != null) {
-          final next = _packageKeys[balance.package.id]?.currentContext?.findRenderObject();
-          if (next is RenderBox) {
-            final target = _detailScroll.offset + next.localToGlobal(Offset.zero).dy - beforeY;
-            final clamped = target.clamp(0.0, _detailScroll.position.maxScrollExtent).toDouble();
-            if ((clamped - _detailScroll.offset).abs() > 1) { _detailScroll.jumpTo(clamped); }
-          }
-        }
-      });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -287,19 +282,18 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
     final color = balance.archived ? AppPalette.ink(context, AppColors.muted) : expired
         ? AppPalette.tone(context, const Color(0xFFBE123C))
         : isSelected ? AppPalette.ink(context, AppColors.primary) : AppPalette.ink(context, AppColors.muted);
-    final fill = balance.archived ? AppPalette.tone(context, const Color(0xFFF0F2F3)) : expired
-        ? AppPalette.tone(context, const Color(0xFFFFF0F1))
-        : isSelected ? AppPalette.tone(context, const Color(0xFFE0F5F0)) : AppPalette.tone(context, const Color(0xFFF5F8F9));
-    return InkWell(key: _packageKeys.putIfAbsent(balance.package.id, GlobalKey.new),
+    final fill = isSelected ? AppPalette.tint(context) : AppPalette.card(context);
+    return InkWell(key: ValueKey('package-row-${balance.package.id}'),
       onTap: () => _openPackage(balance),
       borderRadius: BorderRadius.circular(15),
-      child: Container(
+      child: AnimatedContainer(
+      duration: AppMotion.duration(context), curve: AppMotion.curve,
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
         color: fill,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        border: Border.all(color: isSelected ? AppPalette.brandInk(context) : AppPalette.border(context)),
       ),
       child: Row(children: [
         Icon(expired ? Icons.warning_amber_rounded : Icons.inventory_2_outlined,
@@ -334,10 +328,11 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
         )),
         SizedBox(width: 58, child: Column(
           mainAxisSize: MainAxisSize.min, children: [
-            SizedBox(height: 22, child: isSelected
-              ? const AppStatusPill(text: 'منتخب',
-                  color: AppColors.primary, fontSize: 10)
-              : const SizedBox.shrink()),
+            SizedBox(height: 22, child: AnimatedSwitcher(
+              duration: AppMotion.duration(context, AppMotion.quick),
+              child: isSelected ? const AppStatusPill(key: ValueKey('selected'),
+                text: 'منتخب', color: AppColors.primary, fontSize: 10)
+                : const SizedBox.shrink(key: ValueKey('unselected')))),
             IconButton(
               key: Key('select-package-${balance.package.id}'),
               tooltip: isSelected ? 'بسته منتخب' : 'انتخاب برای مصرف',
@@ -356,7 +351,7 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final selected = stock?.selected;
-    final statusColor = stock?.lowStock == true ? AppPalette.tone(context, const Color(0xFF1D4ED8)) : AppPalette.ink(context, AppColors.primary);
+    final statusColor = stock?.lowStock == true ? AppPalette.alertInk(context, false) : AppPalette.ink(context, AppColors.primary);
     // FEFO ordering for visibility; changing the selected stock is an
     // explicit user action from the stock management screen.
     final packages = <PackageBalance>[...?stock?.packages];
@@ -364,9 +359,12 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
       if (a.archived != b.archived) return a.archived ? 1 : -1;
       final left = a.package.expiryIso;
       final right = b.package.expiryIso;
-      if (left == null) return right == null ? 0 : 1;
-      if (right == null) return -1;
-      return left.compareTo(right);
+      if (left == null && right != null) return 1;
+      if (right == null && left != null) return -1;
+      final byExpiry = left == null ? 0 : left.compareTo(right!);
+      if (byExpiry != 0) return byExpiry;
+      final byCreation = a.package.createdAt.compareTo(b.package.createdAt);
+      return byCreation != 0 ? byCreation : a.package.id.compareTo(b.package.id);
     });
     return Scaffold(
       backgroundColor: AppPalette.surface(context, AppColors.background),
@@ -406,7 +404,9 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
       body: SingleChildScrollView(controller: _detailScroll,
         padding: const EdgeInsets.fromLTRB(16, 15, 16, 32),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
+        AnimatedSize(duration: AppMotion.duration(context), curve: AppMotion.curve,
+          alignment: Alignment.topCenter,
+          child: Row(children: [
           MedicationArtwork(name: medication.name, setup: setup, size: 82),
           const SizedBox(width: 15),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -420,18 +420,26 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
                   ? const Color(0xFF64748B) : const Color(0xFF15803D)),
               if (!archived && !hidden)
                 for (final alert in _currentAttention)
-                  AppStatusPill(text: alert.title, color: Colors.white,
-                    background: alert.urgent ? AppPalette.danger : AppPalette.attention),
+                  AppStatusPill(text: alert.title,
+                    color: alert.urgent ? AppPalette.danger : AppPalette.warning,
+                    background: alert.urgent ? AppPalette.dangerSurface : AppPalette.warningSurface),
             ]),
           ])),
-        ]),
+        ])),
         const SizedBox(height: 22),
-        if (!archived && !hidden)
-          for (final alert in _currentAttention)
-            if (!_dismissedAttention.contains(alert.key))
-              _attentionPanel(alert),
-        AppPanel(padding: const EdgeInsets.all(12), child: Column(children: [
-          const AppSoftHeader(title: 'برنامه مصرف', icon: Icons.calendar_month_outlined),
+        AnimatedSize(duration: AppMotion.duration(context), curve: AppMotion.curve,
+          alignment: Alignment.topCenter,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (!archived && !hidden)
+              for (final alert in _currentAttention)
+                if (!_dismissedAttention.contains(alert.key))
+                  _attentionPanel(alert),
+          ])),
+        _DetailSection(
+          key: const Key('detail-schedule-section'),
+          headerKey: const Key('detail-schedule-header'),
+          title: 'برنامه مصرف', icon: Icons.calendar_month_outlined,
+          child: Column(children: [
           if (pendingSchedule) Padding(padding: EdgeInsets.only(top: 8),
             child: Text('برنامه جدید — از فردا؛ نوبت‌های امروز تغییر نمی‌کنند.',
               style: TextStyle(fontSize: 11, color: AppPalette.ink(context, AppColors.primary)))),
@@ -465,10 +473,14 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           ],
         ])),
         const SizedBox(height: 12),
-        AppPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const AppSoftHeader(title: 'موجودی و بسته‌ها',
-            icon: Icons.inventory_2_outlined),
-          const SizedBox(height: 9),
+        _DetailSection(
+          key: const Key('detail-stock-section'),
+          headerKey: const Key('detail-stock-header'),
+          title: 'موجودی و بسته‌ها', icon: Icons.inventory_2_outlined,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          AnimatedSize(duration: AppMotion.duration(context), curve: AppMotion.curve,
+            alignment: Alignment.topCenter,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(selected == null
               ? 'هنوز بسته‌ای برای مصرف انتخاب نشده است.'
               : PersianDate.displayDigits(
@@ -485,8 +497,10 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
           if (stock?.lowStock == true) ...[
             const SizedBox(height: 7),
             AppStatusPill(text: 'کمبود: ${selected?.package.label ?? 'بسته منتخب'}',
-              icon: Icons.warning_amber_rounded, color: const Color(0xFF1D4ED8)),
+              icon: Icons.warning_amber_rounded, color: AppPalette.warning,
+              background: AppPalette.warningSurface),
           ],
+          ])),
           const SizedBox(height: 12),
           for (final pack in packages.where((p) => !p.archived))
             _packageRow(pack, pack.package.id == stock?.selectedPackageId),
@@ -544,6 +558,64 @@ class _MedicationDetailScreenState extends State<MedicationDetailScreen> {
               icon: const Icon(Icons.restore_rounded),
               label: const Text('بازگرداندن دارو به فهرست'))),
       ])),
+    );
+  }
+}
+
+
+/// The two approved detail sections share one surface and header treatment.
+/// Keep package cards and schedule rows unchanged inside their common frame.
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({super.key, required this.headerKey,
+    required this.title, required this.icon, required this.child});
+
+  final Key headerKey;
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = AppPalette.tint(context);
+    final brand = AppPalette.brand(context);
+    final header = Color.lerp(tint, brand, .13)!;
+    return AppPanel(
+      padding: const EdgeInsets.all(4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+          child: Container(
+            key: headerKey,
+            decoration: BoxDecoration(gradient: LinearGradient(
+              begin: Alignment.centerRight, end: Alignment.centerLeft,
+              colors: [tint, header])),
+            child: Stack(children: [
+              Positioned(left: -30, top: -68, child: IgnorePointer(
+                child: Container(width: 142, height: 126,
+                  decoration: BoxDecoration(shape: BoxShape.circle,
+                    color: brand.withValues(alpha: .07))))),
+              Positioned(left: -38, top: -75, child: IgnorePointer(
+                child: Container(width: 122, height: 110,
+                  decoration: BoxDecoration(shape: BoxShape.circle,
+                    color: brand.withValues(alpha: .08))))),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(color: brand,
+                      borderRadius: BorderRadius.circular(11)),
+                    child: Icon(icon, color: Colors.white, size: 23)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(title, style: TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.w800,
+                    color: AppPalette.ink(context, AppColors.ink)))),
+                ])),
+            ]),
+          ),
+        ),
+        Padding(padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+          child: child),
+      ]),
     );
   }
 }

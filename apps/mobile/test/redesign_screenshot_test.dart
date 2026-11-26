@@ -70,7 +70,7 @@ void main() {
     }
 
     expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!
-      .extension<AppAppearance>()?.choice, AppThemeChoice.blue);
+      .extension<AppAppearance>()?.choice, AppThemeChoice.cyan);
     await save('01-today');
     await tester.tap(find.text('داروها'));
     await save('02-medicines');

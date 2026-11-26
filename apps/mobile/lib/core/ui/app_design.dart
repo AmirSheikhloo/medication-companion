@@ -19,7 +19,7 @@ abstract final class AppColors {
 
 enum AppThemeChoice {
   blue('آبی مدرن', Color(0xFF1D4ED8), Color(0xFF93C5FD), Color(0xFFE8F0FF)),
-  cyan('فیروزه‌ای', Color(0xFF0E7490), Color(0xFF67E8F9), Color(0xFFE3F5FA)),
+  cyan('فیروزه‌ای', Color(0xFF075F60), Color(0xFF75DAD1), Color(0xFFE1F8F6)),
   emerald('سبز زمردی', Color(0xFF047857), Color(0xFF6EE7B7), Color(0xFFE4F6EF)),
   violet('بنفش', Color(0xFF6D28D9), Color(0xFFC4B5FD), Color(0xFFF0E9FF));
 
@@ -27,9 +27,13 @@ enum AppThemeChoice {
   final String label;
   final Color primary, darkAccent, tint;
   static AppThemeChoice parse(String? name) => values.firstWhere(
-    (choice) => choice.name == name, orElse: () => blue);
-  Color get page => Color.lerp(Colors.white, tint, .58)!;
-  Color get darkTint => Color.lerp(const Color(0xFF202B3A), primary, .32)!;
+    (choice) => choice.name == name, orElse: () => cyan);
+  Color get page => Color.lerp(const Color(0xFFF2F4F5), tint, .15)!;
+  Color get darkTint => Color.lerp(const Color(0xFF202B3A), primary, .40)!;
+  Color get outline => Color.lerp(const Color(0xFFDCE3E6), primary, .06)!;
+  Color get darkPage => Color.lerp(const Color(0xFF101722), primary, .10)!;
+  Color get darkCard => Color.lerp(const Color(0xFF202B3A), primary, .10)!;
+  Color get darkBorder => Color.lerp(const Color(0xFF3D4A58), darkAccent, .08)!;
 }
 
 class AppAppearance extends ThemeExtension<AppAppearance> {
@@ -50,9 +54,30 @@ abstract final class AppPalette {
 
   static AppThemeChoice? selected(BuildContext context) =>
     Theme.of(context).extension<AppAppearance>()?.choice;
-  static const danger = Color(0xFFBE123C);
+  static Color brand(BuildContext context) => selected(context)?.primary ?? AppColors.primary;
+  static Color brandInk(BuildContext context) => isDark(context)
+    ? selected(context)?.darkAccent ?? darkAccent : brand(context);
+  static Color card(BuildContext context) => isDark(context)
+    ? selected(context)?.darkCard ?? darkSurface : Colors.white;
+  static Color border(BuildContext context) => isDark(context)
+    ? selected(context)?.darkBorder ?? darkOutline : selected(context)?.outline ?? AppColors.outline;
+  static Color tint(BuildContext context) => isDark(context)
+    ? selected(context)?.darkTint ?? darkMint : selected(context)?.tint ?? AppColors.mint;
+  // Severity colors are independent of the selected brand palette.
+  static const danger = Color(0xFFC81E3A);
+  static const warning = Color(0xFFA64B00);
+  static const warningStripe = Color(0xFFF59E0B);
+  static const dangerStripe = Color(0xFFE11D48);
+  static const warningSurface = Color(0xFFFFEFC7);
+  static Color alertInk(BuildContext context, bool urgent) => isDark(context)
+    ? urgent ? const Color(0xFFFFA3B2) : const Color(0xFFFFD27A)
+    : urgent ? danger : warning;
+  static Color alertFill(BuildContext context, bool urgent) => isDark(context)
+    ? urgent ? const Color(0xFF4B2332) : const Color(0xFF49351D)
+    : urgent ? dangerSurface : warningSurface;
+  static Color alertStripe(bool urgent) => urgent ? dangerStripe : warningStripe;
   static const attention = Color(0xFF1D4ED8);
-  static const dangerSurface = Color(0xFFFFE4E9);
+  static const dangerSurface = Color(0xFFFDE4E8);
   static const attentionSurface = Color(0xFFE5EFFF);
   static const darkBackground = Color(0xFF111827);
   static const darkSurface = Color(0xFF202B3A);
@@ -75,6 +100,9 @@ abstract final class AppPalette {
         return isDark(context) ? choice.darkAccent : choice.primary;
       }
     }
+    if (color == danger || color == warning || color == dangerStripe || color == warningStripe) {
+      return alertInk(context, color == danger || color == dangerStripe);
+    }
     if (!isDark(context) || color.a == 0) return color;
     if (color == Colors.white || color == darkInk || color == darkMuted ||
         color == darkAccent) {
@@ -96,18 +124,20 @@ abstract final class AppPalette {
     if (choice != null && color.a != 0) {
       final dark = isDark(context);
       if (color == AppColors.background || color == const Color(0xFFF1F8F8)) {
-        return dark ? darkBackground : choice.page;
+        return dark ? choice.darkPage : choice.page;
       }
+      if (color == Colors.white) { return card(context); }
       if (color == AppColors.primary) { return choice.primary; }
       if (color == AppColors.accent) {
         return dark ? choice.darkAccent : Color.lerp(choice.primary, Colors.white, .55)!;
       }
       if (color == AppColors.outline) {
-        return dark ? darkOutline : const Color(0xFFD5DEEA);
+        return border(context);
       }
       if (color == AppColors.amberLight) {
-        return dark ? const Color(0xFF203752) : attentionSurface;
+        return alertFill(context, false);
       }
+      if (color == warningSurface) { return alertFill(context, false); }
       if (color == dangerSurface || color == const Color(0xFFFFEBEF)) {
         return dark ? const Color(0xFF482434) : dangerSurface;
       }
@@ -118,7 +148,7 @@ abstract final class AppPalette {
       // Retheme legacy teal decorative surfaces, but never semantic
       // green success, red danger, or blue attention.
       if (color == AppColors.mint || color == AppColors.lightMint ||
-          (hsl.hue >= 165 && hsl.hue <= 195 && hsl.lightness > .76 && hsl.saturation > .12)) {
+          (hsl.hue >= 155 && hsl.hue <= 205 && hsl.lightness > .67 && hsl.saturation > .10)) {
         return dark ? choice.darkTint : Color.lerp(choice.tint, Colors.white,
           color == AppColors.lightMint ? .45 : 0)!;
       }
@@ -142,7 +172,6 @@ abstract final class AppPalette {
   }
 
   static Color tone(BuildContext context, Color color) {
-    if (!isDark(context)) return color;
     if (color == AppColors.outline || color == AppColors.background ||
         color == AppColors.mint || color == AppColors.lightMint ||
         color == AppColors.amberLight || color == Colors.white ||
@@ -162,6 +191,38 @@ abstract final class AppTypography {
     fontSize: 20,
     fontWeight: FontWeight.w800,
   );
+}
+
+/// Shared short, restrained motion. Honor the system's reduce-motion setting.
+abstract final class AppMotion {
+  static const normal = Duration(milliseconds: 280);
+  static const quick = Duration(milliseconds: 220);
+  static const curve = Curves.easeInOutCubic;
+  static Duration duration(BuildContext context, [Duration value = normal]) =>
+    MediaQuery.maybeOf(context)?.disableAnimations == true ? Duration.zero : value;
+
+  static Widget routeTransition(BuildContext context, Animation<double> animation,
+      Widget child) {
+    if (MediaQuery.maybeOf(context)?.disableAnimations == true) return child;
+    final progress = animation.drive(CurveTween(curve: curve));
+    return FadeTransition(opacity: progress, child: SlideTransition(
+      position: Tween<Offset>(begin: const Offset(-.045, 0), end: Offset.zero)
+        .animate(progress),
+      textDirection: Directionality.of(context),
+      child: child));
+  }
+}
+
+class AppPageTransitions extends PageTransitionsBuilder {
+  const AppPageTransitions();
+  @override
+  Duration get transitionDuration => AppMotion.normal;
+  @override
+  Duration get reverseTransitionDuration => AppMotion.quick;
+  @override
+  Widget buildTransitions<T>(PageRoute<T> route, BuildContext context,
+      Animation<double> animation, Animation<double> secondaryAnimation,
+      Widget child) => AppMotion.routeTransition(context, animation, child);
 }
 
 class AppSectionHeading extends StatelessWidget {
@@ -200,19 +261,24 @@ class AppPanel extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.color = Colors.white,
+    this.raised = true,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color color;
+  final bool raised;
 
   @override
   Widget build(BuildContext context) => Material(
     color: AppPalette.surface(context, color),
+    elevation: raised ? 1 : 0,
+    shadowColor: const Color(0x24172740),
+    surfaceTintColor: Colors.transparent,
     clipBehavior: Clip.antiAlias,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
-      side: BorderSide(color: AppPalette.surface(context, AppColors.outline)),
+      borderRadius: BorderRadius.circular(13),
+      side: BorderSide(color: AppPalette.border(context), width: .8),
     ),
     child: SizedBox(width: double.infinity,
       child: Padding(padding: padding, child: child)),
